@@ -3,7 +3,7 @@
 #gstreamer1-plugins-base gstreamer1-plugins-good
 #gstreamer1-plugins-bad-freeworld
 
-readonly VER=1.1
+readonly VER=1.2
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -914,7 +914,7 @@ SETUP_SUDO_RS() {
 
     RUN "Permissions sur ${f_sudoers_rs}" sudo chmod 0440 "${f_sudoers_rs}"
     RUN "Permissions sur ${d_sudoers_rs_d}" sudo chmod 0750 "${d_sudoers_rs_d}"
-    RUN "Permissions sur les fichiers inclus" sudo chmod 0440 "${d_sudoers_rs_d}"/*
+    RUN "Permissions sur les fichiers de règles" sudo chmod 0440 "${d_sudoers_rs_d}/99-olivier" "${d_sudoers_rs_d}/90-profile-sync-daemon"
 
     # 6. Nettoyage radical des anciens fichiers
     if [[ -f "/etc/sudoers" && ! -L "/etc/sudoers" ]]; then
