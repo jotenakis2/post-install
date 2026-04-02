@@ -3,14 +3,14 @@
 #gstreamer1-plugins-base gstreamer1-plugins-good
 #gstreamer1-plugins-bad-freeworld
 
-readonly VER=0.8
+readonly VER=0.9
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
 DNF_PACKAGES=(
-    zsh wget2 unzip fastfetch util-linux-script sudo-rs foot ghostty kitty eza fzf neovim bat bat-extras grc axel rclone procs
+    zsh fastfetch util-linux-script sudo-rs foot ghostty kitty eza fzf neovim bat bat-extras grc axel rclone procs
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
-    nodejs-bash-language-server golang make mpv vlc dragon libdvdcss foliate imv plasma-login-manager nm-connection-editor
+    nodejs-bash-language-server golang make mpv vlc libdvdcss foliate imv plasma-login-manager nm-connection-editor
     thunderbird vesktop telegram-desktop qbittorrent brave-browser helium-browser-bin qemu virt-manager virt-viewer
     gum stress-ng libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop
 )
@@ -41,10 +41,10 @@ declare -A CARGO_PACKAGES=(
 DOTFILES_REPO="https://codeberg.org/jotenakis/dotfiles"
 DOTFILES_DIR="${HOME}/dotfiles"
 GIT_REPOS=(
-    "https://codeberg.org/jotenakis/fedupdate.git:${HOME}/fedupdate"
-    "https://codeberg.org/jotenakis/backupsystem.git:${HOME}/backupsystem"
-    "https://codeberg.org/jotenakis/scripts.git:${HOME}/scripts"
-    "${DOTFILES_REPO}:${DOTFILES_DIR}"
+    "https://codeberg.org/jotenakis/fedupdate.git|${HOME}/fedupdate"
+    "https://codeberg.org/jotenakis/backupsystem.git|${HOME}/backupsystem"
+    "https://codeberg.org/jotenakis/scripts.git|${HOME}/scripts"
+    "${DOTFILES_REPO}|${DOTFILES_DIR}"
 )
 # ─── MAIN ──────────────────────────────────────────────────────────────────────
 MAIN() {
@@ -216,7 +216,7 @@ ADD_REPOS() {
 
     if ! rpm -q rpmfusion-nonfree-release &>/dev/null; then
         RUN "RPM Fusion nonfree (f${fedora_ver})" sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"${fedora_ver}".noarch.rpm
-        RUN "RPM Fusion nonfree tainted (f${fedora_ver})" sudo dnf install rpmfusion-nonfree-release-tainted
+        RUN "RPM Fusion nonfree tainted (f${fedora_ver})" sudo dnf install -y rpmfusion-nonfree-release-tainted
     else
         OK "RPM Fusion nonfree déjà présent."
     fi
@@ -955,9 +955,9 @@ CLONE_REPOS() {
     local repo_entry repo_url dest_dir repo_name backup_dir
 
     for repo_entry in "${GIT_REPOS[@]}"; do
-        # Extraction de l'URL et de la destination (séparées par ':')
-        repo_url="${repo_entry%%:*}"
-        dest_dir="${repo_entry##*:}"
+        # Extraction de l'URL et de la destination (séparées par '|')
+        repo_url="${repo_entry%%|*}"
+        dest_dir="${repo_entry##*|}"
 
         # Récupération du nom du dépôt pour l'affichage (ex: "scripts")
         repo_name=$(basename "${repo_url}" .git)
