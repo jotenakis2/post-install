@@ -3,10 +3,11 @@
 #gstreamer1-plugins-base gstreamer1-plugins-good
 #gstreamer1-plugins-bad-freeworld
 
-readonly VER=1.2
+readonly VER=1.3
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
+# RPM
 DNF_PACKAGES=(
     zsh fastfetch util-linux-script sudo-rs foot ghostty kitty eza fzf neovim bat bat-extras grc axel rclone procs
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
@@ -19,25 +20,25 @@ DNF_REMOVE=(
     libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover
 )
 FONTS=( jetbrainsmono-nerd-fonts iosevka-nerd-fonts )
-declare -A CARGO_PACKAGES=(
-    [bandwhich]="bandwhich"
-    [bat]="bat"
-    [bottom]="bottom"
-    [cargo-update]="cargo-update"
-    [diskus]="diskus"
-    [fd-find]="fd-find"
-    [hyperfine]="hyperfine"
-    [netscanner]="netscanner"
-    [parallel-disk-usage]="parallel-disk-usage"
-    [resvg]="resvg"
-    [ripgrep]="ripgrep"
-    [sd]="sd"
-    [sheldon]="sheldon"
-    [tealdeer]="tealdeer"
-    [yazi-build]="yazi-fm"
-    [zoxide]="zoxide"
-    [zsh-patina]="zsh-patina"
+
+# CARGO
+# Tableau de mapping BIN_MAPPING : [nom_du_paquet]="binaire1 binaire2 ..." si PAQUET = BINAIRE on peut s'en passer
+CARGO_PACKAGES=(
+    bandwhich bat bottom cargo-update diskus fd-find hyperfine netscanner parallel-disk-usage resvg
+    ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina
 )
+BIN_MAPPING=(
+        ["yazi-fm"]="yazi"
+        ["yazi-cli"]="ya"
+        ["tealdeer"]="tldr"
+        ["parallel-disk-usage"]="pdu"
+        ["fd-find"]="fd"
+        ["bottom"]="btm"
+        ["ripgrep"]="rg"
+        ["cargo-update"]="cargo-install-update cargo-install-update-config"
+)
+
+# Repos GIT
 DOTFILES_REPO="https://codeberg.org/jotenakis/dotfiles"
 DOTFILES_DIR="${HOME}/dotfiles"
 GIT_REPOS=(
@@ -46,6 +47,7 @@ GIT_REPOS=(
     "https://codeberg.org/jotenakis/scripts.git|${HOME}/scripts"
     "${DOTFILES_REPO}|${DOTFILES_DIR}"
 )
+
 # ─── MAIN ──────────────────────────────────────────────────────────────────────
 MAIN() {
     INIT
@@ -318,6 +320,7 @@ INSTALL_RPM_PACKAGES() {
     if ((${#missing_packages[@]})); then
         SUDOPASS
         RUN "Installation paquets DNF manquants" sudo dnf install -y "${missing_packages[@]}"
+        OK "Paquets installés : ${missing_packages[*]}"
     else
         INFO "Tous les paquets DNF sont déjà installés."
     fi
@@ -338,17 +341,6 @@ INSTALL_RUSTUP() {
 INSTALL_CARGO_PACKAGES() {
     SECTION "Paquets Cargo"
 
-    # Tableau de mapping : [nom_du_paquet]="binaire1 binaire2 ..."
-    local -A BIN_MAPPING=(
-        ["yazi-build"]="yazi ya"
-        ["tealdeer"]="tldr"
-        ["parallel-disk-usage"]="pdu"
-        ["fd-find"]="fd"
-        ["bottom"]="btm"
-        ["ripgrep"]="rg"
-        ["cargo-update"]="cargo-install-update cargo-install-update-config"
-    )
-
     # installation de cargo bin install pour installer des binaires depuis crates.io
     if cargo install --list | grep -q "^cargo-binstall "; then
         OK "cargo bin-install déjà installé."
@@ -356,15 +348,12 @@ INSTALL_CARGO_PACKAGES() {
         RUN "Installation cargo-binstall" cargo install cargo-binstall
     fi
 
-    local cmd check
+    local cmd
     for cmd in "${!CARGO_PACKAGES[@]}"; do
-        check="${CARGO_PACKAGES[${cmd}]}"
 
         # 1. Installation du paquet via Cargo (binstall)
-        if cargo install --list | grep -q "^${check} "; then
-            OK "${check} déjà installé."
-        #elif [[ "${cmd}" == "yazi-build" ]]; then
-            #RUN "Installation yazi (yazi-build)" cargo binstall --force "${cmd}"
+        if cargo install --list | grep -q "^${cmd} "; then
+            OK "${cmd} déjà installé."
         else
             RUN "Installation ${cmd}" cargo binstall "${cmd}"
         fi
