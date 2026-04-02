@@ -3,7 +3,7 @@
 #gstreamer1-plugins-base gstreamer1-plugins-good
 #gstreamer1-plugins-bad-freeworld
 
-readonly VER=1.0
+readonly VER=1.1
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -12,11 +12,11 @@ DNF_PACKAGES=(
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
     nodejs-bash-language-server golang make mpv vlc libdvdcss foliate imv plasma-login-manager nm-connection-editor
     thunderbird vesktop telegram-desktop qbittorrent brave-browser helium-browser-bin qemu virt-manager virt-viewer
-    gum stress-ng libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop
+    gum stress-ng libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro
 )
 DNF_REMOVE=(
-    zram-generator-defaults PackageKit-glib PackageKit google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd
-    libreswan plasma-drkonqi ibus imsettings imsettings-libs maliit-keyboard abrt plasma-discover
+    zram-generator-defaults PackageKit google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd
+    libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover
 )
 FONTS=( jetbrainsmono-nerd-fonts iosevka-nerd-fonts )
 declare -A CARGO_PACKAGES=(
@@ -363,8 +363,8 @@ INSTALL_CARGO_PACKAGES() {
         # 1. Installation du paquet via Cargo (binstall)
         if cargo install --list | grep -q "^${check} "; then
             OK "${check} déjà installé."
-        elif [[ "${cmd}" == "yazi-build" ]]; then
-            RUN "Installation yazi (yazi-build)" cargo binstall --force "${cmd}"
+        #elif [[ "${cmd}" == "yazi-build" ]]; then
+            #RUN "Installation yazi (yazi-build)" cargo binstall --force "${cmd}"
         else
             RUN "Installation ${cmd}" cargo binstall "${cmd}"
         fi
@@ -664,7 +664,7 @@ EOF
         install -m 644 -o root -g root '${tmp_dir}/99-swap.conf' /etc/sysctl.d/ &&
         install -m 644 -o root -g root '${tmp_dir}/99-olivier.conf' /etc/sysctl.d/
     "
-    RUN "Application des paramètres sysctl" bash -c "sudo sysctl --system"
+    RUN "Application des paramètres sysctl" bash -c "sudo sysctl -p /etc/sysctl.d/99-*.conf"
 
 
     # --- 5. Optimisations Fstab (noatime, lazytime) ---
@@ -868,19 +868,20 @@ SETUP_SUDO_RS() {
     fi
 
     # 3. Assurer la présence stricte des inclusions dans le nouveau fichier
-    # (Le vieux sudo marche toujours ici, on prépare juste le terrain)
+    # CORRECTION : Utilisation de ~ comme délimiteur sed pour ne pas interférer avec le OU (|)
     RUN "Configuration des includedir dans ${f_sudoers_rs}" sudo bash -c "
-        sed -i -E 's|^(@|#)includedir[[:space:]]+/etc/sudoers\.d|@includedir /etc/sudoers-rs.d|g' '${f_sudoers_rs}'
+        sed -i -E 's~^(@|#)includedir[[:space:]]+/etc/sudoers\.d~@includedir /etc/sudoers-rs.d~g' '${f_sudoers_rs}'
+
         if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers-rs\.d' '${f_sudoers_rs}'; then
             echo -e '\n@includedir /etc/sudoers-rs.d' >> '${f_sudoers_rs}'
         fi
+
         if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers\.d' '${f_sudoers_rs}'; then
             echo -e '# Fallback pour les paquets Fedora\n@includedir /etc/sudoers.d' >> '${f_sudoers_rs}'
         fi
     "
 
     # 4. Remplacement du binaire sudo (La BASCULE CRITIQUE)
-    # À partir d'ici, les appels "sudo" utiliseront sudo-rs
     local sys_sudo="/usr/bin/sudo"
     local sys_sudo_bak="/usr/bin/sudo.bak"
     local sudo_rs_bin="/usr/bin/sudo-rs"
@@ -894,17 +895,20 @@ SETUP_SUDO_RS() {
     if [[ "${current_link}" == "${sudo_rs_bin}" ]]; then
         OK "Le lien symbolique sudo -> sudo-rs est déjà en place."
     else
-        if [[ -f "${sys_sudo}" && ! -L "${sys_sudo}" ]]; then
-            RUN "Sauvegarde du binaire sudo d'origine" sudo mv -f "${sys_sudo}" "${sys_sudo_bak}"
-        fi
-        RUN "Symlink /usr/bin/sudo -> sudo-rs" sudo ln -sf "${sudo_rs_bin}" "${sys_sudo}"
+        # CORRECTION : On regroupe le 'mv' et le 'ln' dans le même appel sudo pour ne pas bloquer le système !
+        RUN "Remplacement radical du binaire sudo" sudo bash -c "
+            if [[ -f '${sys_sudo}' && ! -L '${sys_sudo}' ]]; then
+                mv -f '${sys_sudo}' '${sys_sudo_bak}'
+            fi
+            ln -sf '${sudo_rs_bin}' '${sys_sudo}'
+        "
     fi
 
     RUN "Création du dossier /usr/local/bin si inexistant" sudo mkdir -p "/usr/local/bin"
     RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -sf "${sudo_rs_bin}" "${local_bin_sudo}"
     RUN "Fixation des permissions SUID sur sudo-rs" sudo chmod 4111 "${sudo_rs_bin}"
 
-    # 5. Déploiement de tes règles spécifiques (Maintenant qu'on est sur sudo-rs)
+    # 5. Déploiement de tes règles spécifiques
     RUN "Règle PSD (90-profile-sync-daemon)" sudo bash -c "echo '%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper' > '${d_sudoers_rs_d}/90-profile-sync-daemon'"
     RUN "Règles globales (99-olivier)" sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=60' > '${d_sudoers_rs_d}/99-olivier'"
 
@@ -912,7 +916,7 @@ SETUP_SUDO_RS() {
     RUN "Permissions sur ${d_sudoers_rs_d}" sudo chmod 0750 "${d_sudoers_rs_d}"
     RUN "Permissions sur les fichiers inclus" sudo chmod 0440 "${d_sudoers_rs_d}"/*
 
-    # 6. Nettoyage radical des anciens fichiers (Maintenant que le vieux sudo n'est plus appelé)
+    # 6. Nettoyage radical des anciens fichiers
     if [[ -f "/etc/sudoers" && ! -L "/etc/sudoers" ]]; then
         RUN "Désactivation de /etc/sudoers (renommé en .bak)" sudo mv -f /etc/sudoers /etc/sudoers.bak
     fi
@@ -938,7 +942,7 @@ SETUP_SUDO_RS() {
             sudo bash -c "printf '\nexcludepkgs=sudo\n' >> '${dnf_conf}'"
     fi
 
-    OK "sudo-rs est définitivement en place avec tes règles PSD, timeout/pwfeedback et nettoyage DNF."
+    OK "sudo-rs est définitivement en place."
 }
 
 # ─── Clonage des dépôts Git personnels ────────────────────────────────────────
