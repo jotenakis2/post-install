@@ -3,7 +3,7 @@
 #gstreamer1-plugins-base gstreamer1-plugins-good
 #gstreamer1-plugins-bad-freeworld
 
-readonly VER=0.9
+readonly VER=1.0
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -855,70 +855,42 @@ SETUP_SUDO_RS() {
         OK "sudo-rs est déjà installé."
     fi
 
-    # 2. Configuration des fichiers sudoers-rs
+    # 2. Copie (sans suppression) des fichiers vers le monde sudo-rs
     local f_sudoers_rs="/etc/sudoers-rs"
     local d_sudoers_rs_d="/etc/sudoers-rs.d"
 
-    # Transfert de la conf principale si elle n'existe pas encore
     if [[ -f "/etc/sudoers" && ! -f "${f_sudoers_rs}" ]]; then
         RUN "Création de ${f_sudoers_rs} depuis l'original" sudo cp -a /etc/sudoers "${f_sudoers_rs}"
     fi
 
-    # Transfert du dossier .d si sudoers-rs.d n'existe pas encore
     if [[ -d "/etc/sudoers.d" && ! -d "${d_sudoers_rs_d}" ]]; then
         RUN "Création de ${d_sudoers_rs_d} depuis l'original" sudo cp -a /etc/sudoers.d "${d_sudoers_rs_d}"
     fi
 
-    # 3. Nettoyage radical des anciens fichiers
-    if [[ -f "/etc/sudoers" ]]; then
-        RUN "Désactivation de /etc/sudoers (renommé en .bak)" sudo mv -f /etc/sudoers /etc/sudoers.bak
-    fi
-
-    if [[ -d "/etc/sudoers.d" ]]; then
-        # On vide le dossier original pour éviter les doublons avec sudoers-rs.d,
-        # mais on CONSERVE le dossier vide pour que sudo-rs ne plante pas sur l'includedir
-        # et que DNF puisse y écrire à l'avenir.
-        RUN "Nettoyage du contenu de /etc/sudoers.d" sudo bash -c 'rm -f /etc/sudoers.d/*'
-    else
-        RUN "Création du dossier de compatibilité /etc/sudoers.d" sudo mkdir -p /etc/sudoers.d
-        RUN "Permissions sur le dossier de compatibilité" sudo chmod 0750 /etc/sudoers.d
-    fi
-
-    # 4. Assurer la présence stricte des inclusions dans sudoers-rs
+    # 3. Assurer la présence stricte des inclusions dans le nouveau fichier
+    # (Le vieux sudo marche toujours ici, on prépare juste le terrain)
     RUN "Configuration des includedir dans ${f_sudoers_rs}" sudo bash -c "
-        # Remplacer l'inclusion de base
         sed -i -E 's|^(@|#)includedir[[:space:]]+/etc/sudoers\.d|@includedir /etc/sudoers-rs.d|g' '${f_sudoers_rs}'
-
-        # S'assurer que sudoers-rs.d est bien inclus
         if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers-rs\.d' '${f_sudoers_rs}'; then
             echo -e '\n@includedir /etc/sudoers-rs.d' >> '${f_sudoers_rs}'
         fi
-
-        # S'assurer que sudoers.d (pour les RPM) est inclus en fallback
         if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers\.d' '${f_sudoers_rs}'; then
             echo -e '# Fallback pour les paquets Fedora\n@includedir /etc/sudoers.d' >> '${f_sudoers_rs}'
         fi
     "
 
-    # 5. Déploiement de tes règles spécifiques
-    RUN "Règle PSD (90-profile-sync-daemon)" sudo bash -c "echo '%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper' > '${d_sudoers_rs_d}/90-profile-sync-daemon'"
-
-    RUN "Règles globales - astérisques et sudo 1 heure" sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=60' > '${d_sudoers_rs_d}/99-olivier'"
-
-    # 6. Verrouillage des permissions
-    RUN "Permissions sur ${f_sudoers_rs}" sudo chmod 0440 "${f_sudoers_rs}"
-    RUN "Permissions sur ${d_sudoers_rs_d}" sudo chmod 0750 "${d_sudoers_rs_d}"
-    RUN "Permissions sur les fichiers inclus" sudo chmod 0440 "${d_sudoers_rs_d}"/*
-
-    # 7. Remplacement radical du binaire sudo
+    # 4. Remplacement du binaire sudo (La BASCULE CRITIQUE)
+    # À partir d'ici, les appels "sudo" utiliseront sudo-rs
     local sys_sudo="/usr/bin/sudo"
     local sys_sudo_bak="/usr/bin/sudo.bak"
     local sudo_rs_bin="/usr/bin/sudo-rs"
-    local local_bin="/usr/local/bin"
+    local local_bin_sudo="/usr/local/bin/sudo"
+
     local current_link=""
     if [[ -L "${sys_sudo}" ]]; then
         current_link=$(readlink "${sys_sudo}" || true)
     fi
+
     if [[ "${current_link}" == "${sudo_rs_bin}" ]]; then
         OK "Le lien symbolique sudo -> sudo-rs est déjà en place."
     else
@@ -927,11 +899,32 @@ SETUP_SUDO_RS() {
         fi
         RUN "Symlink /usr/bin/sudo -> sudo-rs" sudo ln -sf "${sudo_rs_bin}" "${sys_sudo}"
     fi
-    RUN "Symlink prioritaire ${local_bin}/sudo -> sudo-rs" sudo ln -sf "${sudo_rs_bin}" "${local_bin}/sudo"
 
+    RUN "Création du dossier /usr/local/bin si inexistant" sudo mkdir -p "/usr/local/bin"
+    RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -sf "${sudo_rs_bin}" "${local_bin_sudo}"
     RUN "Fixation des permissions SUID sur sudo-rs" sudo chmod 4111 "${sudo_rs_bin}"
 
-    # 8. Blocage propre des futures mises à jour du vieux sudo par DNF
+    # 5. Déploiement de tes règles spécifiques (Maintenant qu'on est sur sudo-rs)
+    RUN "Règle PSD (90-profile-sync-daemon)" sudo bash -c "echo '%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper' > '${d_sudoers_rs_d}/90-profile-sync-daemon'"
+    RUN "Règles globales (99-olivier)" sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=60' > '${d_sudoers_rs_d}/99-olivier'"
+
+    RUN "Permissions sur ${f_sudoers_rs}" sudo chmod 0440 "${f_sudoers_rs}"
+    RUN "Permissions sur ${d_sudoers_rs_d}" sudo chmod 0750 "${d_sudoers_rs_d}"
+    RUN "Permissions sur les fichiers inclus" sudo chmod 0440 "${d_sudoers_rs_d}"/*
+
+    # 6. Nettoyage radical des anciens fichiers (Maintenant que le vieux sudo n'est plus appelé)
+    if [[ -f "/etc/sudoers" && ! -L "/etc/sudoers" ]]; then
+        RUN "Désactivation de /etc/sudoers (renommé en .bak)" sudo mv -f /etc/sudoers /etc/sudoers.bak
+    fi
+
+    if [[ -d "/etc/sudoers.d" ]]; then
+        RUN "Nettoyage du contenu de /etc/sudoers.d" sudo bash -c 'rm -f /etc/sudoers.d/*'
+    else
+        RUN "Création du dossier de compatibilité /etc/sudoers.d" sudo mkdir -p /etc/sudoers.d
+        RUN "Permissions sur le dossier de compatibilité" sudo chmod 0750 /etc/sudoers.d
+    fi
+
+    # 7. Blocage propre des futures mises à jour du vieux sudo par DNF
     local dnf_conf="/etc/dnf/dnf.conf"
     if grep -q '^excludepkgs=' "${dnf_conf}"; then
         if ! grep -Eq '^excludepkgs=.*(^|[ ,])sudo([ ,]|$)' "${dnf_conf}"; then
