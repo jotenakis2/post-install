@@ -3,7 +3,7 @@
 #gstreamer1-plugins-base gstreamer1-plugins-good
 #gstreamer1-plugins-bad-freeworld
 
-readonly VER=1.4
+readonly VER=1.5
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -16,9 +16,9 @@ DNF_PACKAGES=(
     gum stress-ng libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro
 )
 DNF_REMOVE=(
-    zram-generator-defaults PackageKit google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd
+    zram-generator-defaults PackageKit-glib google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd
     libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover
-)
+) # je supprime le zram car le script va remplacer par zswap+swapfile
 FONTS=( jetbrainsmono-nerd-fonts iosevka-nerd-fonts )
 
 # CARGO
@@ -167,7 +167,7 @@ CHECK_SHELL() {
     fi
 
     SUDOPASS
-    RUN "Dépendances initiales (curl, git, stow, pciutils, binutils, dnf-plugins-core)" sudo dnf install -y curl git stow pciutils dnf-plugins-core binutils
+    RUN "Dépendances initiales (curl, git, stow, pciutils, binutils, dnf-plugins-core policycoreutils-python-utils)" sudo dnf install -y curl git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils
 
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
@@ -542,6 +542,38 @@ EOF
         OK "Swap déjà présent dans /etc/fstab."
     fi
 
+    # --- 2.5 SELinux : Autorisation pour systemd-logind ---
+    SECTION "SELinux : Configuration pour le Swapfile"
+
+    # 1. On s'assure que le label est déclaré et appliqué (rapide et idempotent)
+    if ! sudo semanage fcontext -l | grep -q "^/var/swap(/.\*)?"; then
+        RUN "Déclaration du contexte SELinux (swapfile_t)" sudo semanage fcontext -a -t swapfile_t '/var/swap(/.*)?'
+    fi
+    RUN "Application du contexte SELinux" sudo restorecon -RF /var/swap
+
+    # 2. On vérifie si notre module SELinux local est déjà installé
+    if ! sudo semodule -l | grep -q "^systemd_swap_search$"; then
+        local selinux_tmp="/tmp/systemd_swap_search"
+
+        cat << 'EOF' > "${selinux_tmp}.te"
+module systemd_swap_search 1.0;
+require {
+        type swapfile_t;
+        type systemd_logind_t;
+        class dir search;
+}
+#============= systemd_logind_t ==============
+allow systemd_logind_t swapfile_t:dir search;
+EOF
+
+        RUN "Compilation du module SELinux" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
+        RUN "Package du module SELinux" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
+        RUN "Installation du module SELinux" sudo semodule -i "${selinux_tmp}.pp"
+
+        rm -f "${selinux_tmp}.*"
+    else
+        OK "Le module SELinux 'systemd_swap_search' est déjà actif."
+    fi
 
     # --- 3. Configuration GRUB ---
     local is_grub
