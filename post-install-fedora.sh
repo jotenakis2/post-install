@@ -3,7 +3,7 @@
 #gstreamer1-plugins-base gstreamer1-plugins-good
 #gstreamer1-plugins-bad-freeworld
 
-readonly VER=1.3
+readonly VER=1.4
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ CARGO_PACKAGES=(
     bandwhich bat bottom cargo-update diskus fd-find hyperfine netscanner parallel-disk-usage resvg
     ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina
 )
-BIN_MAPPING=(
+declare -A BIN_MAPPING=(
         ["yazi-fm"]="yazi"
         ["yazi-cli"]="ya"
         ["tealdeer"]="tldr"
@@ -349,7 +349,7 @@ INSTALL_CARGO_PACKAGES() {
     fi
 
     local cmd
-    for cmd in "${!CARGO_PACKAGES[@]}"; do
+    for cmd in "${CARGO_PACKAGES[@]}"; do
 
         # 1. Installation du paquet via Cargo (binstall)
         if cargo install --list | grep -q "^${cmd} "; then
