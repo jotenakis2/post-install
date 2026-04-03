@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # ─── Variables globales ────────────────────────────────────────────────────────
-readonly VER=2.7
+readonly VER=2.9
 MYREPOS="https://codeberg.org/jotenakis"
 GIT_DIR="${HOME}/git"
 DNF_PACKAGES=(
@@ -65,15 +65,26 @@ declare -A SERVICES_TO_DISABLE=(
     ["rsyslog.service"]="service rsyslog"
     # ajoute tes autres services systemd à désactiver ici
 )
+ declare -A SYMLINKS_TO_CREATE=(
+    [".thunderbird"]="${HOME}/.config/thunderbird"
+    [".iptvnator"]="${HOME}/.config/iptvnator"
+    [".icons"]="${HOME}/.local/share/icons"
+    [".themes"]="${HOME}/.local/share/themes"
+    # Ajoute d'autres dossiers ici si besoin
+)
+
 # ─── /Variables globales ───────────────────────────────────────────────────────
 
 
 
 # ─── MAIN ──────────────────────────────────────────────────────────────────────
 MAIN() {
+    # Start
     INITIALIZE
     CHECK_ENV
     _PASS
+
+    # tâches paquets
     _RUN "Mise à jour forcée du système" sudo dnf upgrade --refresh -y
     REMOVE_RPM_PACKAGES
     INSTALL_REPOS
@@ -83,20 +94,20 @@ MAIN() {
     INSTALL_RUST
     INSTALL_CARGO_PACKAGES
     INSTALL_FLATPAK_PACKAGES
-    #
+
+    # tâches config
     CLONE_REPOS
     SETUP_SHELL
     SETUP_DOTFILES
     SETUP_SYSTEM
     SETUP_FIREWALL
-    CUSTOMIZE_KDE_PLASMA
-    REPLACE_SDDM_WITH_PLM
-    _PASS
+    SETUP_KDE_PLASMA
+    SETUP_PLM
     SETUP_SUDO_RS
 
+    # Fin
     printf "\n%b%b  ✓ Terminé — rebooter pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
-
     _PASS
     sudo rm -f "${SUDOTMP}"
 }
@@ -256,8 +267,8 @@ _DETECT_GRUB() {
     echo "false"
     return 0
 }
-
-trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' _ERR
+# interception erreurs
+trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR
 
 # ─── 0. Vérification shell ─────────────────────────────────────────────────────
 CHECK_ENV() {
@@ -427,7 +438,7 @@ INSTALL_RPM_PACKAGES() {
     if ((${#missing_packages[@]})); then
         _PASS
         _RUN "Installation des paquets RPM manquants" sudo dnf install -y "${missing_packages[@]}"
-        _OK "Les paquets ${missing_packages[*]} ont été correctement installés."
+        _OK "Les paquets \"${missing_packages[*]}\" ont été correctement installés."
     else
         _INFO "Tous les paquets RPM sont déjà installés."
     fi
@@ -446,7 +457,7 @@ INSTALL_RUST() {
 
 # ─── 7. Paquets Cargo ──────────────────────────────────────────────────────────
 INSTALL_CARGO_PACKAGES() {
-    _SECTION "Paquets Cargo binaires"
+    _SECTION "Paquets Cargo"
 
     # 1. Installation de cargo-binstall sans compilation
     if ! command -v cargo-binstall &>/dev/null; then
@@ -580,7 +591,6 @@ SETUP_SHELL() {
     done < /etc/passwd
 
     # 2- Oh-my-posh prompt
-    _OK "Installation du Prompt Oh-My-Posh"
     local arch
     arch=$(uname -m)
     local omp_target=""
@@ -608,6 +618,24 @@ SETUP_SHELL() {
         _RUN "Téléchargement du binaire Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
         chmod 777 "${omp_bin}"
     fi
+
+    # 3- symlinks
+    local link target actual_target
+    for link in "${!SYMLINKS_TO_CREATE[@]}"; do
+        target="${SYMLINKS_TO_CREATE[${link}]}"
+        mkdir -p "${target}"
+        if [[ -L "${link}" ]]; then
+            actual_target=$(readlink -f "${link}")
+            if [[ "${actual_target}" != "${target}" ]]; then
+                _RUN "Mise à jour du lien symbolique ${link#.} " ln -sf "${target}" "${link}"
+            fi
+        elif [[ ! -e "${link}" ]]; then
+            _RUN "Création du lien symbolique ${link#.} " ln -sf "${target}" "${link}"
+        else
+            _INFO "${link} existe et n'est pas un lien symbolique, je ne touche à rien."
+        fi
+    done
+
 }
 
 # ─── 10. Dotfiles ──────────────────────────────────────────────────────────────
@@ -651,7 +679,7 @@ SETUP_SYSTEM() {
     # --- 8. Groupe libvirt ---
     # --- 9. sudo/sudo-rs --- => remplacé par SETUP_SUDO_RS
     # --- 10. profile-sync-daemon --- A FAIRE
-    # --- 11. services systemd --- A FAIRE
+    # --- 11. services systemd ---
     # --- 12. dnf.conf ---
 
     local tmp_dir
@@ -734,6 +762,9 @@ EOF
     fi
 
     if ! grep -q "/var/swap/swapfile" /etc/fstab; then
+        if [[ ! -f /etc/fstab.origin ]]; then
+            _RUN "Sauvegarde originale de /etc/fstab" sudo cp -a /etc/fstab /etc/fstab.origin
+        fi
         _RUN "Ajout du swap à /etc/fstab" sudo bash -c 'echo "/var/swap/swapfile none swap defaults 0 0" >> /etc/fstab'
     else
         _OK "Swap déjà présent dans /etc/fstab."
@@ -925,9 +956,6 @@ EOF
 
     if [[ "${fstab_changed}" == "true" ]]; then
         _PASS
-        if [[ ! -f /etc/fstab.origin ]]; then
-            _RUN "Sauvegarde originale de /etc/fstab" sudo cp -a /etc/fstab /etc/fstab.origin
-        fi
         _RUN "Sauvegarde de travail dans /etc/fstab.bak" sudo cp -a /etc/fstab /etc/fstab.bak
         _RUN "Application de noatime/lazytime dans /etc/fstab" sudo cp -a "${tmp_dir}/fstab.new" /etc/fstab
         _RUN "Rechargement du démon systemd" sudo systemctl daemon-reload
@@ -1068,7 +1096,7 @@ SETUP_FIREWALL() {
 # ─── 13. Configuration sudo-rs ─────────────────────────────────────────────────
 SETUP_SUDO_RS() {
     _SECTION "Configuration sudo-rs et remplacement radical de sudo"
-
+    _PASS
     # 1. On installe sudo-rs
     if ! command -v sudo-rs &>/dev/null; then
         _RUN "Installation de sudo-rs" sudo dnf install -y sudo-rs
@@ -1167,7 +1195,7 @@ SETUP_SUDO_RS() {
 }
 
 # ─── 14. Customisation KDE Plasma ──────────────────────────────────────────────
-CUSTOMIZE_KDE_PLASMA() {
+SETUP_KDE_PLASMA() {
     _SECTION "Personnalisation de KDE Plasma 6 (Thèmes & Layout)"
 
     # 1. Base Dark
@@ -1255,7 +1283,7 @@ CUSTOMIZE_KDE_PLASMA() {
 }
 
 # ─── 15. Plasma-login-manager à la place de SDDM ───────────────────────────────
-REPLACE_SDDM_WITH_PLM() {
+SETUP_PLM() {
     _SECTION "Préparation de Plasma Login Manager"
 
     if ! rpm -q plasma-login-manager >/dev/null 2>&1; then
