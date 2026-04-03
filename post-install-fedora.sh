@@ -16,13 +16,13 @@
 # ─── 10. Dotfiles ──────────────────────────────────────────────────────────────
 # ─── 11. Configuration Système & Optimisations ─────────────────────────────────
 # ─── 12. Configuration Firewalld ---------──────────────────────────────────────
-# ─── 13. Configuration sudo-rs ─────────────────────────────────────────────────
 # ─── 14. Customisation KDE Plasma ──────────────────────────────────────────────
 # ─── 15. Plasma-login-manager à la place de SDDM ───────────────────────────────
 # ─── 16. Flatpak ───────────────────────────────────────────────────────────────
+# ─── 13. Configuration sudo-rs ─────────────────────────────────────────────────
 
 
-readonly VER=2.1
+readonly VER=2.2
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -93,12 +93,17 @@ MAIN() {
     SET_DEFAULT_SHELL
     SETUP_DOTFILES
     SETUP_SYSTEM
-    SETUP_SUDO_RS
     CUSTOMIZE_KDE_PLASMA
     REPLACE_SDDM_WITH_PLM
+    FLATPAK
+    SUDOPASS
+    SETUP_SUDO_RS
 
     printf "\n%b%b  ✓ Terminé — rebooter pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
+
+    SUDOPASS
+    sudo rm -f "${SUDOTMP}"
 }
 
 
@@ -134,6 +139,7 @@ INIT() {
     sudo mkdir -p "/usr/local/bin"
 
     # Préparation d'une session sudo confortable et longue pour l'installation
+    SUDOTMP="/etc/sudoers-rs.d/99_POST-INSTALL" # pour delete à la fin
     local sudotmp="/etc/sudoers.d/99_POST-INSTALL"
     sudo mkdir -p /etc/sudoers.d
     sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=180' > '${sudotmp}'"
