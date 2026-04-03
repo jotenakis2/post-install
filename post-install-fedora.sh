@@ -22,7 +22,7 @@
 # ─── 13. Configuration sudo-rs ─────────────────────────────────────────────────
 
 
-readonly VER=2.2
+readonly VER=2.4
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -30,21 +30,28 @@ set -euo pipefail
 DNF_PACKAGES=(
     zsh fastfetch util-linux-script sudo-rs foot ghostty kitty eza fzf neovim bat bat-extras grc axel rclone procs
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
-    nodejs-bash-language-server golang make mpv vlc libdvdcss foliate imv plasma-login-manager nm-connection-editor
-    thunderbird vesktop telegram-desktop qbittorrent brave-browser helium-browser-bin qemu virt-manager virt-viewer
-    gum stress-ng libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro
+    nodejs-bash-language-server golang make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird
+    vesktop telegram-desktop qbittorrent brave-browser helium-browser-bin qemu virt-manager virt-viewer gum stress-ng
+    libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro
+    # Ajoute tes autres paquets ici
 )
 DNF_REMOVE=(
     zram-generator-defaults PackageKit-glib google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd
     libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover
-) # je supprime le zram car le script va remplacer par zswap+swapfile
-FONTS=( jetbrainsmono-nerd-fonts iosevka-nerd-fonts )
+    # Ajoute tes autres paquets ici
+)
+FONTS=(
+    jetbrainsmono-nerd-fonts
+    iosevka-nerd-fonts
+    # Ajoute tes autres paquets ici
+)
 
 # FLATPAK
-declare -a FLATPAK_PKGS=(
-    "com.spotify.Client"
-    "com.discordapp.Discord"
-    "org.videolan.VLC"
+FLATPAK_PKGS=(
+    "com.ktechpit.whatsie"
+    "org.gnome.Showtime"
+    "io.github.giantpinkrobots.flatsweep"
+    "com.github.tchx84.Flatseal"
     # Ajoute tes autres paquets ici
 )
 
@@ -53,6 +60,7 @@ declare -a FLATPAK_PKGS=(
 CARGO_PACKAGES=(
     bandwhich bat bottom cargo-update diskus fd-find hyperfine netscanner parallel-disk-usage resvg
     ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina
+    # Ajoute tes autres paquets ici
 )
 declare -A BIN_MAPPING=(
         ["yazi-fm"]="yazi"
@@ -63,6 +71,7 @@ declare -A BIN_MAPPING=(
         ["bottom"]="btm"
         ["ripgrep"]="rg"
         ["cargo-update"]="cargo-install-update cargo-install-update-config"
+        # Ajoute tes autres correspondances ici
 )
 
 # Repos GIT
@@ -73,6 +82,7 @@ GIT_REPOS=(
     "https://codeberg.org/jotenakis/backupsystem.git|${HOME}/backupsystem"
     "https://codeberg.org/jotenakis/scripts.git|${HOME}/scripts"
     "${DOTFILES_REPO}|${DOTFILES_DIR}"
+    # Ajoute tes autres "repos|dossierlocaux" ici
 )
 
 # ─── MAIN ──────────────────────────────────────────────────────────────────────
@@ -94,6 +104,7 @@ MAIN() {
     SETUP_DOTFILES
     SETUP_SYSTEM
     CUSTOMIZE_KDE_PLASMA
+    CUSTO_KDE_LAYOUT
     REPLACE_SDDM_WITH_PLM
     FLATPAK
     SUDOPASS
@@ -406,7 +417,8 @@ INSTALL_RPM_PACKAGES() {
 
     if ((${#missing_packages[@]})); then
         SUDOPASS
-        RUN "Installation des paquets RPM manquants ${missing_packages[*]}" sudo dnf install -y "${missing_packages[@]}"
+        RUN "Installation des paquets RPM manquants" sudo dnf install -y "${missing_packages[@]}"
+        OK "Les paquets ${missing_packages[*]} ont été correctement installés."
     else
         INFO "Tous les paquets RPM sont déjà installés."
     fi
@@ -1091,6 +1103,7 @@ SETUP_SUDO_RS() {
         current_link=$(readlink "${sys_sudo}" || true)
     fi
 
+    SUDOPASS
     if [[ "${current_link}" == "${sudo_rs_bin}" ]]; then
         OK "Le lien symbolique sudo -> sudo-rs est déjà en place."
     else
@@ -1102,8 +1115,7 @@ SETUP_SUDO_RS() {
             ln -sf '${sudo_rs_bin}' '${sys_sudo}'
         "
     fi
-
-    RUN "Création du dossier /usr/local/bin si inexistant" sudo mkdir -p "/usr/local/bin"
+    SUDOPASS
     RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -sf "${sudo_rs_bin}" "${local_bin_sudo}"
     RUN "Fixation des permissions SUID sur sudo-rs" sudo chmod 4111 "${sudo_rs_bin}"
 
@@ -1206,6 +1218,85 @@ CUSTOMIZE_KDE_PLASMA() {
     OK "Personnalisation KDE (TokyoNight, Tela, Bibata) terminée."
 }
 
+CUSTO_KDE_LAYOUT() {
+    SECTION "Configuration du Bureau KDE (Panneau, Favoris, Fond d'écran)"
+
+    # 1. Vérifier si plasmashell tourne (indispensable pour que qdbus fonctionne)
+    if ! pgrep plasmashell > /dev/null 2>&1; then
+        INFO "plasmashell ne tourne pas. Configuration du layout reportée."
+        return 0
+    fi
+
+    # 2. Déplacer le panneau principal vers le haut
+    RUN "Déplacement du panneau vers le haut" \
+    qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+        var allPanels = panels();
+        for (var i = 0; i < allPanels.length; i++) {
+            if (allPanels[i].location === 'bottom') {
+                allPanels[i].location = 'top';
+            }
+        }
+    "
+
+    # 3. Retirer Discover du Task Manager (Gestionnaire de tâches)
+    # L'ID standard de Discover est applications:org.kde.discover.desktop
+    RUN "Nettoyage des favoris (Retrait de Discover)" \
+    qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+        var allDesktops = desktops();
+        var allPanels = panels();
+
+        // Fonction pour nettoyer les widgets
+        function cleanDiscover(containment) {
+            var widgets = containment.widgets();
+            for (var i = 0; i < widgets.length; i++) {
+                if (widgets[i].type === 'org.kde.plasma.icontasks') {
+                    var launchers = widgets[i].currentConfigGroup[0] ? widgets[i].readConfig('launchers', '') : '';
+                    if (launchers.indexOf('org.kde.discover.desktop') !== -1) {
+                        // On enlève Discover et on nettoie les virgules
+                        var newLaunchers = launchers.replace(/,*applications:org\.kde\.discover\.desktop,*/, ',');
+                        newLaunchers = newLaunchers.replace(/(^,|,$)/g, '');
+                        widgets[i].writeConfig('launchers', newLaunchers);
+                    }
+                }
+            }
+        }
+
+        for (var p = 0; p < allPanels.length; p++) cleanDiscover(allPanels[p]);
+    "
+
+    # 4. Installation et Configuration du Wallpaper Wallhaven
+    # On installe le plugin Wallhaven pour Plasma 6 s'il n'est pas là
+    local wallhaven_dir="${HOME}/.local/share/plasma/wallpapers/org.kde.wallhaven"
+    if [[ ! -d "${wallhaven_dir}" ]]; then
+        local temp_wall
+        temp_wall=$(mktemp -d)
+        RUN "Clonage du plugin Wallpaper Wallhaven Reborn" git clone --quiet https://github.com/Blacksuan19/plasma-wallpaper-wallhaven-reborn.git "${temp_wall}/wallhaven"
+        RUN "Installation du plugin Wallhaven" kpackagetool6 --type Plasma/Wallpaper --install "${temp_wall}/wallhaven/package/"
+        rm -rf "${temp_wall}"
+    fi
+
+    # Application du fond d'écran Wallhaven via Scripting
+    RUN "Application du fond d'écran Wallhaven (paysages)" \
+    qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+        var allDesktops = desktops();
+        for (var i = 0; i < allDesktops.length; i++) {
+            var d = allDesktops[i];
+            d.wallpaperPlugin = 'org.kde.wallhaven';
+            d.currentConfigGroup = ['Wallpaper', 'org.kde.wallhaven', 'General'];
+            d.writeConfig('query', 'landscape, mountains, rivers, snow');
+            d.writeConfig('sfw', true); // Safe for work
+            d.writeConfig('sketchy', false);
+            d.writeConfig('resolutions', '1920x1080,2560x1440,3840x2160'); // Adapte si besoin
+        }
+    "
+
+    # 5. Rafraîchir l'interface
+    RUN "Application des modifications Layout" qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.refreshCurrentShell
+
+    OK "Bureau KDE configuré avec succès (Panneau haut, Discover out, Wallhaven in)."
+}
+
+
 # ─── 15. Plasma-login-manager à la place de SDDM ───────────────────────────────
 REPLACE_SDDM_WITH_PLM() {
     SECTION "Préparation de Plasma Login Manager"
@@ -1229,6 +1320,7 @@ REPLACE_SDDM_WITH_PLM() {
     fi
 
 }
+
 
 # ─── 16. Flatpak ───────────────────────────────────────────────────────────────
 FLATPAK() {
