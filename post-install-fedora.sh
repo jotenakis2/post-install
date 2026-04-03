@@ -22,7 +22,7 @@
 # ─── 13. Configuration sudo-rs ─────────────────────────────────────────────────
 
 
-readonly VER=2.4
+readonly VER=2.5
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -1221,15 +1221,20 @@ CUSTOMIZE_KDE_PLASMA() {
 CUSTO_KDE_LAYOUT() {
     SECTION "Configuration du Bureau KDE (Panneau, Favoris, Fond d'écran)"
 
-    # 1. Vérifier si plasmashell tourne (indispensable pour que qdbus fonctionne)
+    # 1. Vérifier si plasmashell tourne
     if ! pgrep plasmashell > /dev/null 2>&1; then
         INFO "plasmashell ne tourne pas. Configuration du layout reportée."
         return 0
     fi
 
+    # Helper local pour envoyer du script D-Bus à Plasma via busctl
+    plasma_eval() {
+        local script="$1"
+        busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s "${script}" >/dev/null 2>&1
+    }
+
     # 2. Déplacer le panneau principal vers le haut
-    RUN "Déplacement du panneau vers le haut" \
-    qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+    RUN "Déplacement du panneau vers le haut" plasma_eval "
         var allPanels = panels();
         for (var i = 0; i < allPanels.length; i++) {
             if (allPanels[i].location === 'bottom') {
@@ -1238,21 +1243,15 @@ CUSTO_KDE_LAYOUT() {
         }
     "
 
-    # 3. Retirer Discover du Task Manager (Gestionnaire de tâches)
-    # L'ID standard de Discover est applications:org.kde.discover.desktop
-    RUN "Nettoyage des favoris (Retrait de Discover)" \
-    qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
-        var allDesktops = desktops();
+    # 3. Retirer Discover du Task Manager
+    RUN "Nettoyage des favoris (Retrait de Discover)" plasma_eval "
         var allPanels = panels();
-
-        // Fonction pour nettoyer les widgets
         function cleanDiscover(containment) {
             var widgets = containment.widgets();
             for (var i = 0; i < widgets.length; i++) {
                 if (widgets[i].type === 'org.kde.plasma.icontasks') {
                     var launchers = widgets[i].currentConfigGroup[0] ? widgets[i].readConfig('launchers', '') : '';
                     if (launchers.indexOf('org.kde.discover.desktop') !== -1) {
-                        // On enlève Discover et on nettoie les virgules
                         var newLaunchers = launchers.replace(/,*applications:org\.kde\.discover\.desktop,*/, ',');
                         newLaunchers = newLaunchers.replace(/(^,|,$)/g, '');
                         widgets[i].writeConfig('launchers', newLaunchers);
@@ -1260,12 +1259,10 @@ CUSTO_KDE_LAYOUT() {
                 }
             }
         }
-
         for (var p = 0; p < allPanels.length; p++) cleanDiscover(allPanels[p]);
     "
 
     # 4. Installation et Configuration du Wallpaper Wallhaven
-    # On installe le plugin Wallhaven pour Plasma 6 s'il n'est pas là
     local wallhaven_dir="${HOME}/.local/share/plasma/wallpapers/org.kde.wallhaven"
     if [[ ! -d "${wallhaven_dir}" ]]; then
         local temp_wall
@@ -1273,29 +1270,29 @@ CUSTO_KDE_LAYOUT() {
         RUN "Clonage du plugin Wallpaper Wallhaven Reborn" git clone --quiet https://github.com/Blacksuan19/plasma-wallpaper-wallhaven-reborn.git "${temp_wall}/wallhaven"
         RUN "Installation du plugin Wallhaven" kpackagetool6 --type Plasma/Wallpaper --install "${temp_wall}/wallhaven/package/"
         rm -rf "${temp_wall}"
+    else
+        OK "Le plugin Wallhaven est déjà installé."
     fi
 
-    # Application du fond d'écran Wallhaven via Scripting
-    RUN "Application du fond d'écran Wallhaven (paysages)" \
-    qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+    # Application du fond d'écran Wallhaven
+    RUN "Application du fond d'écran Wallhaven (paysages)" plasma_eval "
         var allDesktops = desktops();
         for (var i = 0; i < allDesktops.length; i++) {
             var d = allDesktops[i];
             d.wallpaperPlugin = 'org.kde.wallhaven';
             d.currentConfigGroup = ['Wallpaper', 'org.kde.wallhaven', 'General'];
             d.writeConfig('query', 'landscape, mountains, rivers, snow');
-            d.writeConfig('sfw', true); // Safe for work
+            d.writeConfig('sfw', true);
             d.writeConfig('sketchy', false);
-            d.writeConfig('resolutions', '1920x1080,2560x1440,3840x2160'); // Adapte si besoin
+            d.writeConfig('resolutions', '1920x1080,2560x1440,3840x2160');
         }
     "
 
     # 5. Rafraîchir l'interface
-    RUN "Application des modifications Layout" qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.refreshCurrentShell
+    RUN "Application des modifications Layout" busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell refreshCurrentShell >/dev/null 2>&1
 
     OK "Bureau KDE configuré avec succès (Panneau haut, Discover out, Wallhaven in)."
 }
-
 
 # ─── 15. Plasma-login-manager à la place de SDDM ───────────────────────────────
 REPLACE_SDDM_WITH_PLM() {
