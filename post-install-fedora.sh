@@ -3,7 +3,7 @@
 #gstreamer1-plugins-base gstreamer1-plugins-good
 #gstreamer1-plugins-bad-freeworld
 
-readonly VER=1.7
+readonly VER=1.8
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -90,7 +90,15 @@ INIT() {
     export GOPATH="${XDG_DATA_HOME:-${HOME}/.local/share}/go"
     export GOBIN="${XDG_BIN_HOME:-${HOME}/.local/bin}"
 
-    mkdir -p "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "/usr/local/bin" "${HOME}/.local/share/zsh"
+    mkdir -p "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh"
+    SUDOPASS
+    sudo mkdir -p "/usr/local/bin"
+
+    # Préparation d'une session sudo confortable et longue pour l'installation
+    local sudotmp="/etc/sudoers.d/99_POST-INSTALL"
+    sudo mkdir -p /etc/sudoers.d
+    sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=180' > '${sudotmp}'"
+    sudo chmod 0440 "${sudotmp}"
 
     # PATH
     export PATH="${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
@@ -304,7 +312,7 @@ INSTALL_CODECS() {
 
 # ─── 5. Paquets DNF ────────────────────────────────────────────────────────────
 INSTALL_RPM_PACKAGES() {
-    SECTION "Paquets DNF"
+    SECTION "Paquets RPM"
 
     local pkg
     local -a missing_packages=()
@@ -319,10 +327,9 @@ INSTALL_RPM_PACKAGES() {
 
     if ((${#missing_packages[@]})); then
         SUDOPASS
-        RUN "Installation paquets DNF manquants" sudo dnf install -y "${missing_packages[@]}"
-        OK "Paquets installés : ${missing_packages[*]}"
+        RUN "Installation des paquets RPM manquants ${missing_packages[*]}" sudo dnf install -y "${missing_packages[@]}"
     else
-        INFO "Tous les paquets DNF sont déjà installés."
+        INFO "Tous les paquets RPM sont déjà installés."
     fi
 }
 
@@ -351,7 +358,7 @@ INSTALL_CARGO_PACKAGES() {
     # 1. Installation de cargo-binstall sans compilation
     if ! command -v cargo-binstall &>/dev/null; then
         RUN "Installation de cargo-binstall (pré-compilé)" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
-        RUN " Lien symbolique : cargo-binstall -> /usr/local/bin" sudo ln -sf "cargo-binstall" "/usr/local/bin/"
+        RUN " Lien symbolique : cargo-binstall -> /usr/local/bin" sudo ln -sf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
     else
         OK "cargo-binstall est déjà installé."
     fi
