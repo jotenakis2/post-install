@@ -3,7 +3,25 @@
 #gstreamer1-plugins-base gstreamer1-plugins-good
 #gstreamer1-plugins-bad-freeworld
 
-readonly VER=1.8
+# ─── 0. Vérification shell ─────────────────────────────────────────────────────
+# ─── 1. Suppression paquets indésirables ───────────────────────────────────────
+# ─── 2. Dépôts ─────────────────────────────────────────────────────────────────
+# ─── 3. Nerd Fonts ─────────────────────────────────────────────────────────────
+# ─── 4. Codecs & Mesa ──────────────────────────────────────────────────────────
+# ─── 5. Paquets DNF ────────────────────────────────────────────────────────────
+# ─── 6. Rustup ─────────────────────────────────────────────────────────────────
+# ─── 7. Paquets Cargo ──────────────────────────────────────────────────────────
+# ─── 8. Clonage des dépôts Git personnels ─────────────────────────────────────
+# ─── 9. Shell par défaut ───────────────────────────────────────────────────────
+# ─── 10. Dotfiles ──────────────────────────────────────────────────────────────
+# ─── 11. Configuration Système & Optimisations ─────────────────────────────────
+# ─── 12. Configuration Firewalld ---------──────────────────────────────────────
+# ─── 13. Configuration sudo-rs ─────────────────────────────────────────────────
+# ─── 14. Customisation KDE Plasma ──────────────────────────────────────────────
+# ─── 15. Plasma-login-manager à la place de SDDM ───────────────────────────────
+
+
+readonly VER=2.0
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -67,6 +85,8 @@ MAIN() {
     SETUP_DOTFILES
     SETUP_SYSTEM
     SETUP_SUDO_RS
+    CUSTOMIZE_KDE_PLASMA
+    REPLACE_SDDM_WITH_PLM
 
     printf "\n%b%b  ✓ Terminé — rebooter pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
@@ -80,6 +100,16 @@ MAIN() {
 
 # ─── Init ─────────────────────────────────────────────────────────────
 INIT() {
+    C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_MAGENTA='' C_CYAN='' C_BOLD=''
+    if [[ -t 1 ]]; then
+        C_RESET='\e[0m'
+        C_BOLD='\e[1m'
+        C_RED='\e[1;31m'
+        C_GREEN='\e[1;32m'
+        C_YELLOW='\e[1;33m'
+        C_MAGENTA='\e[1;35m'
+        C_CYAN='\e[1;36m'
+    fi
     LOG_DIR="${HOME}/.local/log"
     LOG_FILE="${LOG_DIR}/post-install-fedora-$(date +%Y%m%d-%H%M%S).log"
     INSTALL_DIR="${HOME}/.local/bin"
@@ -104,19 +134,9 @@ INIT() {
     export PATH="${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
 
     SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-    C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_MAGENTA='' C_CYAN='' C_BOLD=''
 
-    if [[ -t 1 ]]; then
-        C_RESET='\e[0m'
-        C_BOLD='\e[1m'
-        C_RED='\e[1;31m'
-        C_GREEN='\e[1;32m'
-        C_YELLOW='\e[1;33m'
-        C_MAGENTA='\e[1;35m'
-        C_CYAN='\e[1;36m'
-    fi
 }
-# ─── Helpers affichage ─────────────────────────────────────────────────────────
+# ─── Helpers divers ─────────────────────────────────────────────────────────
 BANNER() {
     printf "%b%b\n  ╔════════════════════════════════════╗\n  ║      Post-install Fedora (${VER})     ║\n  ╚════════════════════════════════════╝%b\n  Log : %s\n\n" "${C_CYAN}" "${C_BOLD}" "${C_MAGENTA}" "${LOG_FILE}"
     echo -ne "${C_RESET}"
@@ -156,6 +176,50 @@ RUN() {
         ERR "${msg}"
         DIE "Échec — détails : ${LOG_FILE}"
     fi
+}
+
+DETECT_GRUB() {
+    # 1. BIOS/Legacy = forcément GRUB
+    if [[ ! -d /sys/firmware/efi ]]; then
+        echo "true"
+        return 0
+    fi
+
+    # 2. Interrogation bootctl
+    if command -v bootctl >/dev/null 2>&1; then
+        local current_product=""
+        # SC2312 : On stocke le résultat séparément
+        current_product=$(bootctl status 2>/dev/null | awk '/^Current Boot Loader:/ {flag=1} flag && /Product:/ {print $0; exit}' || true)
+
+        if echo "${current_product}" | grep -qi "systemd-boot"; then
+            echo "false"
+            return 0
+        fi
+
+        if echo "${current_product}" | grep -qi "GRUB"; then
+            echo "true"
+            return 0
+        fi
+    fi
+
+    # 3. Analyse binaire
+    local efi_payload="/boot/efi/EFI/fedora/grubx64.efi"
+    if [[ -f "${efi_payload}" ]] && command -v strings >/dev/null 2>&1; then
+        SUDOPASS
+        if sudo strings "${efi_payload}" | grep -qi "systemd-boot"; then
+            echo "false"
+            return 0
+        fi
+
+        if sudo strings "${efi_payload}" | grep -qw "GRUB"; then
+            echo "true"
+            return 0
+        fi
+    fi
+
+    # Par défaut, si introuvable
+    echo "false"
+    return 0
 }
 
 trap 'ERR "Interruption ligne ${LINENO}"; DIE "Log : ${LOG_FILE}"' ERR
@@ -260,7 +324,7 @@ ADD_REPOS() {
     RUN "Rafraîchissement des métadonnées" sudo dnf makecache
 }
 
-# ─── 3. Nerd Fonts ───────────────────────────────────────────────────────────
+# ─── 3. Nerd Fonts ─────────────────────────────────────────────────────────────
 INSTALL_FONTS() {
     SECTION "Nerd Fonts"
 
@@ -348,20 +412,13 @@ INSTALL_RUSTUP() {
 INSTALL_CARGO_PACKAGES() {
     SECTION "Paquets Cargo binaires"
 
-    # installation de cargo bin install pour installer des binaires depuis crates.io
-#     if cargo install --list | grep -q "^cargo-binstall "; then
-#         OK "cargo bin-install déjà installé."
-#     else
-#         RUN "Installation de cargo-binstall pour permettre l'installation de paquets binaires" cargo install cargo-binstall
-#     fi
-#
     # 1. Installation de cargo-binstall sans compilation
     if ! command -v cargo-binstall &>/dev/null; then
         RUN "Installation de cargo-binstall (pré-compilé)" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
-        RUN " Lien symbolique : cargo-binstall -> /usr/local/bin" sudo ln -sf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
     else
         OK "cargo-binstall est déjà installé."
     fi
+    RUN " Lien symbolique : cargo-binstall -> /usr/local/bin" sudo ln -sf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
 
     local cmd
     for cmd in "${CARGO_PACKAGES[@]}"; do
@@ -414,7 +471,7 @@ INSTALL_CARGO_PACKAGES() {
         "${CARGO_HOME}/bin"
 }
 
-# ─── 8. Outils git  ─────────────────────────────────────────────────────────────
+# ─── 8. Outils git  ────────────────────────────────────────────────────────────
 # INSTALL_GIT_TOOLS() {
 #     SECTION "Outils git"
 #
@@ -426,6 +483,39 @@ INSTALL_CARGO_PACKAGES() {
 #         OK "${tool} → ${INSTALL_DIR}/${tool}"
 #     done
 # }
+
+# ─── 8. Clonage des dépôts Git personnels ─────────────────────────────────────
+CLONE_REPOS() {
+    SECTION "Clonage et mise à jour des dépôts Git personnels"
+
+    local repo_entry repo_url dest_dir repo_name backup_dir
+
+    for repo_entry in "${GIT_REPOS[@]}"; do
+        # Extraction de l'URL et de la destination (séparées par '|')
+        repo_url="${repo_entry%%|*}"
+        dest_dir="${repo_entry##*|}"
+
+        # Récupération du nom du dépôt pour l'affichage (ex: "scripts")
+        repo_name=$(basename "${repo_url}" .git)
+
+        if [[ -d "${dest_dir}/.git" ]]; then
+            # C'est un dépôt Git valide, on le met à jour
+            RUN "Mise à jour de ${repo_name} (pull --ff-only)" git -C "${dest_dir}" pull --ff-only
+        else
+            # Le chemin existe MAIS n'est pas un dépôt Git (ou c'est un fichier)
+            if [[ -e "${dest_dir}" ]]; then
+                backup_dir="${dest_dir}_backup_$(date +%Y%m%d%H%M%S)"
+                RUN "Sauvegarde de l'existant non-git (${repo_name})" mv "${dest_dir}" "${backup_dir}"
+                INFO "Ancien '${dest_dir}' sauvegardé dans '${backup_dir}'"
+            fi
+
+            # La voie est libre, on clone
+            RUN "Clonage de ${repo_name}" git clone "${repo_url}" "${dest_dir}"
+        fi
+    done
+
+    OK "Tous les dépôts Git sont à jour."
+}
 
 # ─── 9. Shell par défaut ───────────────────────────────────────────────────────
 SET_DEFAULT_SHELL() {
@@ -455,12 +545,13 @@ SET_DEFAULT_SHELL() {
 
 # ─── 10. Dotfiles ──────────────────────────────────────────────────────────────
 SETUP_DOTFILES() {
-    SECTION "Dotfiles (GNU Stow)"
+    SECTION "Dotfiles et prompt"
     if [[ ! -d "${DOTFILES_DIR}" ]]; then
         ERR "Le dossier ${DOTFILES_DIR} est introuvable. Stow ignoré."
         return
     fi
 
+    # 1- nettoyage
     local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc")
     local f
     for f in "${skel_files[@]}"; do
@@ -469,17 +560,71 @@ SETUP_DOTFILES() {
         fi
     done
 
+    # 2- stow pour déployer dotfiles depuis dépôt git
     local pkg name
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
         RUN "stow : ${name}" stow --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}"
     done
+    INFO "Les dotfiles ne sont déployés que pour l'utilisateur qui lance le script (${USER})"
+
+    # 3- Oh-my-posh prompt
+    INFO "Installation du Prompt Oh-My-Posh"
+    # Détection de l'architecture
+    local arch
+    arch=$(uname -m)
+    local omp_target=""
+
+    case "${arch}" in
+        x86_64|amd64)
+            omp_target="posh-linux-amd64"
+            ;;
+        aarch64|arm64)
+            omp_target="posh-linux-arm64"
+            ;;
+        armv7l)
+            omp_target="posh-linux-arm"
+            ;;
+        *)
+            DIE "Architecture non supportée pour Oh My Posh : ${arch}"
+            ;;
+    esac
+
+    local omp_url="https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/${omp_target}"
+    local omp_bin="${INSTALL_DIR}/oh-my-posh"
+
+    # Vérification si déjà installé ou à mettre à jour
+    if command -v oh-my-posh >/dev/null 2>&1; then
+        RUN "Mise à jour de Oh My Posh" oh-my-posh upgrade >/dev/null 2>&1
+        OK "Oh My Posh est à jour."
+    else
+        RUN "Téléchargement de Oh My Posh (${omp_target})"
+        if curl -sLo "${omp_bin}" "${omp_url}"; then
+            chmod +x "${omp_bin}"
+            OK "Oh My Posh installé dans ${omp_bin}."
+        else
+            DIE "Échec du téléchargement de Oh My Posh."
+        fi
+    fi
+
 }
 
-
-# ─── 11. Configuration Système & Optimisations ────────────────────────────────
+# ─── 11. Configuration Système & Optimisations ─────────────────────────────────
 SETUP_SYSTEM() {
     SECTION "Configuration Système (Réseau, Swap, GRUB, Sysctl, Fstab, Brave, Chrony)"
+    # --- 1. NetworkManager & systemd-resolved ---
+    # --- 2. Swapfile BTRFS / Ext4 / XFS ---
+        # --- 2.5 SELinux : Autorisation pour systemd-logind ---
+    # --- 3. Configuration GRUB ---
+    # --- 4. Optimisations Kernel (Sysctl) ---
+    # --- 5. Optimisations Fstab (noatime, lazytime) ---
+    # --- 6. Configuration Brave Browser (Policies debloat) ---
+    # --- 7. Configuration Chrony (IPv4 only) ---
+    # --- 8. Groupe libvirt ---
+    # --- 9. sudo/sudo-rs --- => remplacé par SETUP_SUDO_RS
+    # --- 10. profile-sync-daemon --- A FAIRE
+    # --- 11. services systemd --- A FAIRE
+    # --- 12. dnf.conf ---
 
     local tmp_dir
     tmp_dir=$(mktemp -d)
@@ -763,7 +908,7 @@ EOF
     fi
 
 
-    # --- 6. Configuration Brave Browser (Policies) ---
+    # --- 6. Configuration Brave Browser (Policies debloat) ---
     cat << 'EOF' > "${tmp_dir}/brave_debullshitinator-policies.json"
 {
     "BraveRewardsDisabled": true,
@@ -777,10 +922,10 @@ EOF
 EOF
 
     if [[ -f /etc/brave/policies/managed/brave_debullshitinator-policies.json ]] && cmp -s "${tmp_dir}/brave_debullshitinator-policies.json" /etc/brave/policies/managed/brave_debullshitinator-policies.json; then
-        OK "Policies Brave déjà à jour."
+        OK "Policies Debloat pour Brave déjà à jour."
     else
         SUDOPASS
-        RUN "Déploiement des policies Brave" sudo bash -c "
+        RUN "Déploiement des policies Brave pour debloat" sudo bash -c "
             mkdir -p /etc/brave/policies/managed &&
             install -m 644 -o root -g root '${tmp_dir}/brave_debullshitinator-policies.json' /etc/brave/policies/managed/
         "
@@ -848,52 +993,42 @@ EOF
     rm -rf "${tmp_dir}"
 }
 
-# ─── Détection du chargeur d'amorçage ──────────────────────────────────────────
-DETECT_GRUB() {
-    # 1. BIOS/Legacy = forcément GRUB
-    if [[ ! -d /sys/firmware/efi ]]; then
-        echo "true"
-        return 0
+# ─── 12. Configuration Firewalld ---------──────────────────────────────────────
+CONFIGURE_FIREWALL() {
+    SECTION "Configuration du Pare-feu (Firewalld)"
+
+    # 1. Vérification de l'installation du paquet
+    if ! rpm -q firewalld >/dev/null 2>&1; then
+        RUN "Installation de firewalld" sudo dnf install -y firewalld
     fi
 
-    # 2. Interrogation bootctl
-    if command -v bootctl >/dev/null 2>&1; then
-        local current_product=""
-        # SC2312 : On stocke le résultat séparément
-        current_product=$(bootctl status 2>/dev/null | awk '/^Current Boot Loader:/ {flag=1} flag && /Product:/ {print $0; exit}' || true)
-
-        if echo "${current_product}" | grep -qi "systemd-boot"; then
-            echo "false"
-            return 0
-        fi
-
-        if echo "${current_product}" | grep -qi "GRUB"; then
-            echo "true"
-            return 0
-        fi
+    # 2. Vérification et activation du service
+    if ! systemctl is-active --quiet firewalld; then
+        RUN "Démarrage et activation du service firewalld" sudo systemctl enable --now firewalld.service
+    else
+        INFO "Le service firewalld est déjà actif."
     fi
 
-    # 3. Analyse binaire
-    local efi_payload="/boot/efi/EFI/fedora/grubx64.efi"
-    if [[ -f "${efi_payload}" ]] && command -v strings >/dev/null 2>&1; then
-        SUDOPASS
-        if sudo strings "${efi_payload}" | grep -qi "systemd-boot"; then
-            echo "false"
-            return 0
-        fi
+    # 3. Configuration des services essentiels
+    local services_to_enable=("mdns" "ipp-client" "samba-client") # ajoute ssh si besoin
+    local firewall_changed=false
 
-        if sudo strings "${efi_payload}" | grep -qw "GRUB"; then
-            echo "true"
-            return 0
+    for service in "${services_to_enable[@]}"; do
+        if sudo firewall-cmd --permanent --query-service="${service}" >/dev/null 2>&1; then
+            OK "Le service '${service}' est déjà autorisé."
+        else
+            RUN "Autorisation du service '${service}'" sudo firewall-cmd --permanent --add-service="${service}"
+            firewall_changed=true
         fi
+    done
+
+    # 4. Si on a fait au moins une modification, on recharge le pare-feu
+    if [[ "${firewall_changed}" == true ]]; then
+        RUN "Rechargement des règles Firewalld (${services_to_enable[*]})" sudo firewall-cmd --reload
     fi
-
-    # Par défaut, si introuvable
-    echo "false"
-    return 0
 }
 
-# ─── Configuration sudo-rs ───────────────────────────────────────────────────
+# ─── 13. Configuration sudo-rs ─────────────────────────────────────────────────
 SETUP_SUDO_RS() {
     SECTION "Configuration sudo-rs et remplacement radical de sudo"
 
@@ -994,39 +1129,105 @@ SETUP_SUDO_RS() {
     OK "sudo-rs est définitivement en place."
 }
 
-# ─── Clonage des dépôts Git personnels ────────────────────────────────────────
-CLONE_REPOS() {
-    SECTION "Clonage et mise à jour des dépôts Git personnels"
+# ─── 14. Customisation KDE Plasma ──────────────────────────────────────────────
+CUSTOMIZE_KDE_PLASMA() {
+    SECTION "Personnalisation de KDE Plasma 6 (Thèmes, Icônes, Curseur)"
 
-    local repo_entry repo_url dest_dir repo_name backup_dir
+    # 1. Base Dark (Look and Feel global)
+    RUN "Passage en mode Dark global"
+    if plasma-apply-lookandfeel -a org.kde.breezedark.desktop >/dev/null 2>&1; then
+        OK "Mode Dark appliqué."
+    else
+        INFO "Mode Dark appliqué (avec avertissements mineurs)."
+    fi
 
-    for repo_entry in "${GIT_REPOS[@]}"; do
-        # Extraction de l'URL et de la destination (séparées par '|')
-        repo_url="${repo_entry%%|*}"
-        dest_dir="${repo_entry##*|}"
+    # 2. Color Scheme : Tokyo Night
+    RUN "Installation du Color Scheme Tokyo Night"
+    mkdir -p "${HOME}/.local/share/color-schemes"
+    if curl -sL "https://raw.githubusercontent.com/nonetrix/tokyonight-kde/main/color-schemes/TokyoNight.colors" -o "${HOME}/.local/share/color-schemes/TokyoNight.colors"; then
+        kwriteconfig6 --file kdeglobals --group General --key ColorScheme "TokyoNight"
+        plasma-apply-colorscheme TokyoNight >/dev/null 2>&1 || true
+        OK "Tokyo Night installé et défini."
+    else
+        ERR "Échec du téléchargement de TokyoNight."
+    fi
 
-        # Récupération du nom du dépôt pour l'affichage (ex: "scripts")
-        repo_name=$(basename "${repo_url}" .git)
+    # 3. Icônes : Tela Dark
+    RUN "Installation des icônes Tela Dark"
+    local temp_tela
+    temp_tela=$(mktemp -d)
+    if git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"; then
+        bash "${temp_tela}/tela/install.sh" -d "${HOME}/.local/share/icons" >/dev/null 2>&1
+        kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark"
+        OK "Icônes Tela Dark installées."
+    else
+        ERR "Échec du clonage de Tela-icon-theme."
+    fi
+    rm -rf "${temp_tela}"
 
-        if [[ -d "${dest_dir}/.git" ]]; then
-            # C'est un dépôt Git valide, on le met à jour
-            RUN "Mise à jour de ${repo_name} (pull --ff-only)" git -C "${dest_dir}" pull --ff-only
-        else
-            # Le chemin existe MAIS n'est pas un dépôt Git (ou c'est un fichier)
-            if [[ -e "${dest_dir}" ]]; then
-                backup_dir="${dest_dir}_backup_$(date +%Y%m%d%H%M%S)"
-                RUN "Sauvegarde de l'existant non-git (${repo_name})" mv "${dest_dir}" "${backup_dir}"
-                INFO "Ancien '${dest_dir}' sauvegardé dans '${backup_dir}'"
-            fi
+    # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
+    RUN "Installation du curseur Bibata Lavender"
+    mkdir -p "${HOME}/.local/share/icons"
+    local temp_cursor
+    temp_cursor=$(mktemp -d)
+    if curl -sL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"; then
+        unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
+        kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
 
-            # La voie est libre, on clone
-            RUN "Clonage de ${repo_name}" git clone "${repo_url}" "${dest_dir}"
-        fi
-    done
+        # Pointeur par défaut pour compatibilité GTK
+        mkdir -p "${HOME}/.icons/default"
+        cat <<EOF > "${HOME}/.icons/default/index.theme"
+[Icon Theme]
+Inherits=catppuccin-mocha-lavender-cursors
+EOF
+        OK "Curseur Bibata Lavender configuré."
+    else
+        ERR "Échec du téléchargement du curseur."
+    fi
+    rm -rf "${temp_cursor}"
 
-    OK "Tous les dépôts Git sont à jour."
+    # 5. Rafraîchissement optionnel si session graphique active
+    if pgrep plasmashell > /dev/null 2>&1; then
+        RUN "Redémarrage de plasmashell"
+        systemctl --user restart plasma-plasmashell.service >/dev/null 2>&1 || true
+        OK "Session Plasma rafraîchie."
+    fi
 }
 
 
-#─── Point d'entrée ────────────────────────────────────────────────────────────
+# ─── 15. Plasma-login-manager à la place de SDDM ───────────────────────────────
+REPLACE_SDDM_WITH_PLM() {
+    SECTION "Remplacement de SDDM par Plasma Login Manager"
+
+    # Vérification que plasma-login-manager est bien installé
+    if ! rpm -q plasma-login-manager >/dev/null 2>&1; then
+        RUN "Installation de plasma-login-manager" sudo dnf install -y plasma-login-manager kcm-plasmalogin
+    else
+        OK "plasma-login-manager est déjà installé."
+    fi
+
+    # Désactivation de SDDM s'il est actif/activé
+    if systemctl is-enabled sddm.service >/dev/null 2>&1; then
+        RUN "Désactivation du service SDDM" sudo systemctl disable sddm.service
+    else
+        INFO "SDDM n'est pas activé, rien à faire."
+    fi
+
+    # Activation forcée de plasmalogin (remplace automatiquement le lien display-manager.service)
+    RUN "Activation du service plasmalogin" sudo systemctl enable --force plasmalogin.service
+
+    # Optionnel : Désinstallation propre de SDDM pour faire le ménage
+    if rpm -q sddm >/dev/null 2>&1; then
+        RUN "Suppression du paquet sddm" sudo dnf remove -y sddm
+    fi
+}
+
+##########################################################################################################################
+##########################################################################################################################
+##########################################################################################################################
+# appel principal
+##########################################################################################################################
+##########################################################################################################################
+##########################################################################################################################
+
 MAIN "$@"
