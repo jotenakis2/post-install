@@ -19,9 +19,10 @@
 # ─── 13. Configuration sudo-rs ─────────────────────────────────────────────────
 # ─── 14. Customisation KDE Plasma ──────────────────────────────────────────────
 # ─── 15. Plasma-login-manager à la place de SDDM ───────────────────────────────
+# ─── 16. Flatpak ───────────────────────────────────────────────────────────────
 
 
-readonly VER=2.0
+readonly VER=2.1
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -38,6 +39,14 @@ DNF_REMOVE=(
     libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover
 ) # je supprime le zram car le script va remplacer par zswap+swapfile
 FONTS=( jetbrainsmono-nerd-fonts iosevka-nerd-fonts )
+
+# FLATPAK
+declare -a FLATPAK_PKGS=(
+    "com.spotify.Client"
+    "com.discordapp.Discord"
+    "org.videolan.VLC"
+    # Ajoute tes autres paquets ici
+)
 
 # CARGO
 # Tableau de mapping BIN_MAPPING : [nom_du_paquet]="binaire1 binaire2 ..." si PAQUET = BINAIRE on peut s'en passer
@@ -1133,93 +1142,139 @@ SETUP_SUDO_RS() {
 CUSTOMIZE_KDE_PLASMA() {
     SECTION "Personnalisation de KDE Plasma 6 (Thèmes, Icônes, Curseur)"
 
-    # 1. Base Dark (Look and Feel global)
-    RUN "Passage en mode Dark global"
-    if plasma-apply-lookandfeel -a org.kde.breezedark.desktop >/dev/null 2>&1; then
-        OK "Mode Dark appliqué."
-    else
-        INFO "Mode Dark appliqué (avec avertissements mineurs)."
+    # 1. Base Dark
+    RUN "Passage en mode Dark global" plasma-apply-lookandfeel -a org.kde.breezedark.desktop
+
+    # 2. Color Scheme : Tokyo Night (Mise à jour sécurisée systématique)
+    local color_dir="${HOME}/.local/share/color-schemes"
+    local color_file="${color_dir}/TokyoNight.colors"
+    local tokyo_url="https://raw.githubusercontent.com/Jayy-Dev/Plasma-Tokyo-Night/plasma-6/colorscheme/TokyoNight.colors"
+
+    mkdir -p "${color_dir}"
+
+    # -fsL garantit qu'on ne crée pas de fichier corrompu en cas de 404
+    RUN "Téléchargement de TokyoNight.colors" curl -fsL "${tokyo_url}" -o "${color_file}"
+
+    if [[ ! -s "${color_file}" ]]; then
+        DIE "Le fichier téléchargé est introuvable ou vide. Vérifie ta connexion ou l'URL."
     fi
 
-    # 2. Color Scheme : Tokyo Night
-    RUN "Installation du Color Scheme Tokyo Night"
-    mkdir -p "${HOME}/.local/share/color-schemes"
-    if curl -sL "https://raw.githubusercontent.com/nonetrix/tokyonight-kde/main/color-schemes/TokyoNight.colors" -o "${HOME}/.local/share/color-schemes/TokyoNight.colors"; then
-        kwriteconfig6 --file kdeglobals --group General --key ColorScheme "TokyoNight"
-        plasma-apply-colorscheme TokyoNight >/dev/null 2>&1 || true
-        OK "Tokyo Night installé et défini."
-    else
-        ERR "Échec du téléchargement de TokyoNight."
+    # Détection du nom exact par Plasma (extraction propre du premier mot)
+    local scheme=""
+    if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
+        scheme="$(plasma-apply-colorscheme --list-schemes 2>/dev/null | grep -i 'tokyonight' | awk '{print $2}' | head -n1 || true)"
     fi
+
+    [[ -n "${scheme}" ]] || ERR "Tokyo Night non détecté par KDE Plasma ! Faudra faire manuellement..."
+
+    RUN "Application du color scheme ${scheme}" plasma-apply-colorscheme "${scheme}"
+    kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}"
 
     # 3. Icônes : Tela Dark
-    RUN "Installation des icônes Tela Dark"
     local temp_tela
     temp_tela=$(mktemp -d)
-    if git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"; then
-        bash "${temp_tela}/tela/install.sh" -d "${HOME}/.local/share/icons" >/dev/null 2>&1
-        kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark"
-        OK "Icônes Tela Dark installées."
-    else
-        ERR "Échec du clonage de Tela-icon-theme."
-    fi
+    RUN "Clonage des icônes Tela Dark" git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
+    RUN "Installation des icônes Tela Dark" bash "${temp_tela}/tela/install.sh" -d "${HOME}/.local/share/icons"
+    kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark"
     rm -rf "${temp_tela}"
 
     # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
-    RUN "Installation du curseur Bibata Lavender"
     mkdir -p "${HOME}/.local/share/icons"
     local temp_cursor
     temp_cursor=$(mktemp -d)
-    if curl -sL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"; then
-        unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
-        kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
+    RUN "Téléchargement du curseur Bibata Lavender" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
+    RUN "Extraction du curseur" unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
+    kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
 
-        # Pointeur par défaut pour compatibilité GTK
-        mkdir -p "${HOME}/.icons/default"
-        cat <<EOF > "${HOME}/.icons/default/index.theme"
-[Icon Theme]
-Inherits=catppuccin-mocha-lavender-cursors
-EOF
-        OK "Curseur Bibata Lavender configuré."
-    else
-        ERR "Échec du téléchargement du curseur."
-    fi
+    # Pointeur par défaut pour compatibilité GTK
+    mkdir -p "${HOME}/.icons/default"
+    echo -e "[Icon Theme]\nInherits=catppuccin-mocha-lavender-cursors" > "${HOME}/.icons/default/index.theme"
+    OK "Curseur de secours (GTK fallback) configuré."
     rm -rf "${temp_cursor}"
 
     # 5. Rafraîchissement optionnel si session graphique active
     if pgrep plasmashell > /dev/null 2>&1; then
-        RUN "Redémarrage de plasmashell"
-        systemctl --user restart plasma-plasmashell.service >/dev/null 2>&1 || true
-        OK "Session Plasma rafraîchie."
+        RUN "Redémarrage de plasmashell" systemctl --user restart plasma-plasmashell.service
     fi
-}
 
+    OK "Personnalisation KDE (TokyoNight, Tela, Bibata) terminée."
+}
 
 # ─── 15. Plasma-login-manager à la place de SDDM ───────────────────────────────
 REPLACE_SDDM_WITH_PLM() {
-    SECTION "Remplacement de SDDM par Plasma Login Manager"
+    SECTION "Préparation de Plasma Login Manager"
 
-    # Vérification que plasma-login-manager est bien installé
     if ! rpm -q plasma-login-manager >/dev/null 2>&1; then
         RUN "Installation de plasma-login-manager" sudo dnf install -y plasma-login-manager kcm-plasmalogin
     else
-        OK "plasma-login-manager est déjà installé."
+        OK "plasma-login-manager déjà installé."
     fi
 
-    # Désactivation de SDDM s'il est actif/activé
-    if systemctl is-enabled sddm.service >/dev/null 2>&1; then
-        RUN "Désactivation du service SDDM" sudo systemctl disable sddm.service
+    if systemctl is-enabled --quiet sddm.service 2>/dev/null; then
+        RUN "Désactivation de SDDM pour le prochain boot" sudo systemctl disable sddm.service
     else
-        INFO "SDDM n'est pas activé, rien à faire."
+        INFO "SDDM déjà désactivé."
     fi
 
-    # Activation forcée de plasmalogin (remplace automatiquement le lien display-manager.service)
-    RUN "Activation du service plasmalogin" sudo systemctl enable --force plasmalogin.service
-
-    # Optionnel : Désinstallation propre de SDDM pour faire le ménage
-    if rpm -q sddm >/dev/null 2>&1; then
-        RUN "Suppression du paquet sddm" sudo dnf remove -y sddm
+    if systemctl is-enabled --quiet plasmalogin.service 2>/dev/null; then
+        OK "plasmalogin.service déjà activé."
+    else
+        RUN "Activation de Plasma Login Manager pour le prochain boot" sudo systemctl enable --force plasmalogin.service
     fi
+
+}
+
+# ─── 16. Flatpak ───────────────────────────────────────────────────────────────
+FLATPAK() {
+    SECTION "Configuration de Flatpak, Flathub et Theming"
+
+    # 1. Vérification et installation de Flatpak
+    if ! command -v flatpak >/dev/null 2>&1; then
+        RUN "Installation de Flatpak" sudo dnf install -y flatpak
+    else
+        OK "Flatpak est déjà installé."
+    fi
+
+    # 2. Ajout de Flathub s'il n'existe pas
+    RUN "Ajout du dépôt Flathub" sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+    # 3. Activation de Flathub sans filtre
+    RUN "Activation complète de Flathub" sudo flatpak remote-modify --no-filter --enable flathub
+
+    # 4. Vérification et suppression du dépôt Fedora
+    if flatpak remotes --columns=name | grep -q "^fedora$"; then
+        RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak remote-delete --force fedora
+    else
+        OK "Le dépôt Fedora Flatpak n'est pas présent."
+    fi
+
+    # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
+    if [[ ${#FLATPAK_PKGS[@]} -gt 0 ]]; then
+        for pkg in "${FLATPAK_PKGS[@]}"; do
+            if flatpak info "${pkg}" >/dev/null 2>&1; then
+                OK "Flatpak '${pkg}' est déjà installé."
+            else
+                RUN "Installation de ${pkg}" sudo flatpak install -y flathub "${pkg}"
+            fi
+        done
+    else
+        INFO "Aucun paquet Flatpak à installer."
+    fi
+
+    # 6. Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
+    RUN "Application du thème (Tokyo Night, Tela, Bibata) aux Flatpaks" \
+    sudo flatpak override \
+        --filesystem="${HOME}/.local/share/icons:ro" \
+        --filesystem="${HOME}/.local/share/themes:ro" \
+        --filesystem="${HOME}/.icons:ro" \
+        --filesystem="xdg-config/gtk-3.0:ro" \
+        --filesystem="xdg-config/gtk-4.0:ro" \
+        --env="GTK_THEME=TokyoNight" \
+        --env="ICON_THEME=Tela-dark" \
+        --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
+
+    # 7. Petit nettoyage des runtimes inutilisés
+    RUN "Nettoyage des runtimes Flatpak orphelins" sudo flatpak uninstall --unused -y
 }
 
 ##########################################################################################################################
