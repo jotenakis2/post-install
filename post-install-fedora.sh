@@ -22,7 +22,7 @@
 # ─── 13. Configuration sudo-rs ─────────────────────────────────────────────────
 
 
-readonly VER=2.5
+readonly VER=2.6
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -622,15 +622,15 @@ SETUP_DOTFILES() {
 
     # Vérification si déjà installé ou à mettre à jour
     if command -v oh-my-posh >/dev/null 2>&1; then
-        RUN "Mise à jour de Oh My Posh" oh-my-posh upgrade >/dev/null 2>&1
-        OK "Oh My Posh est à jour."
+        RUN "Mise à jour de Oh-My-Posh" oh-my-posh upgrade >/dev/null 2>&1
+        OK "Oh-My-Posh est à jour."
     else
-        RUN "Téléchargement de Oh My Posh (${omp_target})"
+        RUN "Téléchargement de Oh-My-Posh (${omp_target})"
         if curl -sLo "${omp_bin}" "${omp_url}"; then
             chmod +x "${omp_bin}"
-            OK "Oh My Posh installé dans ${omp_bin}."
+            OK "Oh-My-Posh installé dans ${omp_bin}."
         else
-            DIE "Échec du téléchargement de Oh My Posh."
+            DIE "Échec du téléchargement de Oh-My-Posh."
         fi
     fi
 
@@ -1174,19 +1174,19 @@ CUSTOMIZE_KDE_PLASMA() {
     RUN "Téléchargement de TokyoNight.colors" curl -fsL "${tokyo_url}" -o "${color_file}"
 
     if [[ ! -s "${color_file}" ]]; then
-        DIE "Le fichier téléchargé est introuvable ou vide. Vérifie ta connexion ou l'URL."
+        ERR "Le fichier téléchargé est introuvable ou vide. Faudra appliquer le schéma de couleurs manuellement..."
+    else
+        # Détection du nom exact par Plasma (extraction propre du premier mot)
+        local scheme=""
+        if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
+            scheme="$(plasma-apply-colorscheme --list-schemes 2>/dev/null | grep -i 'tokyonight' | awk '{print $2}' | head -n1 || true)"
+        fi
+
+        [[ -n "${scheme}" ]] || ERR "Tokyo Night non détecté par KDE Plasma ! Faudra appliquer manuellement..."
+
+        RUN "Application du color scheme ${scheme}" plasma-apply-colorscheme "${scheme}"
+        kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}"
     fi
-
-    # Détection du nom exact par Plasma (extraction propre du premier mot)
-    local scheme=""
-    if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
-        scheme="$(plasma-apply-colorscheme --list-schemes 2>/dev/null | grep -i 'tokyonight' | awk '{print $2}' | head -n1 || true)"
-    fi
-
-    [[ -n "${scheme}" ]] || ERR "Tokyo Night non détecté par KDE Plasma ! Faudra faire manuellement..."
-
-    RUN "Application du color scheme ${scheme}" plasma-apply-colorscheme "${scheme}"
-    kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}"
 
     # 3. Icônes : Tela Dark
     local temp_tela
@@ -1243,50 +1243,50 @@ CUSTO_KDE_LAYOUT() {
         }
     "
 
-    # 3. Retirer Discover du Task Manager
-    RUN "Nettoyage des favoris (Retrait de Discover)" plasma_eval "
-        var allPanels = panels();
-        function cleanDiscover(containment) {
-            var widgets = containment.widgets();
-            for (var i = 0; i < widgets.length; i++) {
-                if (widgets[i].type === 'org.kde.plasma.icontasks') {
-                    var launchers = widgets[i].currentConfigGroup[0] ? widgets[i].readConfig('launchers', '') : '';
-                    if (launchers.indexOf('org.kde.discover.desktop') !== -1) {
-                        var newLaunchers = launchers.replace(/,*applications:org\.kde\.discover\.desktop,*/, ',');
-                        newLaunchers = newLaunchers.replace(/(^,|,$)/g, '');
-                        widgets[i].writeConfig('launchers', newLaunchers);
-                    }
-                }
-            }
-        }
-        for (var p = 0; p < allPanels.length; p++) cleanDiscover(allPanels[p]);
-    "
+    # # 3. Retirer Discover du Task Manager
+    # RUN "Nettoyage des favoris (Retrait de Discover)" plasma_eval "
+    #     var allPanels = panels();
+    #     function cleanDiscover(containment) {
+    #         var widgets = containment.widgets();
+    #         for (var i = 0; i < widgets.length; i++) {
+    #             if (widgets[i].type === 'org.kde.plasma.icontasks') {
+    #                 var launchers = widgets[i].currentConfigGroup[0] ? widgets[i].readConfig('launchers', '') : '';
+    #                 if (launchers.indexOf('org.kde.discover.desktop') !== -1) {
+    #                     var newLaunchers = launchers.replace(/,*applications:org\.kde\.discover\.desktop,*/, ',');
+    #                     newLaunchers = newLaunchers.replace(/(^,|,$)/g, '');
+    #                     widgets[i].writeConfig('launchers', newLaunchers);
+    #                 }
+    #             }
+    #         }
+    #     }
+    #     for (var p = 0; p < allPanels.length; p++) cleanDiscover(allPanels[p]);
+    # "
 
-    # 4. Installation et Configuration du Wallpaper Wallhaven
-    local wallhaven_dir="${HOME}/.local/share/plasma/wallpapers/org.kde.wallhaven"
-    if [[ ! -d "${wallhaven_dir}" ]]; then
-        local temp_wall
-        temp_wall=$(mktemp -d)
-        RUN "Clonage du plugin Wallpaper Wallhaven Reborn" git clone --quiet https://github.com/Blacksuan19/plasma-wallpaper-wallhaven-reborn.git "${temp_wall}/wallhaven"
-        RUN "Installation du plugin Wallhaven" kpackagetool6 --type Plasma/Wallpaper --install "${temp_wall}/wallhaven/package/"
-        rm -rf "${temp_wall}"
-    else
-        OK "Le plugin Wallhaven est déjà installé."
-    fi
-
-    # Application du fond d'écran Wallhaven
-    RUN "Application du fond d'écran Wallhaven (paysages)" plasma_eval "
-        var allDesktops = desktops();
-        for (var i = 0; i < allDesktops.length; i++) {
-            var d = allDesktops[i];
-            d.wallpaperPlugin = 'org.kde.wallhaven';
-            d.currentConfigGroup = ['Wallpaper', 'org.kde.wallhaven', 'General'];
-            d.writeConfig('query', 'landscape, mountains, rivers, snow');
-            d.writeConfig('sfw', true);
-            d.writeConfig('sketchy', false);
-            d.writeConfig('resolutions', '1920x1080,2560x1440,3840x2160');
-        }
-    "
+    # # 4. Installation et Configuration du Wallpaper Wallhaven
+    # local wallhaven_dir="${HOME}/.local/share/plasma/wallpapers/org.kde.wallhaven"
+    # if [[ ! -d "${wallhaven_dir}" ]]; then
+    #     local temp_wall
+    #     temp_wall=$(mktemp -d)
+    #     RUN "Clonage du plugin Wallpaper Wallhaven Reborn" git clone --quiet https://github.com/Blacksuan19/plasma-wallpaper-wallhaven-reborn.git "${temp_wall}/wallhaven"
+    #     RUN "Installation du plugin Wallhaven" kpackagetool6 --type Plasma/Wallpaper --install "${temp_wall}/wallhaven/package/"
+    #     rm -rf "${temp_wall}"
+    # else
+    #     OK "Le plugin Wallhaven est déjà installé."
+    # fi
+    #
+    # # Application du fond d'écran Wallhaven
+    # RUN "Application du fond d'écran Wallhaven (paysages)" plasma_eval "
+    #     var allDesktops = desktops();
+    #     for (var i = 0; i < allDesktops.length; i++) {
+    #         var d = allDesktops[i];
+    #         d.wallpaperPlugin = 'org.kde.wallhaven';
+    #         d.currentConfigGroup = ['Wallpaper', 'org.kde.wallhaven', 'General'];
+    #         d.writeConfig('query', 'landscape, mountains, rivers, snow');
+    #         d.writeConfig('sfw', true);
+    #         d.writeConfig('sketchy', false);
+    #         d.writeConfig('resolutions', '1920x1080,2560x1440,3840x2160');
+    #     }
+    # "
 
     # 5. Rafraîchir l'interface
     RUN "Application des modifications Layout" busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell refreshCurrentShell >/dev/null 2>&1
