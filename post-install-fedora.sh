@@ -3,7 +3,7 @@
 #gstreamer1-plugins-base gstreamer1-plugins-good
 #gstreamer1-plugins-bad-freeworld
 
-readonly VER=1.5
+readonly VER=1.7
 set -euo pipefail
 
 # ─── Variables globales ────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ MAIN() {
     SETUP_SYSTEM
     SETUP_SUDO_RS
 
-    printf "\n%b%b  ✓ Terminé — reboot fortement recommandé.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
+    printf "\n%b%b  ✓ Terminé — rebooter pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
 }
 
@@ -90,7 +90,7 @@ INIT() {
     export GOPATH="${XDG_DATA_HOME:-${HOME}/.local/share}/go"
     export GOBIN="${XDG_BIN_HOME:-${HOME}/.local/bin}"
 
-    mkdir -p "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "/usr/local/bin"
+    mkdir -p "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "/usr/local/bin" "${HOME}/.local/share/zsh"
 
     # PATH
     export PATH="${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
@@ -215,40 +215,40 @@ ADD_REPOS() {
     else
         OK "RPM Fusion free déjà présent."
     fi
-
+    SUDOPASS
     if ! rpm -q rpmfusion-nonfree-release &>/dev/null; then
         RUN "RPM Fusion nonfree (f${fedora_ver})" sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"${fedora_ver}".noarch.rpm
         RUN "RPM Fusion nonfree tainted (f${fedora_ver})" sudo dnf install -y rpmfusion-nonfree-release-tainted
     else
         OK "RPM Fusion nonfree déjà présent."
     fi
-
+    SUDOPASS
     if rpm -q rpmfusion-free-appstream-data &>/dev/null; then
         RUN "suppression métadonnées appstream free" sudo dnf remove -y rpmfusion-free-appstream-data
     fi
     if rpm -q rpmfusion-nonfree-appstream-data &>/dev/null; then
         RUN "suppression métadonnées appstream nonfree" sudo dnf remove -y rpmfusion-nonfree-appstream-data
     fi
-
+    SUDOPASS
     if ! rpm -q terra-release &>/dev/null; then
         # shellcheck disable=SC2016
         RUN "Terra (f${fedora_ver})" sudo dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
     else
         OK "Terra déjà présent."
     fi
-
+    SUDOPASS
     if ! dnf copr list 2>/dev/null | grep -q "bigmenpixel/profile-sync-daemon"; then
         RUN "COPR profile-sync-daemon" sudo dnf copr enable -y bigmenpixel/profile-sync-daemon
     else
         OK "COPR profile-sync-daemon déjà présent."
     fi
-
+    SUDOPASS
     if ! dnf repolist 2>/dev/null | grep -q "brave-browser"; then
         RUN "Brave Browser Repo" sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
     else
         OK "Brave Browser Repo est déjà présent."
     fi
-
+    SUDOPASS
     RUN "Rafraîchissement des métadonnées" sudo dnf makecache
 }
 
@@ -339,13 +339,21 @@ INSTALL_RUSTUP() {
 
 # ─── 7. Paquets Cargo ──────────────────────────────────────────────────────────
 INSTALL_CARGO_PACKAGES() {
-    SECTION "Paquets Cargo"
+    SECTION "Paquets Cargo binaires"
 
     # installation de cargo bin install pour installer des binaires depuis crates.io
-    if cargo install --list | grep -q "^cargo-binstall "; then
-        OK "cargo bin-install déjà installé."
+#     if cargo install --list | grep -q "^cargo-binstall "; then
+#         OK "cargo bin-install déjà installé."
+#     else
+#         RUN "Installation de cargo-binstall pour permettre l'installation de paquets binaires" cargo install cargo-binstall
+#     fi
+#
+    # 1. Installation de cargo-binstall sans compilation
+    if ! command -v cargo-binstall &>/dev/null; then
+        RUN "Installation de cargo-binstall (pré-compilé)" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
+        RUN " Lien symbolique : cargo-binstall -> /usr/local/bin" sudo ln -sf "cargo-binstall" "/usr/local/bin/"
     else
-        RUN "Installation cargo-binstall" cargo install cargo-binstall
+        OK "cargo-binstall est déjà installé."
     fi
 
     local cmd
@@ -355,7 +363,7 @@ INSTALL_CARGO_PACKAGES() {
         if cargo install --list | grep -q "^${cmd} "; then
             OK "${cmd} déjà installé."
         else
-            RUN "Installation ${cmd}" cargo binstall "${cmd}"
+            RUN "Installation binaire de ${cmd}" cargo binstall --no-confirm "${cmd}"
         fi
 
         # 2. Création des liens symboliques dans /usr/local/bin
@@ -380,12 +388,12 @@ INSTALL_CARGO_PACKAGES() {
                 fi
 
                 if [[ "${current_target}" != "${src_bin}" ]]; then
-                    RUN "Lien symbolique : ${bin_name} -> /usr/local/bin" sudo ln -sf "${src_bin}" "${dest_link}"
+                    RUN " Lien symbolique : ${bin_name} -> /usr/local/bin" sudo ln -sf "${src_bin}" "${dest_link}"
                 else
-                    OK "Lien symbolique ${bin_name} déjà présent."
+                    OK " Lien symbolique ${bin_name} déjà présent."
                 fi
             else
-                ERR "Binaire introuvable : ${src_bin}"
+                ERR " Binaire introuvable : ${src_bin}"
             fi
         done
     done
@@ -445,6 +453,15 @@ SETUP_DOTFILES() {
         ERR "Le dossier ${DOTFILES_DIR} est introuvable. Stow ignoré."
         return
     fi
+
+    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc")
+    local f
+    for f in "${skel_files[@]}"; do
+        if [[ -f "${HOME}/${f}" && ! -L "${HOME}/${f}" ]]; then
+            RUN "Suppression du fichier système par défaut ${f}" rm -f "${HOME}/${f}"
+        fi
+    done
+
     local pkg name
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
@@ -543,13 +560,11 @@ EOF
     fi
 
     # --- 2.5 SELinux : Autorisation pour systemd-logind ---
-    SECTION "SELinux : Configuration pour le Swapfile"
-
     # 1. On s'assure que le label est déclaré et appliqué (rapide et idempotent)
     if ! sudo semanage fcontext -l | grep -q "^/var/swap(/.\*)?"; then
-        RUN "Déclaration du contexte SELinux (swapfile_t)" sudo semanage fcontext -a -t swapfile_t '/var/swap(/.*)?'
+        RUN "Déclaration du contexte SELinux pour /var/swap (swapfile_t)" sudo semanage fcontext -a -t swapfile_t '/var/swap(/.*)?'
     fi
-    RUN "Application du contexte SELinux" sudo restorecon -RF /var/swap
+    RUN "Application du contexte SELinux pour /var/swap (swapfile_t)" sudo restorecon -RF /var/swap
 
     # 2. On vérifie si notre module SELinux local est déjà installé
     if ! sudo semodule -l | grep -q "^systemd_swap_search$"; then
@@ -566,9 +581,9 @@ require {
 allow systemd_logind_t swapfile_t:dir search;
 EOF
 
-        RUN "Compilation du module SELinux" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
-        RUN "Package du module SELinux" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
-        RUN "Installation du module SELinux" sudo semodule -i "${selinux_tmp}.pp"
+        RUN "Compilation du module SELinux systemd_swap_search" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
+        RUN "Packaging du module SELinux systemd_swap_search" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
+        RUN "Installation du module SELinux systemd_swap_search" sudo semodule -i "${selinux_tmp}.pp"
 
         rm -f "${selinux_tmp}.*"
     else
@@ -591,8 +606,9 @@ EOF
 
         current_cmdline=$(grep '^GRUB_CMDLINE_LINUX=' /etc/default/grub | cut -d'"' -f2 || echo "")
         current_default=$(grep '^GRUB_DEFAULT=' /etc/default/grub | cut -d'=' -f2 || echo "")
+        current_timeout=$(grep '^GRUB_TIMEOUT=' /etc/default/grub | cut -d'=' -f2 || echo "")
 
-        if [[ "${current_cmdline}" != "${target_cmdline}" ]] || [[ "${current_default}" != "menu" ]]; then
+        if [[ "${current_cmdline}" != "${target_cmdline}" ]] || [[ "${current_default}" != "menu" ]] || [[ "${current_timeout}" != "2" ]]; then
             SUDOPASS
             # 1. Sauvegarde originelle qui ne sera jamais écrasée
             if [[ ! -f /etc/default/grub.origin ]]; then
@@ -602,8 +618,14 @@ EOF
             # 2. Sauvegarde de travail (écrasée à chaque modification)
             RUN "Sauvegarde de travail dans /etc/default/grub.bak" sudo cp -a /etc/default/grub /etc/default/grub.bak
 
-            # 3. Application des modifications
-            RUN "Mise à jour de /etc/default/grub" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
+            # 3. Application des modifications (avec gestion de l'absence)
+            RUN "Mise à jour de GRUB_DEFAULT et GRUB_CMDLINE_LINUX" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
+            if grep -q '^GRUB_TIMEOUT=' /etc/default/grub; then
+                RUN "Mise à jour de GRUB_TIMEOUT (2 sec)" sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
+            else
+                RUN "Ajout de GRUB_TIMEOUT=2" sudo bash -c "echo 'GRUB_TIMEOUT=2' >> /etc/default/grub"
+            fi
+
             RUN "Regénération de GRUB" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
         else
             OK "Configuration GRUB déjà à jour."
@@ -790,7 +812,7 @@ EOF
         INFO "Aucun utilisateur avec l'UID 1000 trouvé."
     fi
 
-    # --- 9. sudo/sudo-rs ---
+    # --- 9. sudo/sudo-rs --- => remplacé par SETUP_SUDO_RS
 
     # --- 10. profile-sync-daemon ---
 
@@ -818,7 +840,6 @@ EOF
     # Nettoyage
     rm -rf "${tmp_dir}"
 }
-
 
 # ─── Détection du chargeur d'amorçage ──────────────────────────────────────────
 DETECT_GRUB() {
