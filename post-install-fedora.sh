@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=3.1
+readonly VER=3.2
 # variables globales en MAJ, locales en min
 # fonctions globales en MAJ, locales en min
 # fonctions helpers commencent par _  (_RUN, _SECTION, ...)
 # paramètres customisables définies ci-dessous :
 
-# ─── Variables globales ────────────────────────────────────────────────────────
+# ─── Variables globales ──────────────────────────────────────────────────────────────────────────────────────────────
 
 # url de mon compte git et dossier local de clonage des repos
 MYREPOS="https://codeberg.org/jotenakis"
@@ -192,12 +192,18 @@ SWAP_SIZE=5
 # (couleurs catppuccin mocha pour le terminal ici, loglevel 5 et disable ipv6)
 CMDLINE="loglevel=5 ipv6.disable=1 vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200"
 
-# ─── /Variables globales ───────────────────────────────────────────────────────
+# Position du panneau principal KDE : "top", "bottom", "left", "right" possibles
+KDEPANEL="top"
+
+# ─── /Variables globales ─────────────────────────────────────────────────────────────────────────────────────────────
 
 
 
-# ─── MAIN ──────────────────────────────────────────────────────────────────────
+# ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
+    # intercept errors
+    trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR
+
     # Start
     INITIALIZE
     CHECK_ENV
@@ -218,7 +224,11 @@ MAIN() {
     CLONE_REPOS
     SETUP_SHELL
     SETUP_DOTFILES
-    SETUP_SYSTEM
+    SETUP_ETC
+    SETUP_SWAP
+    SETUP_FSTAB # ajout NFS à faire
+    SETUP_GRUB
+    SETUP_SYSTEMD
     SETUP_FIREWALL
     SETUP_KDE_PLASMA
     SETUP_PLM
@@ -231,79 +241,17 @@ MAIN() {
     sudo rm -f "${SUDOTMP}"
     _HEURE
 }
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#################################################################################################################################
-#################################################################################################################################
-#################################################################################################################################
-
-
-# ─── Init ─────────────────────────────────────────────────────────────
-INITIALIZE() {
-    C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_MAGENTA='' C_CYAN='' C_BOLD=''
-    if [[ -t 1 ]]; then
-        C_RESET='\e[0m'
-        C_BOLD='\e[1m'
-        C_RED='\e[1;31m'
-        C_GREEN='\e[1;32m'
-        C_YELLOW='\e[1;33m'
-        C_MAGENTA='\e[1;35m'
-        C_CYAN='\e[1;36m'
-    fi
-    LOG_DIR="${HOME}/.local/log"
-    LOG_FILE="${LOG_DIR}/post-install-fedora-$(date +%Y%m%d-%H%M%S).log"
-    INSTALL_DIR="${HOME}/.local/bin"
-    # RUST
-    export RUSTUP_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/rustup"
-    export CARGO_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/cargo"
-    # GO
-    export GOPATH="${XDG_DATA_HOME:-${HOME}/.local/share}/go"
-    export GOBIN="${XDG_BIN_HOME:-${HOME}/.local/bin}"
-
-    mkdir -p "${GIT_DIR}" "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh"
-    _PASS
-    sudo mkdir -p "/usr/local/bin"
-
-    # Préparation d'une session sudo confortable et longue pour l'installation
-    SUDOTMP="/etc/sudoers-rs.d/99_POST-INSTALL" # pour delete à la fin
-    local sudotmp="/etc/sudoers.d/99_POST-INSTALL"
-    sudo mkdir -p /etc/sudoers.d
-    sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=180' > '${sudotmp}'"
-    sudo chmod 0440 "${sudotmp}"
-
-    # PATH
-    export PATH="${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
-
-    SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-
-    #
-    _HEURE
-    _BANNER
-}
-# ─── Helpers divers _XXX ─────────────────────────────────────────────────────
+########################################################################################################################
+# FONCTIONS HELPERS                                                                                                    #
+########################################################################################################################
 _BANNER() {
-    printf "%b%b\n  ╔════════════════════════════════════╗\n  ║      ${SCRIPTNAME} (${VER})     ║\n  ╚════════════════════════════════════╝%b\n  Log : %s\n\n" "${C_CYAN}" "${C_BOLD}" "${C_MAGENTA}" "${LOG_FILE}"
+    printf "%b%b\n  ╔════════════════════════════════════╗\n  ║      ${SCRIPTNAME} (${VER})   ║\n  ╚════════════════════════════════════╝%b\n  Log : %s\n\n" "${C_CYAN}" "${C_BOLD}" "${C_MAGENTA}" "${LOG_FILE}"
     echo -ne "${C_RESET}"
 }
 _HEURE() {
@@ -391,10 +339,57 @@ _DETECT_GRUB() {
     echo "false"
     return 0
 }
-# interception erreurs
-trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR
+########################################################################################################################
 
-# ─── 0. Vérification shell ─────────────────────────────────────────────────────
+
+
+
+########################################################################################################################
+# FONCTIONS PRINCIPALES                                                                                                #
+########################################################################################################################
+INITIALIZE() {
+    C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_MAGENTA='' C_CYAN='' C_BOLD=''
+    if [[ -t 1 ]]; then
+        C_RESET='\e[0m'
+        C_BOLD='\e[1m'
+        C_RED='\e[1;31m'
+        C_GREEN='\e[1;32m'
+        C_YELLOW='\e[1;33m'
+        C_MAGENTA='\e[1;35m'
+        C_CYAN='\e[1;36m'
+    fi
+    LOG_DIR="${HOME}/.local/log"
+    LOG_FILE="${LOG_DIR}/post-install-fedora-$(date +%Y%m%d-%H%M%S).log"
+    INSTALL_DIR="${HOME}/.local/bin"
+    # RUST
+    export RUSTUP_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/rustup"
+    export CARGO_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/cargo"
+    # GO
+    export GOPATH="${XDG_DATA_HOME:-${HOME}/.local/share}/go"
+    export GOBIN="${XDG_BIN_HOME:-${HOME}/.local/bin}"
+
+    mkdir -p "${GIT_DIR}" "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh"
+    _PASS
+    sudo mkdir -p "/usr/local/bin"
+
+    # Préparation d'une session sudo confortable et longue pour l'installation
+    SUDOTMP="/etc/sudoers-rs.d/99_POST-INSTALL" # pour delete à la fin
+    local sudotmp="/etc/sudoers.d/99_POST-INSTALL"
+    sudo mkdir -p /etc/sudoers.d
+    sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=180' > '${sudotmp}'"
+    sudo chmod 0440 "${sudotmp}"
+
+    # PATH
+    export PATH="${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
+
+    SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+
+    #
+    _HEURE
+    _BANNER
+}
+
+########################################################################################################################
 CHECK_ENV() {
     _SECTION "Vérification environnement"
 
@@ -416,7 +411,7 @@ CHECK_ENV() {
     _OK "Environnement valide — ${fedora_rel}"
 }
 
-# ─── 1. Suppression paquets indésirables ───────────────────────────────────────
+########################################################################################################################
 REMOVE_RPM_PACKAGES() {
     _SECTION "Suppression paquets indésirables"
 
@@ -450,8 +445,7 @@ REMOVE_RPM_PACKAGES() {
     fi
 }
 
-
-# ─── 2. Dépôts ─────────────────────────────────────────────────────────────────
+########################################################################################################################
 INSTALL_REPOS() {
     _SECTION "Dépôts"
 
@@ -502,7 +496,7 @@ INSTALL_REPOS() {
     _RUN "Rafraîchissement des métadonnées" sudo dnf makecache
 }
 
-# ─── 3. Nerd Fonts ─────────────────────────────────────────────────────────────
+########################################################################################################################
 INSTALL_FONTS() {
     _SECTION "Nerd Fonts"
 
@@ -517,7 +511,7 @@ INSTALL_FONTS() {
     done
 }
 
-# ─── 4. Codecs & Mesa ──────────────────────────────────────────────────────────
+########################################################################################################################
 INSTALL_CODECS() {
     _SECTION "Codecs multimédia"
 
@@ -527,9 +521,6 @@ INSTALL_CODECS() {
     else
         _OK "ffmpeg (RPM Fusion) déjà présent."
     fi
-
-    #_RUN "Groupe multimedia" sudo dnf groupupdate -y multimedia --setopt='install_weak_deps=False' --exclude=PackageKit-gstreamer-plugin
-    #_RUN "Groupe sound-and-video" sudo dnf groupupdate -y sound-and-video
 
     local gpu_vendor
     gpu_vendor=$(lspci | grep -iE 'VGA|3D' | head -1 | tr '[:upper:]' '[:lower:]')
@@ -552,7 +543,7 @@ INSTALL_CODECS() {
     fi
 }
 
-# ─── 5. Paquets DNF ────────────────────────────────────────────────────────────
+########################################################################################################################
 INSTALL_RPM_PACKAGES() {
     _SECTION "Paquets RPM"
 
@@ -569,14 +560,69 @@ INSTALL_RPM_PACKAGES() {
 
     if ((${#missing_packages[@]})); then
         _PASS
-        _RUN "Installation des paquets RPM manquants" sudo dnf install -y "${missing_packages[@]}"
-        _OK "Les paquets \"${missing_packages[*]}\" ont été installés."
+        _OK "Paquets manquants : \"${missing_packages[*]}\"."
+        _RUN "Téléchargement des paquets manquants" sudo dnf download "${missing_packages[@]}"
+        _RUN "Installation des paquets manquants depuis le cache" sudo dnf install -y "${missing_packages[@]}"
+       # _RUN "Installation des paquets RPM manquants" sudo dnf install -y "${missing_packages[@]}"
     else
         _INFO "Tous les paquets RPM sont déjà installés."
     fi
 }
 
-# ─── 6. Rustup ─────────────────────────────────────────────────────────────────
+########################################################################################################################
+INSTALL_FLATPAK_PACKAGES() {
+    _SECTION "Configuration/Installation de Flatpak"
+
+    # 1. Vérification et installation de Flatpak
+    if ! command -v flatpak >/dev/null 2>&1; then
+        _RUN "Installation de Flatpak" sudo dnf install -y flatpak
+    else
+        _OK "Flatpak est déjà installé."
+    fi
+
+    # 2. Ajout de Flathub s'il n'existe pas
+    _RUN "Ajout du dépôt Flathub" sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+    # 3. Activation de Flathub sans filtre
+    _RUN "Activation complète de Flathub" sudo flatpak remote-modify --no-filter --enable flathub
+
+    # 4. Vérification et suppression du dépôt Fedora
+    if flatpak remotes --columns=name | grep -q "^fedora$"; then
+        _RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak remote-delete --force fedora
+    else
+        _OK "Le dépôt Fedora Flatpak n'est pas présent."
+    fi
+
+    # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
+    if [[ ${#FLATPAK_PKGS[@]} -gt 0 ]]; then
+        for pkg in "${FLATPAK_PKGS[@]}"; do
+            if flatpak info "${pkg}" >/dev/null 2>&1; then
+                _OK "Flatpak '${pkg}' est déjà installé."
+            else
+                _RUN "Installation de ${pkg}" sudo flatpak install -y flathub "${pkg}"
+            fi
+        done
+    else
+        _INFO "Aucun paquet Flatpak à installer."
+    fi
+
+    # 6. Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
+    _RUN "Application du thème (Tokyo Night, Tela, Bibata) aux Flatpaks" \
+    sudo flatpak override \
+        --filesystem="${HOME}/.local/share/icons:ro" \
+        --filesystem="${HOME}/.local/share/themes:ro" \
+        --filesystem="${HOME}/.icons:ro" \
+        --filesystem="xdg-config/gtk-3.0:ro" \
+        --filesystem="xdg-config/gtk-4.0:ro" \
+        --env="GTK_THEME=TokyoNight" \
+        --env="ICON_THEME=Tela-dark" \
+        --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
+
+    # 7. Petit nettoyage des runtimes inutilisés
+    _RUN "Nettoyage des runtimes Flatpak orphelins" sudo flatpak uninstall --unused -y
+}
+
+########################################################################################################################
 INSTALL_RUST() {
     _SECTION "Toolchain Rust"
 
@@ -587,7 +633,7 @@ INSTALL_RUST() {
     fi
 }
 
-# ─── 7. Paquets Cargo ──────────────────────────────────────────────────────────
+########################################################################################################################
 INSTALL_CARGO_PACKAGES() {
     _SECTION "Paquets Cargo"
 
@@ -651,20 +697,7 @@ INSTALL_CARGO_PACKAGES() {
         "${CARGO_HOME}/bin"
 }
 
-# ─── 8. Outils git  ────────────────────────────────────────────────────────────
-# INSTALL_GIT_TOOLS() {
-#     _SECTION "Outils git"
-#
-#     local tool url
-#
-#     for tool in "${!GIT_TOOLS[@]}"; do
-#         url="${GIT_TOOLS[${tool}]}"
-#         _RUN "Installation ${tool}" bash -c "curl -fsSL '${url}' -o '${INSTALL_DIR}/${tool}' && chmod +x '${INSTALL_DIR}/${tool}'"
-#         _OK "${tool} → ${INSTALL_DIR}/${tool}"
-#     done
-# }
-
-# ─── 8. Clonage des dépôts Git personnels ─────────────────────────────────────
+########################################################################################################################
 CLONE_REPOS() {
     _SECTION "Clonage et mise à jour des dépôts Git personnels"
 
@@ -697,7 +730,7 @@ CLONE_REPOS() {
     _OK "Tous les dépôts Git sont à jour."
 }
 
-# ─── 9. Shell par défaut ───────────────────────────────────────────────────────
+########################################################################################################################
 SETUP_SHELL() {
     _SECTION "Shell (zsh, oh-my-posh, symlinks)"
 
@@ -771,7 +804,7 @@ SETUP_SHELL() {
 
 }
 
-# ─── 10. Dotfiles ──────────────────────────────────────────────────────────────
+########################################################################################################################
 SETUP_DOTFILES() {
     _SECTION "Dotfiles"
     if [[ ! -d "${DOTFILES_DIR}" ]]; then
@@ -798,27 +831,14 @@ SETUP_DOTFILES() {
 
 }
 
-# ─── 11. Configuration Système & Optimisations ─────────────────────────────────
-SETUP_SYSTEM() {
-    _SECTION "Configuration Système (Réseau, Swap, GRUB, Sysctl, Fstab, Brave, Chrony)"
-    # --- 1. NetworkManager & systemd-resolved ---
-    # --- 2. Swapfile BTRFS / Ext4 / XFS ---
-        # --- 2.5 SELinux : Autorisation pour systemd-logind ---
-    # --- 3. Configuration GRUB ---
-    # --- 4. Optimisations Kernel (Sysctl) ---
-    # --- 5. Optimisations Fstab (noatime, lazytime) ---
-    # --- 6. Configuration Brave Browser (Policies debloat) ---
-    # --- 7. Configuration Chrony (IPv4 only) ---
-    # --- 8. Groupe libvirt ---
-    # --- 9. sudo/sudo-rs --- => remplacé par SETUP_SUDO_RS
-    # --- 10. profile-sync-daemon --- A FAIRE
-    # --- 11. services systemd ---
-    # --- 12. dnf.conf ---
+########################################################################################################################
+SETUP_ETC() {
+    _SECTION "Configuration Système (/etc)"
 
     local tmp_dir
     tmp_dir=$(mktemp -d)
 
-    # --- 1. NetworkManager & systemd-resolved ---
+    # --- NetworkManager & systemd-resolved ---
     local nm_dns_conf resolved_10_conf
     nm_dns_conf=$'[main]\ndns=systemd-resolved\n'
     resolved_10_conf=$'[Resolve]\nLLMNR=no\n'
@@ -835,86 +855,109 @@ SETUP_SYSTEM() {
     _RUN "Redémarrage NetworkManager & systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
 
 
-    # --- 2. Swapfile BTRFS / Ext4 / XFS ---
-    local target_size=$(( SWAP_SIZE * 1024 * 1024 * 1024))
-    local recreate_swap=false
+    # --- Optimisations Kernel (Sysctl) ---
+    local sysctlfile sysctl_header full_sysctl_content
+    sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
+    sysctl_header="# ========================================================================
+# WARNING: Do not modify this file!
+# It is automatically generated and managed by ${SCRIPTNAME}.
+#
+# To override these settings, create a new drop-in file with a
+# higher priority number (e.g., /etc/sysctl.d/99-custom.conf).
+# ======================================================================="
+    readonly sysctlfile sysctl_header
+    # on concatène le header et la variable globale SYSCTL_CONF
+    full_sysctl_content="${sysctl_header}
+    ${SYSCTL_CONF}"
 
-    if [[ -f "/var/swap/swapfile" ]]; then
-        local current_size
-        current_size=$(sudo stat -c %s /var/swap/swapfile 2>/dev/null || echo 0)
-
-        if [[ "${current_size}" -ne "${target_size}" ]]; then
-            _INFO "Swapfile existant mais taille différente (${current_size} octets). Recréation..."
-            sudo swapoff /var/swap/swapfile 2>/dev/null || true
-            sudo rm -f /var/swap/swapfile
-            recreate_swap=true
-        else
-            _OK "Swapfile existant et à la bonne taille (20GiB)."
-        fi
+    if [[ -f "${sysctlfile}" ]] && echo "${full_sysctl_content}" | sudo cmp -s - "${sysctlfile}"; then
+        _OK "Configuration noyau déjà à jour (${sysctlfile})."
     else
-        recreate_swap=true
-    fi
-
-    if [[ "${recreate_swap}" == "true" ]]; then
-        local fs_type
-        fs_type=$(stat -f -c %T /var)
-
         _PASS
-        sudo mkdir -p /var/swap
-        if [[ "${fs_type}" == "btrfs" ]]; then
-            if ! sudo btrfs subvolume show /var/swap >/dev/null 2>&1; then
-                _RUN "Création du sous-volume BTRFS /var/swap" sudo btrfs subvolume create /var/swap
-            else
-                _OK "Sous-volume BTRFS /var/swap déjà existant."
-            fi
-            _RUN "Création du swapfile BTRFS (${SWAP_SIZE}GiB)" sudo btrfs filesystem mkswapfile --size "${SWAP_SIZE}g" /var/swap/swapfile
+        sudo mkdir -p "/etc/sysctl.d/"
+        _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
+        _RUN "Application des paramètres." sudo sysctl -p "${sysctlfile}"
+    fi
+
+    # --- Configuration Brave Browser (Policies debloat) ---
+    local brave_policy_file full_brave_policies
+    brave_policy_file="/etc/brave/policies/managed/brave_debullshitinator-policies.json"
+    full_brave_policies=$(echo "${BRAVE_POLICIES}" | sed "1s/{/{\n    \"_warning\": \"Do not modify this file! It is managed by ${SCRIPTNAME}.\",/")
+    readonly brave_policy_file full_brave_policies
+
+    if [[ -f "${brave_policy_file}" ]] && echo "${full_brave_policies}" | sudo cmp -s - "${brave_policy_file}"; then
+        _OK "Configuration policies debloat Brave déjà à jour (${brave_policy_file})."
+    else
+        _PASS
+        sudo mkdir -p "/etc/brave/policies/managed/"
+        _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
+    fi
+
+    # --- Configuration Chrony (IPv4 only) ---
+    local chrony_file chrony_content
+    chrony_file="/etc/sysconfig/chronyd"
+    chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
+    readonly chrony_file chrony_content
+
+    if [[ -f "${chrony_file}" ]] && echo "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
+        _OK "Configuration chronyd déjà à jour."
+    else
+        _PASS
+        _RUN "Application de la configuration chronyd" sudo install -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
+        _RUN "Redémarrage du service chronyd" sudo systemctl try-restart chronyd
+    fi
+
+     # --- Groupe libvirt ---
+    local main_user
+    main_user=${USER}
+
+    if getent group libvirt >/dev/null 2>&1; then
+        if id -nG "${main_user}" | grep -qw "libvirt"; then
+            _OK "L'utilisateur ${main_user} est déjà dans le groupe libvirt."
         else
-            _RUN "Allocation du swapfile classique (${SWAP_SIZE}GiB)" sudo fallocate -l "${SWAP_SIZE}G" /var/swap/swapfile
-            sudo chmod 0600 /var/swap/swapfile
-            _RUN "Formatage du swapfile" sudo mkswap /var/swap/swapfile
+            _PASS
+            _RUN "Ajout de l'utilisateur ${main_user} au groupe libvirt" sudo usermod -aG libvirt "${main_user}"
         fi
-    fi
-
-    if ! swapon --show | grep -q "/var/swap/swapfile"; then
-        _RUN "Activation du swap" sudo swapon /var/swap/swapfile
     else
-        _OK "Swap déjà actif."
+        _INFO "Le groupe libvirt n'existe pas. Ajout ignoré."
     fi
 
-    if ! grep -q "/var/swap/swapfile" /etc/fstab; then
-        if [[ ! -f /etc/fstab.origin ]]; then
-            _RUN "Sauvegarde originale de /etc/fstab" sudo cp -a /etc/fstab /etc/fstab.origin
+    # --- dnf.conf ---
+    local dnf_content
+    dnf_content=$'[main]\n\
+    defaultyes = true\n\
+    max_parallel_downloads = 10\n'
+
+    if [[ -f /etc/dnf/dnf.conf ]] && echo "${dnf_content}" | sudo cmp -s - /etc/dnf/dnf.conf; then
+        _OK "Configuration DNF déjà à jour."
+    else
+        _PASS
+        sudo mkdir -p /etc/dnf
+        _RUN "Déploiement de la configuration de DNF" sudo bash -c "echo '${dnf_content}' | install -m 644 -o root -g root /dev/stdin /etc/dnf/dnf.conf"
+    fi
+
+
+
+    # Nettoyage
+    rm -rf "${tmp_dir}"
+}
+
+########################################################################################################################
+SETUP_SYSTEMD(){
+    local service
+    local description
+    for service in "${!SERVICES_TO_DISABLE[@]}"; do
+        description="${SERVICES_TO_DISABLE[${service}]}"
+        if systemctl is-enabled --quiet "${service}" 2>/dev/null; then
+            _RUN "Désactivation du ${description}" sudo systemctl disable --now "${service}"
+        else
+            _INFO "Le ${description} est déjà désactivé."
         fi
-        _RUN "Ajout du swap à /etc/fstab" sudo bash -c 'echo "/var/swap/swapfile none swap defaults 0 0" >> /etc/fstab'
-    else
-        _OK "Swap déjà présent dans /etc/fstab."
-    fi
+    done
+}
 
-    # --- 2.5 SELinux : Autorisation pour systemd-logind ---
-    # 1. On s'assure que le label est déclaré et appliqué (rapide et idempotent)
-    if ! sudo semanage fcontext -l | grep -q "^/var/swap(/.\*)?"; then
-        _RUN "Déclaration du contexte SELinux pour /var/swap (swapfile_t)" sudo semanage fcontext -a -t swapfile_t '/var/swap(/.*)?'
-    fi
-    _RUN "Application du contexte SELinux pour /var/swap (swapfile_t)" sudo restorecon -RF /var/swap
-
-    # 2. On vérifie si notre module SELinux local est déjà installé
-    if ! sudo semodule -l | grep -q "^systemd_swap_search$"; then
-        local selinux_tmp="/tmp/systemd_swap_search"
-
-        # module SElinux pour gérer le swap
-        local selinux_content
-        selinux_content=$'module systemd_swap_search 1.0;\nrequire {\ntype swapfile_t;\ntype systemd_logind_t;\nclass dir search;\n}\n#============= systemd_logind_t ==============\nallow systemd_logind_t swapfile_t:dir search;\n'
-
-        cat <<< "${selinux_content}" > "${selinux_tmp}.te"
-        _RUN "Compilation du module SELinux systemd_swap_search" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
-        _RUN "Packaging du module SELinux systemd_swap_search" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
-        _RUN "Installation du module SELinux systemd_swap_search" sudo semodule -i "${selinux_tmp}.pp"
-
-        rm -f "${selinux_tmp}.*"
-    else
-        _OK "Le module SELinux 'systemd_swap_search' est déjà actif."
-    fi
-
+########################################################################################################################
+SETUP_GRUB(){
     # --- 3. Configuration GRUB ---
     local is_grub
     is_grub=$(_DETECT_GRUB)
@@ -957,32 +1000,45 @@ SETUP_SYSTEM() {
     else
         _ERR "GRUB n'a pas été détecté, je ne change rien au bootloader."
     fi
+}
 
-    # --- 4. Optimisations Kernel (Sysctl) ---
-    local sysctlfile sysctl_header full_sysctl_content
-    sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
-    sysctl_header="# ========================================================================
-# WARNING: Do not modify this file!
-# It is automatically generated and managed by ${SCRIPTNAME}.
-#
-# To override these settings, create a new drop-in file with a
-# higher priority number (e.g., /etc/sysctl.d/99-custom.conf).
-# ======================================================================="
-    readonly sysctlfile sysctl_header
-    # on concatène le header et la variable globale SYSCTL_CONF
-    full_sysctl_content="${sysctl_header}
-    ${SYSCTL_CONF}"
+########################################################################################################################
+SETUP_FIREWALL() {
+    _SECTION "Configuration du Pare-feu (Firewalld)"
 
-    if [[ -f "${sysctlfile}" ]] && echo "${full_sysctl_content}" | sudo cmp -s - "${sysctlfile}"; then
-        _OK "Configuration noyau déjà à jour (${sysctlfile})."
-    else
-        _PASS
-        sudo mkdir -p "/etc/sysctl.d/"
-        _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
-        _RUN "Application des paramètres." sudo sysctl -p "${sysctlfile}"
+    # 1. Vérification de l'installation du paquet
+    if ! rpm -q firewalld >/dev/null 2>&1; then
+        _RUN "Installation de firewalld" sudo dnf install -y firewalld
     fi
 
-    # --- 5. Optimisations Fstab (noatime, lazytime) ---
+    # 2. Vérification et activation du service
+    if ! systemctl is-active --quiet firewalld; then
+        _RUN "Démarrage et activation du service firewalld" sudo systemctl enable --now firewalld.service
+    else
+        _INFO "Le service firewalld est déjà actif."
+    fi
+
+    # 3. Configuration des services essentiels
+    local firewall_changed=false
+    local service
+    for service in "${FIREWALL_SERVICES[@]}"; do
+        if sudo firewall-cmd --permanent --query-service="${service}" >/dev/null 2>&1; then
+            _OK "Le service '${service}' est déjà autorisé."
+        else
+            _RUN "Autorisation du service '${service}'" sudo firewall-cmd --permanent --add-service="${service}"
+            firewall_changed=true
+        fi
+    done
+
+    # 4. Si on a fait au moins une modification, on recharge le pare-feu
+    if [[ "${firewall_changed}" == true ]]; then
+        _RUN "Rechargement des règles de firewalld (${FIREWALL_SERVICES[*]})" sudo firewall-cmd --reload
+    fi
+}
+
+########################################################################################################################
+SETUP_FSTAB(){
+    # --- Optimisations Fstab (noatime, lazytime) ---
     local fstab_changed=false
     true > "${tmp_dir}/fstab.new"
 
@@ -1017,130 +1073,105 @@ SETUP_SYSTEM() {
 
     if [[ "${fstab_changed}" == "true" ]]; then
         _PASS
-        _RUN "Sauvegarde de travail dans /etc/fstab.bak" sudo cp -a /etc/fstab /etc/fstab.bak
+        sudo cp -a /etc/fstab /etc/fstab.bak
         _RUN "Application de noatime/lazytime dans /etc/fstab" sudo cp -a "${tmp_dir}/fstab.new" /etc/fstab
         _RUN "Rechargement du démon systemd" sudo systemctl daemon-reload
     else
         _OK "Les options noatime/lazytime sont déjà présentes dans /etc/fstab."
     fi
-
-
-    # --- 6. Configuration Brave Browser (Policies debloat) ---
-    local brave_policy_file full_brave_policies
-    brave_policy_file="/etc/brave/policies/managed/brave_debullshitinator-policies.json"
-    full_brave_policies=$(echo "${BRAVE_POLICIES}" | sed "1s/{/{\n    \"_warning\": \"Do not modify this file! It is managed by ${SCRIPTNAME}.\",/")
-    readonly brave_policy_file full_brave_policies
-
-    if [[ -f "${brave_policy_file}" ]] && echo "${full_brave_policies}" | sudo cmp -s - "${brave_policy_file}"; then
-        _OK "Configuration policies debloat Brave déjà à jour (${brave_policy_file})."
-    else
-        _PASS
-        sudo mkdir -p "/etc/brave/policies/managed/"
-        _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
-    fi
-
-    # --- 7. Configuration Chrony (IPv4 only) ---
-    local chrony_file chrony_content
-    chrony_file="/etc/sysconfig/chronyd"
-    chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
-    readonly chrony_file chrony_content
-
-    if [[ -f "${chrony_file}" ]] && echo "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
-        _OK "Configuration chronyd déjà à jour."
-    else
-        _PASS
-        _RUN "Application de la configuration chronyd" sudo install -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
-        _RUN "Redémarrage du service chronyd" sudo systemctl try-restart chronyd
-    fi
-
-     # --- 8. Groupe libvirt ---
-    local main_user
-    main_user=${USER}
-
-    if getent group libvirt >/dev/null 2>&1; then
-        if id -nG "${main_user}" | grep -qw "libvirt"; then
-            _OK "L'utilisateur ${main_user} est déjà dans le groupe libvirt."
-        else
-            _PASS
-            _RUN "Ajout de l'utilisateur ${main_user} au groupe libvirt" sudo usermod -aG libvirt "${main_user}"
-        fi
-    else
-        _INFO "Le groupe libvirt n'existe pas. Ajout ignoré."
-    fi
-
-    # --- 9. sudo/sudo-rs --- => remplacé par SETUP_SUDO_RS
-
-    # --- 10. profile-sync-daemon ---
-
-    # --- 11. services systemd ---
-    local service
-    local description
-    for service in "${!SERVICES_TO_DISABLE[@]}"; do
-        description="${SERVICES_TO_DISABLE[${service}]}"
-        if systemctl is-enabled --quiet "${service}" 2>/dev/null; then
-            _RUN "Désactivation du ${description}" sudo systemctl disable --now "${service}"
-        else
-            _INFO "Le ${description} est déjà désactivé."
-        fi
-    done
-
-    # --- 12. dnf.conf ---
-    local dnf_content
-    dnf_content=$'[main]\n\
-    defaultyes = true\n\
-    max_parallel_downloads = 10\n'
-
-    if [[ -f /etc/dnf/dnf.conf ]] && echo "${dnf_content}" | sudo cmp -s - /etc/dnf/dnf.conf; then
-        _OK "Configuration DNF déjà à jour."
-    else
-        _PASS
-        sudo mkdir -p /etc/dnf
-        _RUN "Déploiement de la configuration de DNF" sudo bash -c "echo '${dnf_content}' | install -m 644 -o root -g root /dev/stdin /etc/dnf/dnf.conf"
-    fi
-
-
-    # --- 13. NFS mount ---
-
-
-    # Nettoyage
-    rm -rf "${tmp_dir}"
 }
 
-# ─── 12. Configuration Firewalld ---------──────────────────────────────────────
-SETUP_FIREWALL() {
-    _SECTION "Configuration du Pare-feu (Firewalld)"
+########################################################################################################################
+SETUP_SWAP(){
+    local target_size=$(( SWAP_SIZE * 1024 * 1024 * 1024))
+    local recreate_swap=false
+    local swapdir="/var/swap"
 
-    # 1. Vérification de l'installation du paquet
-    if ! rpm -q firewalld >/dev/null 2>&1; then
-        _RUN "Installation de firewalld" sudo dnf install -y firewalld
-    fi
+    if [[ -f "${swapdir}/swapfile" ]]; then
+        local current_size
+        current_size=$(sudo stat -c %s "${swapdir}/swapfile" 2>/dev/null || echo 0)
 
-    # 2. Vérification et activation du service
-    if ! systemctl is-active --quiet firewalld; then
-        _RUN "Démarrage et activation du service firewalld" sudo systemctl enable --now firewalld.service
-    else
-        _INFO "Le service firewalld est déjà actif."
-    fi
-
-    # 3. Configuration des services essentiels
-    local firewall_changed=false
-    local service
-    for service in "${FIREWALL_SERVICES[@]}"; do
-        if sudo firewall-cmd --permanent --query-service="${service}" >/dev/null 2>&1; then
-            _OK "Le service '${service}' est déjà autorisé."
+        if [[ "${current_size}" -ne "${target_size}" ]]; then
+            _INFO "${swapdir}/swapfile existant mais taille différente (${current_size} octets). Recréation..."
+            sudo swapoff "${swapdir}/swapfile" 2>/dev/null || true
+            sudo rm -f "${swapdir}/swapfile"
+            recreate_swap=true
         else
-            _RUN "Autorisation du service '${service}'" sudo firewall-cmd --permanent --add-service="${service}"
-            firewall_changed=true
+            _OK "${swapdir}/swapfile existant et à la bonne taille (20GiB)."
         fi
-    done
+    else
+        recreate_swap=true
+    fi
 
-    # 4. Si on a fait au moins une modification, on recharge le pare-feu
-    if [[ "${firewall_changed}" == true ]]; then
-        _RUN "Rechargement des règles de firewalld (${FIREWALL_SERVICES[*]})" sudo firewall-cmd --reload
+    if [[ "${recreate_swap}" == "true" ]]; then
+        local fs_type
+        fs_type=$(stat -f -c %T /var)
+
+        _PASS
+        if [[ "${fs_type}" == "btrfs" ]]; then
+            if [[ -e "${swapdir}" ]]; then
+                if btrfs subvolume show "${swapdir}" >/dev/null 2>&1; then
+                    _OK "Sous-volume BTRFS ${swapdir} existe."
+                else
+                    _WARN "Dossier ${swapdir} existe, suppression..."
+                    sudo rm -rf "${swapdir}"
+                    _RUN "Création du sous-volume BTRFS ${swapdir}" sudo btrfs subvolume create "${swapdir}"
+                fi
+            else
+                _RUN "Création du sous-volume BTRFS ${swapdir}" sudo btrfs subvolume create "${swapdir}"
+            fi
+            _RUN "Création du swapfile BTRFS (${SWAP_SIZE}GiB)" sudo btrfs filesystem mkswapfile --size "${SWAP_SIZE}g" "${swapdir}/swapfile"
+        else
+            sudo mkdir -p "${swapdir}"
+            _RUN "Allocation du swapfile classique (${SWAP_SIZE}GiB)" sudo fallocate -l "${SWAP_SIZE}G" "${swapdir}/swapfile"
+            sudo chmod 0600 "${swapdir}/swapfile"
+            _RUN "Formatage du swapfile" sudo mkswap "${swapdir}/swapfile"
+        fi
+    fi
+
+    if ! swapon --show | grep -q "${swapdir}/swapfile"; then
+        _RUN "Activation du swap" sudo swapon "${swapdir}/swapfile"
+    else
+        _OK "Swap déjà actif."
+    fi
+
+    if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
+        if [[ ! -f /etc/fstab.origin ]]; then
+            sudo cp -a /etc/fstab /etc/fstab.origin
+        fi
+        sudo cp -a /etc/fstab /etc/fstab.bak
+        _RUN "Ajout du swap à /etc/fstab" sudo echo "${swapdir}/swapfile none swap defaults 0 0" >> /etc/fstab
+    else
+        _OK "Swap déjà présent dans /etc/fstab."
+    fi
+
+    # --- 2.5 SELinux : Autorisation pour systemd-logind ---
+    # 1. On s'assure que le label est déclaré et appliqué (rapide et idempotent)
+    if ! sudo semanage fcontext -l | grep -q "^${swapdir}(/.*)?"; then
+        _RUN "Déclaration du contexte SELinux pour ${swapdir}" sudo semanage fcontext -a -t swapfile_t "${swapdir}(/.*)?"
+    fi
+    _RUN "Application du contexte SELinux pour ${swapdir} (swapfile_t)" sudo restorecon -RF "${swapdir}"
+
+    # 2. On vérifie si notre module SELinux local est déjà installé
+    if ! sudo semodule -l | grep -q "^systemd_swap_search$"; then
+        local selinux_tmp="/tmp/systemd_swap_search"
+
+        # module SElinux pour gérer le swap
+        local selinux_content
+        selinux_content=$'module systemd_swap_search 1.0;\nrequire {\ntype swapfile_t;\ntype systemd_logind_t;\nclass dir search;\n}\n#============= systemd_logind_t ==============\nallow systemd_logind_t swapfile_t:dir search;\n'
+
+        cat <<< "${selinux_content}" > "${selinux_tmp}.te"
+        _RUN "Compilation du module SELinux systemd_swap_search" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
+        _RUN "Packaging du module SELinux systemd_swap_search" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
+        _RUN "Installation du module SELinux systemd_swap_search" sudo semodule -i "${selinux_tmp}.pp"
+
+        rm -f "${selinux_tmp}.*"
+    else
+        _OK "Le module SELinux 'systemd_swap_search' est déjà actif."
     fi
 }
 
-# ─── 13. Configuration sudo-rs ─────────────────────────────────────────────────
+########################################################################################################################
 SETUP_SUDO_RS() {
     _SECTION "Configuration sudo-rs et remplacement radical de sudo"
     _PASS
@@ -1241,7 +1272,7 @@ SETUP_SUDO_RS() {
     _OK "sudo-rs est définitivement en place."
 }
 
-# ─── 14. Customisation KDE Plasma ──────────────────────────────────────────────
+########################################################################################################################
 SETUP_KDE_PLASMA() {
     _SECTION "Personnalisation de KDE Plasma 6 (Thèmes & Layout)"
 
@@ -1302,34 +1333,28 @@ SETUP_KDE_PLASMA() {
         _INFO "L'outil balooctl n'est pas installé. Aucune action requise."
     fi
 
-    # déplacement du panneau principal vers le haut
-    if ! pgrep plasmashell > /dev/null 2>&1; then
-        _INFO "plasmashell ne tourne pas. Configuration du layout reportée."
-        return 0
-    fi
-    plasma_eval() {
-        local script="$1"
-        busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s "${script}"
-    }
-    _RUN "Déplacement du panneau vers le haut" plasma_eval "
-        var allPanels = panels();
-        for (var i = 0; i < allPanels.length; i++) {
-            if (allPanels[i].location === 'bottom') {
-                allPanels[i].location = 'top';
-            }
+    # déplacement du panneau principal
+    local target_pos="${KDEPANEL:-top}"
+    if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
+        _INFO "plasmashell ne tourne pas. Configuration du panneau reportée."
+    else
+        plasma_eval() {
+            local script="$1"
+            busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s "${script}"
         }
-    "
-    _RUN "Redémarrage de l'interface Plasma" systemctl --user restart plasma-plasmashell.service
-
-    # 5. Rafraîchissement optionnel si session graphique active
-    if pgrep plasmashell > /dev/null 2>&1; then
+        _RUN "Déplacement du panneau en position ${target_pos}" plasma_eval "
+            var allPanels = panels();
+            for (var i = 0; i < allPanels.length; i++) {
+                allPanels[i].location = \"${target_pos}\";
+                }
+            }
+        "
         _RUN "Redémarrage de plasmashell" systemctl --user restart plasma-plasmashell.service
     fi
-
     _OK "Personnalisation KDE (TokyoNight, Tela, Bibata, Panneau) terminée."
 }
 
-# ─── 15. Plasma-login-manager à la place de SDDM ───────────────────────────────
+########################################################################################################################
 SETUP_PLM() {
     _SECTION "Préparation de Plasma Login Manager"
 
@@ -1353,66 +1378,5 @@ SETUP_PLM() {
 
 }
 
-
-# ─── 16. Flatpak ───────────────────────────────────────────────────────────────
-INSTALL_FLATPAK_PACKAGES() {
-    _SECTION "Configuration/Installation de Flatpak"
-
-    # 1. Vérification et installation de Flatpak
-    if ! command -v flatpak >/dev/null 2>&1; then
-        _RUN "Installation de Flatpak" sudo dnf install -y flatpak
-    else
-        _OK "Flatpak est déjà installé."
-    fi
-
-    # 2. Ajout de Flathub s'il n'existe pas
-    _RUN "Ajout du dépôt Flathub" sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-
-    # 3. Activation de Flathub sans filtre
-    _RUN "Activation complète de Flathub" sudo flatpak remote-modify --no-filter --enable flathub
-
-    # 4. Vérification et suppression du dépôt Fedora
-    if flatpak remotes --columns=name | grep -q "^fedora$"; then
-        _RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak remote-delete --force fedora
-    else
-        _OK "Le dépôt Fedora Flatpak n'est pas présent."
-    fi
-
-    # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
-    if [[ ${#FLATPAK_PKGS[@]} -gt 0 ]]; then
-        for pkg in "${FLATPAK_PKGS[@]}"; do
-            if flatpak info "${pkg}" >/dev/null 2>&1; then
-                _OK "Flatpak '${pkg}' est déjà installé."
-            else
-                _RUN "Installation de ${pkg}" sudo flatpak install -y flathub "${pkg}"
-            fi
-        done
-    else
-        _INFO "Aucun paquet Flatpak à installer."
-    fi
-
-    # 6. Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
-    _RUN "Application du thème (Tokyo Night, Tela, Bibata) aux Flatpaks" \
-    sudo flatpak override \
-        --filesystem="${HOME}/.local/share/icons:ro" \
-        --filesystem="${HOME}/.local/share/themes:ro" \
-        --filesystem="${HOME}/.icons:ro" \
-        --filesystem="xdg-config/gtk-3.0:ro" \
-        --filesystem="xdg-config/gtk-4.0:ro" \
-        --env="GTK_THEME=TokyoNight" \
-        --env="ICON_THEME=Tela-dark" \
-        --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
-
-    # 7. Petit nettoyage des runtimes inutilisés
-    _RUN "Nettoyage des runtimes Flatpak orphelins" sudo flatpak uninstall --unused -y
-}
-
-##########################################################################################################################
-##########################################################################################################################
-##########################################################################################################################
-# appel principal
-##########################################################################################################################
-##########################################################################################################################
-##########################################################################################################################
-
+########################################################################################################################
 MAIN "$@"
