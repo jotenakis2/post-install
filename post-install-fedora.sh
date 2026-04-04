@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
+readonly SCRIPTNAME="${0##*/}"
+readonly VER=3.0
+# variables globales en MAJ, locales en min
+# fonctions globales en MAJ, locales en min
+# fonctions helpers commencent par _  (_RUN, _SECTION, ...)
+# paramètres customisables définies ci-dessous :
+
 # ─── Variables globales ────────────────────────────────────────────────────────
-readonly VER=2.9
+
+# url de mon compte git et dossier local de clonage des repos
 MYREPOS="https://codeberg.org/jotenakis"
 GIT_DIR="${HOME}/git"
+
+# paquets à installer
 DNF_PACKAGES=(
     zsh fastfetch util-linux-script sudo-rs foot ghostty kitty eza fzf neovim bat bat-extras grc axel rclone procs
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
@@ -12,23 +22,30 @@ DNF_PACKAGES=(
     libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro
     # Ajoute tes autres paquets ici
 )
+
+# paquets à désinstaller
 DNF_REMOVE=(
     zram-generator-defaults PackageKit-glib google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd
     libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover
     # Ajoute tes autres paquets ici
 )
+
+# polices à installer (les 2 nerd font ici sont dans le dépôt Terra qui est ajouté automatiquement)
 FONTS=(
     jetbrainsmono-nerd-fonts
     iosevka-nerd-fonts
     # Ajoute tes autres paquets ici
 )
+
+# paquets flatpak à installer
 FLATPAK_PKGS=(
     "com.ktechpit.whatsie"
-    "org.gnome.Showtime"
     "io.github.giantpinkrobots.flatsweep"
     "com.github.tchx84.Flatseal"
     # Ajoute tes autres paquets ici
 )
+
+# outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé"
 CARGO_PACKAGES=(
     bandwhich bat bottom cargo-update diskus fd-find hyperfine netscanner parallel-disk-usage resvg
     ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina
@@ -45,6 +62,8 @@ declare -A BIN_MAPPING=(
         ["cargo-update"]="cargo-install-update cargo-install-update-config"
         # Ajoute tes autres correspondances ici
 )
+
+# mes repos git à installer (dotfiles obligatoire)
 DOTFILES_REPO="${MYREPOS}/dotfiles"
 DOTFILES_DIR="${GIT_DIR}/dotfiles"
 GIT_REPOS=(
@@ -54,24 +73,123 @@ GIT_REPOS=(
     "${DOTFILES_REPO}|${DOTFILES_DIR}"
     # Ajoute tes autres "repos|dossierlocaux" ici
 )
+
+# services réseaux à autoriser dans le pare-feu
 FIREWALL_SERVICES=(
     "mdns"
     "ipp-client"
     "samba-client"
     # ajoute tes autres services réseaux à autoriser ici
 )
+
+# services systemd à désactiver
 declare -A SERVICES_TO_DISABLE=(
     ["ModemManager.service"]="service ModemManager"
     ["rsyslog.service"]="service rsyslog"
     # ajoute tes autres services systemd à désactiver ici
 )
- declare -A SYMLINKS_TO_CREATE=(
+
+# lien symbolique du dossier utilisateur
+declare -A SYMLINKS_TO_CREATE=(
     [".thunderbird"]="${HOME}/.config/thunderbird"
     [".iptvnator"]="${HOME}/.config/iptvnator"
     [".icons"]="${HOME}/.local/share/icons"
     [".themes"]="${HOME}/.local/share/themes"
     # Ajoute d'autres dossiers ici si besoin
 )
+
+# configuration du noyau
+read -r -d '' SYSCTL_CONF << 'EOF'
+# optimizing
+vm.swappiness = 10
+vm.vfs_cache_pressure = 100
+vm.watermark_boost_factor = 0
+vm.watermark_scale_factor = 125
+vm.page-cluster = 0
+vm.dirty_background_ratio = 2
+vm.dirty_ratio = 3
+vm.dirty_bytes = 335544320
+vm.dirty_background_bytes = 167772160
+vm.dirty_writeback_centisecs = 1500
+net.core.somaxconn = 8192
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.core.netdev_max_backlog = 16384
+net.ipv4.tcp_fastopen = 3
+net.ipv4.tcp_slow_start_after_idle = 0
+kernel.task_delayacct = 1
+kernel.soft_watchdog = 0
+kernel.watchdog = 0
+kernel.dmesg_restrict = 0
+vm.laptop_mode=5
+fs.suid_dumpable=0
+kernel.core_pattern=|/bin/false
+
+# hardening
+dev.tty.ldisc_autoload = 0
+fs.protected_hardlinks = 1
+fs.protected_symlinks = 1
+kernel.core_uses_pid = 1
+kernel.ctrl-alt-del = 0
+kernel.perf_event_paranoid = 4
+kernel.randomize_va_space = 2
+kernel.sysrq = 16
+kernel.unprivileged_bpf_disabled = 1
+kernel.yama.ptrace_scope = 3
+net.core.bpf_jit_harden = 2
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.all.bootp_relay = 0
+net.ipv4.conf.all.forwarding = 0
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.lo.log_martians = 1
+net.ipv4.conf.default.forwarding = 0
+net.ipv4.conf.all.proxy_arp = 0
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.accept_source_route = 0
+net.ipv4.tcp_max_syn_backlog = 4096
+net.ipv4.conf.default.log_martians = 1
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+net.ipv4.ip_forward = 0
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_timestamps = 1
+net.ipv4.conf.default.rp_filter = 1
+EOF
+
+# configuration pour débloater brave browser
+read -r -d '' BRAVE_POLICIES << 'EOF'
+{
+    "BraveRewardsDisabled": true,
+    "BraveWalletDisabled": true,
+    "BraveVPNDisabled": 1,
+    "BraveAIChatEnabled": false,
+    "TorDisabled": true,
+    "PasswordManagerEnabled": false,
+    "DnsOverHttpsMode": "automatic"
+}
+EOF
+
+# conf DNS à utiliser pour la résolution internet
+read -r -d '' RESOLVED_DNS_SERVERS << 'EOF'
+[Resolve]
+DNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net
+FallbackDNS=1.1.1.1#one.one.one.one
+Domains=~.
+DNSOverTLS=yes
+DNSSEC=yes
+EOF
+
+# taille du fichier swap en GiB (/var/swap/swapfile)
+SWAP_SIZE=20
+
+# ligne de commande du noyau (couleurs catppuccin ici)
+CMDLINE="loglevel=5 rd.systemd.show_status=1 ipv6.disable=1 vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200"
 
 # ─── /Variables globales ───────────────────────────────────────────────────────
 
@@ -182,7 +300,7 @@ INITIALIZE() {
 }
 # ─── Helpers divers _XXX ─────────────────────────────────────────────────────
 _BANNER() {
-    printf "%b%b\n  ╔════════════════════════════════════╗\n  ║      Post-install Fedora (${VER})     ║\n  ╚════════════════════════════════════╝%b\n  Log : %s\n\n" "${C_CYAN}" "${C_BOLD}" "${C_MAGENTA}" "${LOG_FILE}"
+    printf "%b%b\n  ╔════════════════════════════════════╗\n  ║      ${SCRIPTNAME} (${VER})     ║\n  ╚════════════════════════════════════╝%b\n  Log : %s\n\n" "${C_CYAN}" "${C_BOLD}" "${C_MAGENTA}" "${LOG_FILE}"
     echo -ne "${C_RESET}"
 }
 
@@ -234,14 +352,12 @@ _DETECT_GRUB() {
     # 2. Interrogation bootctl
     if command -v bootctl >/dev/null 2>&1; then
         local current_product=""
-        # SC2312 : On stocke le résultat séparément
         current_product=$(bootctl status 2>/dev/null | awk '/^Current Boot Loader:/ {flag=1} flag && /Product:/ {print $0; exit}' || true)
 
         if echo "${current_product}" | grep -qi "systemd-boot"; then
             echo "false"
             return 0
         fi
-
         if echo "${current_product}" | grep -qi "GRUB"; then
             echo "true"
             return 0
@@ -296,9 +412,15 @@ CHECK_ENV() {
 REMOVE_RPM_PACKAGES() {
     _SECTION "Suppression paquets indésirables"
 
-    local pkg
-    _PASS
+    local pkg wants_systemd_networkd_removal
+    wants_systemd_networkd_removal=0
+
     for pkg in "${DNF_REMOVE[@]}"; do
+        if [[ "${pkg}" == "systemd-networkd" ]]; then
+            wants_systemd_networkd_removal=1
+            continue
+        fi
+        _PASS
         if rpm -q "${pkg}" &>/dev/null; then
             _RUN "Suppression ${pkg}" sudo dnf remove -y "${pkg}"
         else
@@ -306,18 +428,20 @@ REMOVE_RPM_PACKAGES() {
         fi
     done
 
-    # systemd-networkd : supprimé seulement si NetworkManager est actif
-    if systemctl is-active --quiet NetworkManager; then
-        if rpm -q systemd-networkd &>/dev/null; then
-            _PASS
-            _RUN "Suppression systemd-networkd (NetworkManager actif)" sudo dnf remove -y systemd-networkd
+    if (( wants_systemd_networkd_removal )); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
+        if systemctl is-active --quiet NetworkManager; then
+            if rpm -q systemd-networkd &>/dev/null; then
+                _PASS
+                _RUN "Suppression systemd-networkd (NetworkManager actif)" sudo dnf remove -y systemd-networkd
+            else
+                _OK "systemd-networkd absent — ignoré."
+            fi
         else
-            _OK "systemd-networkd absent — ignoré."
+            _INFO "NetworkManager inactif — systemd-networkd conservé."
         fi
-    else
-        _INFO "NetworkManager inactif — systemd-networkd conservé."
     fi
 }
+
 
 # ─── 2. Dépôts ─────────────────────────────────────────────────────────────────
 INSTALL_REPOS() {
@@ -438,7 +562,7 @@ INSTALL_RPM_PACKAGES() {
     if ((${#missing_packages[@]})); then
         _PASS
         _RUN "Installation des paquets RPM manquants" sudo dnf install -y "${missing_packages[@]}"
-        _OK "Les paquets \"${missing_packages[*]}\" ont été correctement installés."
+        _OK "Les paquets \"${missing_packages[*]}\" ont été installés."
     else
         _INFO "Tous les paquets RPM sont déjà installés."
     fi
@@ -465,7 +589,7 @@ INSTALL_CARGO_PACKAGES() {
     else
         _OK "cargo-binstall est déjà installé."
     fi
-    _RUN " Lien symbolique : cargo-binstall -> /usr/local/bin" sudo ln -sf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
+    #_RUN " Lien symbolique : cargo-binstall -> /usr/local/bin" sudo ln -sf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
 
     local cmd
     for cmd in "${CARGO_PACKAGES[@]}"; do
@@ -474,25 +598,26 @@ INSTALL_CARGO_PACKAGES() {
         if cargo install --list | grep -q "^${cmd} "; then
             _OK "${cmd} déjà installé."
         else
-            _RUN "Installation binaire de ${cmd}" cargo binstall --no-confirm "${cmd}"
+            _RUN "Installation de ${cmd}" cargo binstall --no-confirm "${cmd}"
         fi
 
         # 2. Création des liens symboliques dans /usr/local/bin
         local bins_to_link
         if [[ -n "${BIN_MAPPING[${cmd}]:-}" ]]; then
+            # il existe une correpondance paquet <=> binaire, on l'utilise
             bins_to_link="${BIN_MAPPING[${cmd}]}"
         else
+            # paquet = binaire
             bins_to_link="${cmd}"
         fi
 
         local bin_name src_bin dest_link current_target
         _PASS
-        for bin_name in ${bins_to_link}; do
+        for bin_name in ${bins_to_link} cargo-binstall; do
             src_bin="${CARGO_HOME}/bin/${bin_name}"
             dest_link="/usr/local/bin/${bin_name}"
 
             if [[ -x "${src_bin}" ]]; then
-                # Résolution de SC2312 : On gère readlink séparément
                 current_target=""
                 if [[ -L "${dest_link}" ]]; then
                     current_target=$(readlink -f "${dest_link}" || true)
@@ -547,7 +672,7 @@ CLONE_REPOS() {
 
         if [[ -d "${dest_dir}/.git" ]]; then
             # C'est un dépôt Git valide, on le met à jour
-            _RUN "Mise à jour de ${repo_name} (pull --ff-only)" git -C "${dest_dir}" pull --ff-only
+            _RUN "Mise à jour de ${repo_name}" git -C "${dest_dir}" pull --ff-only
         else
             # Le chemin existe MAIS n'est pas un dépôt Git (ou c'est un fichier)
             if [[ -e "${dest_dir}" ]]; then
@@ -566,7 +691,7 @@ CLONE_REPOS() {
 
 # ─── 9. Shell par défaut ───────────────────────────────────────────────────────
 SETUP_SHELL() {
-    _SECTION "Shell par défaut → zsh"
+    _SECTION "Shell (zsh, oh-my-posh, symlinks)"
 
     # 1- zsh
     local zsh_bin
@@ -646,7 +771,7 @@ SETUP_DOTFILES() {
         return
     fi
 
-    # 1- nettoyage
+    # 1- nettoyage avant stow pour éviter erreurs.
     local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc")
     local f
     for f in "${skel_files[@]}"; do
@@ -661,7 +786,7 @@ SETUP_DOTFILES() {
         name=$(basename "${pkg}")
         _RUN "stow : ${name}" stow --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}"
     done
-    _INFO "Les dotfiles ne sont déployés que pour l'utilisateur qui lance le script (${USER})"
+    _INFO "Les dotfiles ne sont déployés que pour l'utilisateur qui lance le script (ici : ${USER})"
 
 }
 
@@ -686,37 +811,24 @@ SETUP_SYSTEM() {
     tmp_dir=$(mktemp -d)
 
     # --- 1. NetworkManager & systemd-resolved ---
-    cat << 'EOF' > "${tmp_dir}/99-global-dns.conf"
-[main]
-dns=systemd-resolved
-EOF
+    local nm_dns_conf resolved_10_conf
+    nm_dns_conf=$'[main]\ndns=systemd-resolved\n'
+    resolved_10_conf=$'[Resolve]\nLLMNR=no\n'
+    readonly nm_dns_conf resolved_10_conf
 
-    cat << 'EOF' > "${tmp_dir}/dns_servers.conf"
-[Resolve]
-DNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net
-FallbackDNS=1.1.1.1#one.one.one.one
-Domains=~.
-DNSOverTLS=yes
-DNSSEC=yes
-EOF
-
-    cat << 'EOF' > "${tmp_dir}/10-disable-llmnr.conf"
-[Resolve]
-LLMNR=no
-EOF
     _PASS
     _RUN "Déploiement configs DNS" sudo bash -c "
         mkdir -p /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d &&
-        install -m 644 -o root -g root '${tmp_dir}/99-global-dns.conf' /etc/NetworkManager/conf.d/ &&
-        install -m 644 -o root -g root '${tmp_dir}/dns_servers.conf' /etc/systemd/resolved.conf.d/ &&
-        install -m 644 -o root -g root '${tmp_dir}/10-disable-llmnr.conf' /etc/systemd/resolved.conf.d/ &&
+        echo '${nm_dns_conf}' | install -m 644 -o root -g root /dev/stdin /etc/NetworkManager/conf.d/99-global-dns.conf &&
+        echo '${RESOLVED_DNS_SERVERS}' | install -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf &&
+        echo '${resolved_10_conf}' | install -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf &&
         ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     "
     _RUN "Redémarrage NetworkManager & systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
 
 
     # --- 2. Swapfile BTRFS / Ext4 / XFS ---
-    local target_size=$((20 * 1024 * 1024 * 1024)) # 20 GiB en octets
+    local target_size=$(( SWAP_SIZE * 1024 * 1024 * 1024))
     local recreate_swap=false
 
     if [[ -f "/var/swap/swapfile" ]]; then
@@ -740,17 +852,17 @@ EOF
         fs_type=$(stat -f -c %T /var)
 
         _PASS
+        sudo mkdir -p /var/swap
         if [[ "${fs_type}" == "btrfs" ]]; then
             if ! sudo btrfs subvolume show /var/swap >/dev/null 2>&1; then
                 _RUN "Création du sous-volume BTRFS /var/swap" sudo btrfs subvolume create /var/swap
             else
                 _OK "Sous-volume BTRFS /var/swap déjà existant."
             fi
-            _RUN "Création du swapfile BTRFS (20G)" sudo btrfs filesystem mkswapfile --size 20g /var/swap/swapfile
+            _RUN "Création du swapfile BTRFS (${SWAP_SIZE}GiB)" sudo btrfs filesystem mkswapfile --size "${SWAP_SIZE}g" /var/swap/swapfile
         else
-            _RUN "Création du dossier /var/swap" sudo mkdir -p /var/swap
-            _RUN "Allocation du swapfile classique (20G)" sudo fallocate -l 20G /var/swap/swapfile
-            _RUN "Droits sur le swapfile" sudo chmod 0600 /var/swap/swapfile
+            _RUN "Allocation du swapfile classique (${SWAP_SIZE}GiB)" sudo fallocate -l "${SWAP_SIZE}G" /var/swap/swapfile
+            sudo chmod 0600 /var/swap/swapfile
             _RUN "Formatage du swapfile" sudo mkswap /var/swap/swapfile
         fi
     fi
@@ -758,7 +870,7 @@ EOF
     if ! swapon --show | grep -q "/var/swap/swapfile"; then
         _RUN "Activation du swap" sudo swapon /var/swap/swapfile
     else
-        _OK "Swap déjà actif en mémoire."
+        _OK "Swap déjà actif."
     fi
 
     if ! grep -q "/var/swap/swapfile" /etc/fstab; then
@@ -781,17 +893,18 @@ EOF
     if ! sudo semodule -l | grep -q "^systemd_swap_search$"; then
         local selinux_tmp="/tmp/systemd_swap_search"
 
-        cat << 'EOF' > "${selinux_tmp}.te"
-module systemd_swap_search 1.0;
-require {
-        type swapfile_t;
-        type systemd_logind_t;
-        class dir search;
-}
-#============= systemd_logind_t ==============
-allow systemd_logind_t swapfile_t:dir search;
-EOF
+        # module SElinux pour gérer le swap
+        local selinux_content
+        selinux_content=$'module systemd_swap_search 1.0;\n\
+        require {\n\
+                type swapfile_t;\n\
+                type systemd_logind_t;\n\
+                class dir search;\n\
+        }\n\
+        #============= systemd_logind_t ==============\n\
+        allow systemd_logind_t swapfile_t:dir search;\n'
 
+        cat <<< "${selinux_content}" > "${selinux_tmp}.te"
         _RUN "Compilation du module SELinux systemd_swap_search" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
         _RUN "Packaging du module SELinux systemd_swap_search" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
         _RUN "Installation du module SELinux systemd_swap_search" sudo semodule -i "${selinux_tmp}.pp"
@@ -812,7 +925,7 @@ EOF
             luks_param=$(grep -oP 'rd\.luks\.uuid=\S+' /etc/default/grub | head -n 1)
         fi
 
-        target_cmdline="${luks_param} rhgb loglevel=5 rd.systemd.show_status=1 ipv6.disable=1 zswap.enabled=1 zswap.compressor=lz4 vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200"
+        target_cmdline="${luks_param} rhgb zswap.enabled=1 zswap.compressor=lz4 ${CMDLINE}"
         target_cmdline=$(echo "${target_cmdline}" | xargs)
 
         current_cmdline=$(grep '^GRUB_CMDLINE_LINUX=' /etc/default/grub | cut -d'"' -f2 || echo "")
@@ -830,96 +943,43 @@ EOF
             _RUN "Sauvegarde de travail dans /etc/default/grub.bak" sudo cp -a /etc/default/grub /etc/default/grub.bak
 
             # 3. Application des modifications (avec gestion de l'absence)
-            _RUN "Mise à jour de GRUB_DEFAULT et GRUB_CMDLINE_LINUX" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
+            _RUN "Mise à jour des paramètres de GRUB (zswap, menu affiché, ...)" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
             if grep -q '^GRUB_TIMEOUT=' /etc/default/grub; then
-                _RUN "Mise à jour de GRUB_TIMEOUT (2 sec)" sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
+                _RUN "Mise à jour du délai de GRUB (2 sec)" sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
             else
-                _RUN "Ajout de GRUB_TIMEOUT=2" sudo bash -c "echo 'GRUB_TIMEOUT=2' >> /etc/default/grub"
+                _RUN "Ajout d'un délai GRUB de 2 sec" sudo bash -c "echo 'GRUB_TIMEOUT=2' >> /etc/default/grub"
             fi
-
-            _RUN "Regénération de GRUB" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+            _RUN "Regénération de GRUB pour prendre en compte les nouveaux paramètres" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
         else
-            _OK "Configuration GRUB déjà à jour."
+            _OK "GRUB est déjà correctement configuré."
         fi
     else
         _ERR "GRUB n'a pas été détecté, je ne change rien au bootloader."
     fi
 
     # --- 4. Optimisations Kernel (Sysctl) ---
-    cat << 'EOF' > "${tmp_dir}/99-swap.conf"
-vm.swappiness = 10
-EOF
+    local sysctlfile sysctl_header full_sysctl_content
+    sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
+    sysctl_header="# ========================================================================
+# WARNING: Do not modify this file!
+# It is automatically generated and managed by ${SCRIPTNAME}.
+#
+# To override these settings, create a new drop-in file with a
+# higher priority number (e.g., /etc/sysctl.d/99-custom.conf).
+# ======================================================================="
+    readonly sysctlfile sysctl_header
+    # on concatène le header et la variable globale SYSCTL_CONF
+    full_sysctl_content="${sysctl_header}
+    ${SYSCTL_CONF}"
 
-    cat << 'EOF' > "${tmp_dir}/99-olivier.conf"
-# optimisations
-vm.vfs_cache_pressure = 100
-vm.watermark_boost_factor = 0
-vm.watermark_scale_factor = 125
-vm.page-cluster = 0
-vm.dirty_background_ratio = 2
-vm.dirty_ratio = 3
-vm.dirty_bytes = 335544320
-vm.dirty_background_bytes = 167772160
-vm.dirty_writeback_centisecs = 1500
-net.core.somaxconn = 8192
-net.ipv4.tcp_congestion_control = bbr
-net.core.default_qdisc = fq
-net.core.netdev_max_backlog = 16384
-net.ipv4.tcp_fastopen = 3
-net.ipv4.tcp_slow_start_after_idle = 0
-kernel.task_delayacct = 1
-kernel.soft_watchdog = 0
-kernel.watchdog = 0
-kernel.dmesg_restrict = 0
-vm.laptop_mode=5
-fs.suid_dumpable=0
-kernel.core_pattern=|/bin/false
-
-# hardening
-dev.tty.ldisc_autoload = 0
-fs.protected_hardlinks = 1
-fs.protected_symlinks = 1
-kernel.core_uses_pid = 1
-kernel.ctrl-alt-del = 0
-kernel.perf_event_paranoid = 4
-kernel.randomize_va_space = 2
-kernel.sysrq = 16
-kernel.unprivileged_bpf_disabled = 1
-kernel.yama.ptrace_scope = 3
-net.core.bpf_jit_harden = 2
-net.ipv4.conf.all.accept_redirects = 0
-net.ipv4.conf.all.accept_source_route = 0
-net.ipv4.conf.all.bootp_relay = 0
-net.ipv4.conf.all.forwarding = 0
-net.ipv4.conf.all.log_martians = 1
-net.ipv4.conf.lo.log_martians = 1
-net.ipv4.conf.default.forwarding = 0
-net.ipv4.conf.all.proxy_arp = 0
-net.ipv4.conf.all.rp_filter = 1
-net.ipv4.conf.all.send_redirects = 0
-net.ipv4.conf.default.send_redirects = 0
-net.ipv4.conf.default.accept_redirects = 0
-net.ipv4.conf.default.secure_redirects = 0
-net.ipv4.conf.all.secure_redirects = 0
-net.ipv4.conf.default.accept_source_route = 0
-net.ipv4.tcp_max_syn_backlog = 4096
-net.ipv4.conf.default.log_martians = 1
-net.ipv4.icmp_echo_ignore_broadcasts = 1
-net.ipv4.icmp_ignore_bogus_error_responses = 1
-net.ipv4.ip_forward = 0
-net.ipv4.tcp_syncookies = 1
-net.ipv4.tcp_timestamps = 1
-#net.ipv4.conf.wlp2s0.log_martians = 1
-net.ipv4.conf.default.rp_filter = 1
-EOF
-    _PASS
-    _RUN "Déploiement config sysctl" sudo bash -c "
-        mkdir -p /etc/sysctl.d &&
-        install -m 644 -o root -g root '${tmp_dir}/99-swap.conf' /etc/sysctl.d/ &&
-        install -m 644 -o root -g root '${tmp_dir}/99-olivier.conf' /etc/sysctl.d/
-    "
-    _RUN "Application des paramètres sysctl" bash -c "sudo sysctl -p /etc/sysctl.d/99-*.conf"
-
+    if [[ -f "${sysctlfile}" ]] && echo "${full_sysctl_content}" | sudo cmp -s - "${sysctlfile}"; then
+        _OK "Configuration noyau déjà à jour (${sysctlfile})."
+    else
+        _PASS
+        sudo mkdir -p "/etc/sysctl.d/"
+        _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
+        _RUN "Application des paramètres." sudo sysctl -p "${sysctlfile}"
+    fi
 
     # --- 5. Optimisations Fstab (noatime, lazytime) ---
     local fstab_changed=false
@@ -965,59 +1025,46 @@ EOF
 
 
     # --- 6. Configuration Brave Browser (Policies debloat) ---
-    cat << 'EOF' > "${tmp_dir}/brave_debullshitinator-policies.json"
-{
-    "BraveRewardsDisabled": true,
-    "BraveWalletDisabled": true,
-    "BraveVPNDisabled": 1,
-    "BraveAIChatEnabled": false,
-    "TorDisabled": true,
-    "PasswordManagerEnabled": false,
-    "DnsOverHttpsMode": "automatic"
-}
-EOF
+    local brave_policy_file full_brave_policies
+    brave_policy_file="/etc/brave/policies/managed/brave_debullshitinator-policies.json"
+    full_brave_policies=$(echo "${BRAVE_POLICIES}" | sed "1s/{/{\n    \"_warning\": \"Do not modify this file! It is managed by ${SCRIPTNAME}.\",/")
+    readonly brave_policy_file full_brave_policies
 
-    if [[ -f /etc/brave/policies/managed/brave_debullshitinator-policies.json ]] && cmp -s "${tmp_dir}/brave_debullshitinator-policies.json" /etc/brave/policies/managed/brave_debullshitinator-policies.json; then
-        _OK "Policies Debloat pour Brave déjà à jour."
+    if [[ -f "${brave_policy_file}" ]] && echo "${full_brave_policies}" | sudo cmp -s - "${brave_policy_file}"; then
+        _OK "Configuration policies debloat Brave déjà à jour (${brave_policy_file})."
     else
         _PASS
-        _RUN "Déploiement des policies Brave pour debloat" sudo bash -c "
-            mkdir -p /etc/brave/policies/managed &&
-            install -m 644 -o root -g root '${tmp_dir}/brave_debullshitinator-policies.json' /etc/brave/policies/managed/
-        "
+        sudo mkdir -p "/etc/brave/policies/managed/"
+        _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
     fi
 
     # --- 7. Configuration Chrony (IPv4 only) ---
-    cat << 'EOF' > "${tmp_dir}/chronyd"
-# Command-line options for chronyd
-OPTIONS="-F 2 -4"
-EOF
+    local chrony_file chrony_content
+    chrony_file="/etc/sysconfig/chronyd"
+    chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
+    readonly chrony_file chrony_content
 
-    if [[ -f /etc/sysconfig/chronyd ]] && cmp -s "${tmp_dir}/chronyd" /etc/sysconfig/chronyd; then
-        _OK "Configuration chronyd déjà à jour (-F 2 -4)."
+    if [[ -f "${chrony_file}" ]] && echo "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
+        _OK "Configuration chronyd déjà à jour."
     else
         _PASS
-        _RUN "Application de la configuration chronyd" sudo install -m 644 -o root -g root "${tmp_dir}/chronyd" /etc/sysconfig/chronyd
+        _RUN "Application de la configuration chronyd" sudo install -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
         _RUN "Redémarrage du service chronyd" sudo systemctl try-restart chronyd
     fi
 
      # --- 8. Groupe libvirt ---
     local main_user
-    main_user=$(getent passwd 1000 | cut -d: -f1 || true)
+    main_user=${USER}
 
-    if [[ -n "${main_user}" ]]; then
-        if getent group libvirt >/dev/null 2>&1; then
-            if id -nG "${main_user}" | grep -qw "libvirt"; then
-                _OK "L'utilisateur ${main_user} est déjà dans le groupe libvirt."
-            else
-                _PASS
-                _RUN "Ajout de l'utilisateur ${main_user} au groupe libvirt" sudo usermod -aG libvirt "${main_user}"
-            fi
+    if getent group libvirt >/dev/null 2>&1; then
+        if id -nG "${main_user}" | grep -qw "libvirt"; then
+            _OK "L'utilisateur ${main_user} est déjà dans le groupe libvirt."
         else
-            _INFO "Le groupe libvirt n'existe pas. Ajout ignoré."
+            _PASS
+            _RUN "Ajout de l'utilisateur ${main_user} au groupe libvirt" sudo usermod -aG libvirt "${main_user}"
         fi
     else
-        _INFO "Aucun utilisateur avec l'UID 1000 trouvé."
+        _INFO "Le groupe libvirt n'existe pas. Ajout ignoré."
     fi
 
     # --- 9. sudo/sudo-rs --- => remplacé par SETUP_SUDO_RS
@@ -1037,20 +1084,19 @@ EOF
     done
 
     # --- 12. dnf.conf ---
-    cat << 'EOF' > "${tmp_dir}/dnf.conf"
-# see `man dnf.conf` for defaults and possible options
+    local dnf_content
+    dnf_content=$'[main]\n\
+    defaultyes = true\n\
+    max_parallel_downloads = 10\n'
 
-[main]
-defaultyes = true
-max_parallel_downloads = 10
-EOF
-
-    if [[ -f /etc/dnf/dnf.conf ]] && cmp -s "${tmp_dir}/dnf.conf" /etc/dnf/dnf.conf; then
+    if [[ -f /etc/dnf/dnf.conf ]] && echo "${dnf_content}" | sudo cmp -s - /etc/dnf/dnf.conf; then
         _OK "Configuration DNF déjà à jour."
     else
         _PASS
-        _RUN "Déploiement de la configuration de DNF" sudo bash -c "mkdir -p /etc/dnf && install -m 644 -o root -g root '${tmp_dir}/dnf.conf' /etc/dnf/"
+        sudo mkdir -p /etc/dnf
+        _RUN "Déploiement de la configuration de DNF" sudo bash -c "echo '${dnf_content}' | install -m 644 -o root -g root /dev/stdin /etc/dnf/dnf.conf"
     fi
+
 
     # --- 13. NFS mount ---
 
