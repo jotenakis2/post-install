@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=3.2
+readonly VER=3.4
 # variables globales en MAJ, locales en min
 # fonctions globales en MAJ, locales en min
 # fonctions helpers commencent par _  (_RUN, _SECTION, ...)
@@ -190,7 +190,7 @@ SWAP_SIZE=5
 
 # paramètres additionels de la ligne de commande du noyau
 # (couleurs catppuccin mocha pour le terminal ici, loglevel 5 et disable ipv6)
-CMDLINE="loglevel=5 ipv6.disable=1 vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200"
+CMDLINE="loglevel=3 ipv6.disable=1 vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200"
 
 # Position du panneau principal KDE : "top", "bottom", "left", "right" possibles
 KDEPANEL="top"
@@ -251,7 +251,7 @@ MAIN() {
 # FONCTIONS HELPERS                                                                                                    #
 ########################################################################################################################
 _BANNER() {
-    printf "%b%b\n  ╔════════════════════════════════════╗\n  ║      ${SCRIPTNAME} (${VER})   ║\n  ╚════════════════════════════════════╝%b\n  Log : %s\n\n" "${C_CYAN}" "${C_BOLD}" "${C_MAGENTA}" "${LOG_FILE}"
+    printf "%b%b\n  ╔════════════════════════════════════╗\n  ║      ${SCRIPTNAME} (${VER})  ║\n  ╚════════════════════════════════════╝%b\n  Log : %s\n\n" "${C_CYAN}" "${C_BOLD}" "${C_MAGENTA}" "${LOG_FILE}"
     echo -ne "${C_RESET}"
 }
 _HEURE() {
@@ -280,7 +280,7 @@ _RUN() {
     spin() {
         local pid="$1" msg="$2" i=0
         while kill -0 "${pid}" 2>/dev/null; do
-            printf "\r %b%s%b %s" "${C_GREEN}" "${SPIN_FRAMES[$((i % 10))]}" "${C_RESET}" "${msg}"
+            printf "\r %b%s%b %s" "${C_CYAN}" "${SPIN_FRAMES[$((i % 10))]}" "${C_RESET}" "${msg}"
             sleep 0.05
             (( i++ )) || true
         done
@@ -408,7 +408,7 @@ CHECK_ENV() {
 
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
-    _OK "Environnement valide — ${fedora_rel}"
+    _OK "Environnement valide — ${fedora_rel}, utilisateur ${USER} avec droits sudo"
 }
 
 ########################################################################################################################
@@ -490,7 +490,7 @@ INSTALL_REPOS() {
     if ! dnf repolist 2>/dev/null | grep -q "brave-browser"; then
         _RUN "Brave Browser Repo" sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
     else
-        _OK "Brave Browser Repo est déjà présent."
+        _OK "Brave Browser Repo déjà présent."
     fi
     _PASS
     _RUN "Rafraîchissement des métadonnées" sudo dnf makecache
@@ -561,7 +561,7 @@ INSTALL_RPM_PACKAGES() {
     if ((${#missing_packages[@]})); then
         _PASS
         _OK "Paquets manquants : \"${missing_packages[*]}\"."
-        _RUN "Téléchargement des paquets manquants" sudo dnf download "${missing_packages[@]}"
+        _RUN "Téléchargement des paquets manquants" sudo dnf download -y "${missing_packages[@]}"
         _RUN "Installation des paquets manquants depuis le cache" sudo dnf install -y "${missing_packages[@]}"
        # _RUN "Installation des paquets RPM manquants" sudo dnf install -y "${missing_packages[@]}"
     else
@@ -605,18 +605,6 @@ INSTALL_FLATPAK_PACKAGES() {
     else
         _INFO "Aucun paquet Flatpak à installer."
     fi
-
-    # 6. Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
-    _RUN "Application du thème (Tokyo Night, Tela, Bibata) aux Flatpaks" \
-    sudo flatpak override \
-        --filesystem="${HOME}/.local/share/icons:ro" \
-        --filesystem="${HOME}/.local/share/themes:ro" \
-        --filesystem="${HOME}/.icons:ro" \
-        --filesystem="xdg-config/gtk-3.0:ro" \
-        --filesystem="xdg-config/gtk-4.0:ro" \
-        --env="GTK_THEME=TokyoNight" \
-        --env="ICON_THEME=Tela-dark" \
-        --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
 
     # 7. Petit nettoyage des runtimes inutilisés
     _RUN "Nettoyage des runtimes Flatpak orphelins" sudo flatpak uninstall --unused -y
@@ -924,9 +912,7 @@ SETUP_ETC() {
 
     # --- dnf.conf ---
     local dnf_content
-    dnf_content=$'[main]\n\
-    defaultyes = true\n\
-    max_parallel_downloads = 10\n'
+    dnf_content=$'[main]\ndefaultyes = true\nmax_parallel_downloads = 10\n'
 
     if [[ -f /etc/dnf/dnf.conf ]] && echo "${dnf_content}" | sudo cmp -s - /etc/dnf/dnf.conf; then
         _OK "Configuration DNF déjà à jour."
@@ -978,15 +964,12 @@ SETUP_GRUB(){
 
         if [[ "${current_cmdline}" != "${target_cmdline}" ]] || [[ "${current_default}" != "menu" ]] || [[ "${current_timeout}" != "2" ]]; then
             _PASS
-            # 1. Sauvegarde originelle qui ne sera jamais écrasée
             if [[ ! -f /etc/default/grub.origin ]]; then
-                _RUN "Sauvegarde originale de /etc/default/grub" sudo cp -a /etc/default/grub /etc/default/grub.origin
+                sudo cp -a /etc/default/grub /etc/default/grub.origin
             fi
+            sudo cp -a /etc/default/grub /etc/default/grub.bak
 
-            # 2. Sauvegarde de travail (écrasée à chaque modification)
-            _RUN "Sauvegarde de travail dans /etc/default/grub.bak" sudo cp -a /etc/default/grub /etc/default/grub.bak
-
-            # 3. Application des modifications (avec gestion de l'absence)
+            # Application des modifications (avec gestion de l'absence)
             _RUN "Mise à jour des paramètres de GRUB (zswap, menu affiché, ...)" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
             if grep -q '^GRUB_TIMEOUT=' /etc/default/grub; then
                 _RUN "Mise à jour du délai de GRUB (2 sec)" sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
@@ -1039,7 +1022,8 @@ SETUP_FIREWALL() {
 ########################################################################################################################
 SETUP_FSTAB(){
     # --- Optimisations Fstab (noatime, lazytime) ---
-    local fstab_changed=false
+    local fstab_changed=false tmp_dir
+    tmp_dir=$(mktemp -d)
     true > "${tmp_dir}/fstab.new"
 
     while IFS= read -r line || [[ -n "${line}" ]]; do
@@ -1079,6 +1063,9 @@ SETUP_FSTAB(){
     else
         _OK "Les options noatime/lazytime sont déjà présentes dans /etc/fstab."
     fi
+
+    # Nettoyage
+    rm -rf "${tmp_dir}"
 }
 
 ########################################################################################################################
@@ -1140,7 +1127,7 @@ SETUP_SWAP(){
             sudo cp -a /etc/fstab /etc/fstab.origin
         fi
         sudo cp -a /etc/fstab /etc/fstab.bak
-        _RUN "Ajout du swap à /etc/fstab" sudo echo "${swapdir}/swapfile none swap defaults 0 0" >> /etc/fstab
+        _RUN "Ajout du swap à /etc/fstab" sudo bash -c "echo ${swapdir}/swapfile none swap defaults 0 0 >> /etc/fstab"
     else
         _OK "Swap déjà présent dans /etc/fstab."
     fi
@@ -1333,8 +1320,19 @@ SETUP_KDE_PLASMA() {
         _INFO "L'outil balooctl n'est pas installé. Aucune action requise."
     fi
 
+    # Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
+    _RUN "Application du thème (Tokyo Night, Tela, Bibata) aux Flatpaks" sudo flatpak override \
+        --filesystem="${HOME}/.local/share/icons:ro" \
+        --filesystem="${HOME}/.local/share/themes:ro" \
+        --filesystem="${HOME}/.icons:ro" \
+        --filesystem="xdg-config/gtk-3.0:ro" \
+        --filesystem="xdg-config/gtk-4.0:ro" \
+        --env="GTK_THEME=TokyoNight" \
+        --env="ICON_THEME=Tela-dark" \
+        --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
+
     # déplacement du panneau principal
-    local target_pos="${KDEPANEL:-top}"
+    local target_pos="${KDEPANEL:-bottom}" # fallback en bas
     if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
         _INFO "plasmashell ne tourne pas. Configuration du panneau reportée."
     else
@@ -1347,7 +1345,6 @@ SETUP_KDE_PLASMA() {
             for (var i = 0; i < allPanels.length; i++) {
                 allPanels[i].location = \"${target_pos}\";
                 }
-            }
         "
         _RUN "Redémarrage de plasmashell" systemctl --user restart plasma-plasmashell.service
     fi
