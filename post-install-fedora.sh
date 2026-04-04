@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=3.0
+readonly VER=3.1
 # variables globales en MAJ, locales en min
 # fonctions globales en MAJ, locales en min
 # fonctions helpers commencent par _  (_RUN, _SECTION, ...)
@@ -99,7 +99,7 @@ declare -A SYMLINKS_TO_CREATE=(
 )
 
 # configuration du noyau
-read -r -d '' SYSCTL_CONF << 'EOF'
+SYSCTL_CONF='
 # optimizing
 vm.swappiness = 10
 vm.vfs_cache_pressure = 100
@@ -160,10 +160,10 @@ net.ipv4.ip_forward = 0
 net.ipv4.tcp_syncookies = 1
 net.ipv4.tcp_timestamps = 1
 net.ipv4.conf.default.rp_filter = 1
-EOF
+'
 
 # configuration pour débloater brave browser
-read -r -d '' BRAVE_POLICIES << 'EOF'
+BRAVE_POLICIES='
 {
     "BraveRewardsDisabled": true,
     "BraveWalletDisabled": true,
@@ -173,23 +173,24 @@ read -r -d '' BRAVE_POLICIES << 'EOF'
     "PasswordManagerEnabled": false,
     "DnsOverHttpsMode": "automatic"
 }
-EOF
+'
 
 # conf DNS à utiliser pour la résolution internet
-read -r -d '' RESOLVED_DNS_SERVERS << 'EOF'
+RESOLVED_DNS_SERVERS='
 [Resolve]
 DNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net
 FallbackDNS=1.1.1.1#one.one.one.one
 Domains=~.
 DNSOverTLS=yes
 DNSSEC=yes
-EOF
+'
 
 # taille du fichier swap en GiB (/var/swap/swapfile)
-SWAP_SIZE=20
+SWAP_SIZE=5
 
-# ligne de commande du noyau (couleurs catppuccin ici)
-CMDLINE="loglevel=5 rd.systemd.show_status=1 ipv6.disable=1 vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200"
+# paramètres additionels de la ligne de commande du noyau
+# (couleurs catppuccin mocha pour le terminal ici, loglevel 5 et disable ipv6)
+CMDLINE="loglevel=5 ipv6.disable=1 vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200"
 
 # ─── /Variables globales ───────────────────────────────────────────────────────
 
@@ -228,6 +229,7 @@ MAIN() {
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
     _PASS
     sudo rm -f "${SUDOTMP}"
+    _HEURE
 }
 
 
@@ -296,6 +298,7 @@ INITIALIZE() {
     SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
 
     #
+    _HEURE
     _BANNER
 }
 # ─── Helpers divers _XXX ─────────────────────────────────────────────────────
@@ -303,7 +306,12 @@ _BANNER() {
     printf "%b%b\n  ╔════════════════════════════════════╗\n  ║      ${SCRIPTNAME} (${VER})     ║\n  ╚════════════════════════════════════╝%b\n  Log : %s\n\n" "${C_CYAN}" "${C_BOLD}" "${C_MAGENTA}" "${LOG_FILE}"
     echo -ne "${C_RESET}"
 }
-
+_HEURE() {
+    local date heure
+    date=$(date '+%T')
+    heure=$(date '+%A %d %B %Y')
+    echo "${date}, le ${heure}" | tee -a "${LOG_FILE}"
+}
 _SECTION()  { printf "\n%b%b━━━ %s ━━━%b\n" "${C_CYAN}" "${C_BOLD}" "$*" "${C_RESET}" | tee -a "${LOG_FILE}"; }
 _OK()       { printf " %b✓%b %s\n" "${C_GREEN}"  "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
 _ERR()      { printf " %b✗%b %s\n" "${C_RED}"    "${C_RESET}" "$*" | tee -a "${LOG_FILE}" >&2; }
@@ -589,7 +597,7 @@ INSTALL_CARGO_PACKAGES() {
     else
         _OK "cargo-binstall est déjà installé."
     fi
-    #_RUN " Lien symbolique : cargo-binstall -> /usr/local/bin" sudo ln -sf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
+    _RUN " Lien symbolique : cargo-binstall -> /usr/local/bin" sudo ln -sf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
 
     local cmd
     for cmd in "${CARGO_PACKAGES[@]}"; do
@@ -613,7 +621,7 @@ INSTALL_CARGO_PACKAGES() {
 
         local bin_name src_bin dest_link current_target
         _PASS
-        for bin_name in ${bins_to_link} cargo-binstall; do
+        for bin_name in ${bins_to_link}; do
             src_bin="${CARGO_HOME}/bin/${bin_name}"
             dest_link="/usr/local/bin/${bin_name}"
 
@@ -895,14 +903,7 @@ SETUP_SYSTEM() {
 
         # module SElinux pour gérer le swap
         local selinux_content
-        selinux_content=$'module systemd_swap_search 1.0;\n\
-        require {\n\
-                type swapfile_t;\n\
-                type systemd_logind_t;\n\
-                class dir search;\n\
-        }\n\
-        #============= systemd_logind_t ==============\n\
-        allow systemd_logind_t swapfile_t:dir search;\n'
+        selinux_content=$'module systemd_swap_search 1.0;\nrequire {\ntype swapfile_t;\ntype systemd_logind_t;\nclass dir search;\n}\n#============= systemd_logind_t ==============\nallow systemd_logind_t swapfile_t:dir search;\n'
 
         cat <<< "${selinux_content}" > "${selinux_tmp}.te"
         _RUN "Compilation du module SELinux systemd_swap_search" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
