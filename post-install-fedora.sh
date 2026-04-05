@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=3.8
+readonly VER=4.0
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        custo panneau KDE avec favoris
@@ -21,7 +21,6 @@ MAIN() {
     # Start
     INITIALIZE
     CHECK_ENV
-    _PASS
 
     # tâches paquets
     _RUN "Mise à jour forcée du système" sudo dnf upgrade --refresh -y
@@ -32,10 +31,11 @@ MAIN() {
     INSTALL_CODECS
     INSTALL_RUST
     INSTALL_CARGO_PACKAGES
+    INSTALL_GO_PACKAGES
     INSTALL_FLATPAK_PACKAGES
 
     # tâches config
-    CLONE_REPOS
+    CLONE_GIT
     SETUP_SHELL
     SETUP_DOTFILES
     SETUP_ETC
@@ -51,7 +51,6 @@ MAIN() {
     # Fin
     printf "\n%b%b  ✓ Terminé — rebooter pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
-    _PASS
     sudo rm -f "${SUDOTMP}"
     _HEURE
 }
@@ -162,7 +161,6 @@ _DETECT_GRUB() {
     # 3. Analyse binaire
     local efi_payload="/boot/efi/EFI/fedora/grubx64.efi"
     if [[ -f "${efi_payload}" ]] && command -v strings >/dev/null 2>&1; then
-        _PASS
         if sudo strings "${efi_payload}" | grep -qi "systemd-boot"; then
             echo "false"
             return 0
@@ -209,7 +207,7 @@ INITIALIZE() {
     export GOBIN="${XDG_BIN_HOME:-${HOME}/.local/bin}"
 
     # Dossiers utilisateur requis
-    mkdir -p "${GIT_DIR}" "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes"
+    mkdir -p "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes"
     # Dossiers système requis
     sudo mkdir -p /usr/local/bin /etc/sudoers.d /etc/udev.d/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
 
@@ -252,7 +250,6 @@ CHECK_ENV() {
         _DIE "L'utilisateur ${USER} n'appartient pas au groupe 'wheel' (sudo). Abandon."
     fi
 
-    _PASS
     _RUN "Contrôle des dépendances obligatoires" sudo dnf install -y curl git stow crudini pciutils dnf-plugins-core binutils policycoreutils-python-utils
 
     local fedora_rel
@@ -273,7 +270,6 @@ REMOVE_RPM_PACKAGES() {
             wants_systemd_networkd_removal=1
             continue
         fi
-        _PASS
         if rpm -q "${pkg}" &>/dev/null; then
             _RUN "Suppression ${pkg}" sudo dnf remove -y "${pkg}"
         else
@@ -284,7 +280,6 @@ REMOVE_RPM_PACKAGES() {
     if (( wants_systemd_networkd_removal )); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
         if systemctl is-active --quiet NetworkManager; then
             if rpm -q systemd-networkd &>/dev/null; then
-                _PASS
                 _RUN "Suppression systemd-networkd (NetworkManager actif)" sudo dnf remove -y systemd-networkd
             else
                 _OK "systemd-networkd absent — ignoré."
@@ -299,51 +294,56 @@ REMOVE_RPM_PACKAGES() {
 INSTALL_REPOS() {
     _SECTION "Dépôts"
 
-    local fedora_ver
+    local fedora_ver cache=0
     fedora_ver=$(rpm -E '%fedora')
 
-    _PASS
     if ! rpm -q rpmfusion-free-release &>/dev/null; then
         _RUN "RPM Fusion free (f${fedora_ver})" sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-"${fedora_ver}".noarch.rpm
         _RUN "RPM Fusion free tainted (f${fedora_ver})" sudo dnf install -y rpmfusion-free-release-tainted
+        cache=1
     else
         _OK "RPM Fusion free déjà présent."
     fi
-    _PASS
+
     if ! rpm -q rpmfusion-nonfree-release &>/dev/null; then
         _RUN "RPM Fusion nonfree (f${fedora_ver})" sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"${fedora_ver}".noarch.rpm
         _RUN "RPM Fusion nonfree tainted (f${fedora_ver})" sudo dnf install -y rpmfusion-nonfree-release-tainted
+        cache=1
     else
         _OK "RPM Fusion nonfree déjà présent."
     fi
-    _PASS
+
     if rpm -q rpmfusion-free-appstream-data &>/dev/null; then
         _RUN "suppression métadonnées appstream free" sudo dnf remove -y rpmfusion-free-appstream-data
     fi
     if rpm -q rpmfusion-nonfree-appstream-data &>/dev/null; then
         _RUN "suppression métadonnées appstream nonfree" sudo dnf remove -y rpmfusion-nonfree-appstream-data
     fi
-    _PASS
+
     if ! rpm -q terra-release &>/dev/null; then
         # shellcheck disable=SC2016
         _RUN "Terra (f${fedora_ver})" sudo dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
+        cache=1
     else
         _OK "Terra déjà présent."
     fi
-    _PASS
+
     if ! dnf copr list 2>/dev/null | grep -q "bigmenpixel/profile-sync-daemon"; then
         _RUN "COPR profile-sync-daemon" sudo dnf copr enable -y bigmenpixel/profile-sync-daemon
+        cache=1
     else
         _OK "COPR profile-sync-daemon déjà présent."
     fi
-    _PASS
+
     if ! dnf repolist 2>/dev/null | grep -q "brave-browser"; then
         _RUN "Brave Browser Repo" sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+        cache=1
     else
         _OK "Brave Browser Repo déjà présent."
     fi
-    _PASS
-    _RUN "Rafraîchissement des métadonnées" sudo dnf makecache
+    if [[ "${cache}" -eq 1 ]]; then
+        _RUN "Rafraîchissement des métadonnées" sudo dnf makecache
+    fi
 }
 
 ########################################################################################################################
@@ -351,7 +351,6 @@ INSTALL_FONTS() {
     _SECTION "Nerd Fonts"
 
     local font
-    _PASS
     for font in "${FONTS[@]}"; do
         if ! rpm -q "${font}" &>/dev/null; then
             _RUN "Installation ${font}" sudo dnf install -y "${font}"
@@ -365,7 +364,6 @@ INSTALL_FONTS() {
 INSTALL_CODECS() {
     _SECTION "Codecs multimédia"
 
-    _PASS
     if ! rpm -q ffmpeg &>/dev/null; then
         _RUN "Swap ffmpeg-free → ffmpeg" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
     else
@@ -483,7 +481,7 @@ INSTALL_CARGO_PACKAGES() {
     else
         _OK "cargo-binstall est déjà installé."
     fi
-    _RUN " Lien symbolique : cargo-binstall -> /usr/local/bin" sudo ln -sf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
+    _RUN "  Lien symbolique : cargo-binstall -> /usr/local/bin" sudo ln -sf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
 
     local cmd
     for cmd in "${CARGO_PACKAGES[@]}"; do
@@ -506,7 +504,6 @@ INSTALL_CARGO_PACKAGES() {
         fi
 
         local bin_name src_bin dest_link current_target
-        _PASS
         for bin_name in ${bins_to_link}; do
             src_bin="${CARGO_HOME}/bin/${bin_name}"
             dest_link="/usr/local/bin/${bin_name}"
@@ -518,9 +515,9 @@ INSTALL_CARGO_PACKAGES() {
                 fi
 
                 if [[ "${current_target}" != "${src_bin}" ]]; then
-                    _RUN " Lien symbolique : ${bin_name} -> /usr/local/bin" sudo ln -sf "${src_bin}" "${dest_link}"
+                    _RUN "  Lien symbolique : ${bin_name} -> /usr/local/bin" sudo ln -sf "${src_bin}" "${dest_link}"
                 else
-                    _OK " Lien symbolique ${bin_name} déjà présent."
+                    _OK "  Lien symbolique ${bin_name} déjà présent."
                 fi
             else
                 _ERR " Binaire introuvable : ${src_bin}"
@@ -538,7 +535,34 @@ INSTALL_CARGO_PACKAGES() {
 }
 
 ########################################################################################################################
-CLONE_REPOS() {
+INSTALL_GO_PACKAGES() {
+    _SECTION "Paquets GO"
+    local pkg
+    # if ! command -v go &>/dev/null; then
+    #     _RUN "Installation de la toolchain GO" sudo dnf install -y golang make
+    # fi
+
+    local latest arch os gopkg
+    latest=$(curl -s https://go.dev/dl/ | grep -oP 'go\K\d+\.\d+\.\d+' | head -1)
+    arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+    os=$(uname | tr '[:upper:]' '[:lower:]')
+    gopkg="go${latest}.${os}-${arch}.tar.gz"
+
+    _RUN "Téléchargement de la toolchain Go v${latest}" noglob wget "https://go.dev/dl/${gopkg}"
+    sudo rm -rf /usr/local/go
+    _RUN "Installation de la toolchain Go v${latest}" sudo tar -C /usr/local -xzf "${gopkg}"
+    rm -f "${gopkg}"
+    export PATH="/usr/local/go/bin:${PATH}"
+
+    if command -v go &>/dev/null; then
+         for pkg in "${GO_PACKAGES[@]}"; do
+            _RUN "Installation de ${pkg} dans ${GOBIN}" go install "${pkg}"
+        done
+    fi
+}
+
+########################################################################################################################
+CLONE_GIT() {
     _SECTION "Clonage et mise à jour des dépôts Git personnels"
 
     local repo_entry repo_url dest_dir repo_name backup_dir
@@ -578,7 +602,6 @@ SETUP_SHELL() {
     local zsh_bin
     zsh_bin=$(command -v zsh)
 
-    _PASS
     if ! grep -qxF "${zsh_bin}" /etc/shells; then
         echo "${zsh_bin}" | sudo tee -a /etc/shells > /dev/null
         _OK "${zsh_bin} ajouté à /etc/shells."
@@ -667,7 +690,6 @@ SETUP_ETC() {
     resolved_10_conf=$'[Resolve]\nLLMNR=no\n'
     readonly nm_dns_conf resolved_10_conf
 
-    _PASS
     if ! grep -q "dns=systemd-resolved" /etc/NetworkManager/conf.d/*; then
         _RUN "Configuration de NetworkManager pour systemd-resolved" sudo bash -c "
         echo '${nm_dns_conf}' | install -m 644 -o root -g root /dev/stdin /etc/NetworkManager/conf.d/99-global-dns.conf
@@ -705,7 +727,6 @@ SETUP_ETC() {
     if [[ -f "${sysctlfile}" ]] && echo "${full_sysctl_content}" | sudo cmp -s - "${sysctlfile}"; then
         _OK "Configuration noyau déjà à jour (${sysctlfile})."
     else
-        _PASS
         _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
         _RUN "Application des paramètres." sudo sysctl -p "${sysctlfile}"
     fi
@@ -719,15 +740,14 @@ SETUP_ETC() {
     if [[ -f "${brave_policy_file}" ]] && echo "${full_brave_policies}" | sudo cmp -s - "${brave_policy_file}"; then
         _OK "Configuration policies debloat Brave déjà à jour (${brave_policy_file})."
     else
-        _PASS
         _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
     fi
 
     # IO scheduler
     local rules_file rules_content current
-    rules_file="/etc/udev/rules.d/60-ioschedulers.rules"
+    rules_file="/etc/udev.d/rules.d/60-ioschedulers.rules"
     sudo touch "${rules_file}"
-    current=$(cat "${rules_file}" 2>/dev/null)
+    current=$(cat "${rules_file}" 2>/dev/null || true)
     rules_content='# NVMe
 ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
 
@@ -735,7 +755,8 @@ ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
 ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
 
 # HDD rotatif
-ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"'
+ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
+'
 
     if [[ "${current}" != "${rules_content}" ]]; then
         printf '%s\n' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
@@ -755,7 +776,6 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         if [[ -f "${chrony_file}" ]] && echo "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
             _OK "Configuration chronyd déjà à jour."
         else
-            _PASS
             _RUN "Application de la configuration chronyd" sudo install -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
             _RUN "Redémarrage du service chronyd" sudo systemctl try-restart chronyd
         fi
@@ -769,7 +789,6 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         if id -nG "${main_user}" | grep -qw "libvirt"; then
             _OK "L'utilisateur ${main_user} est déjà dans le groupe libvirt."
         else
-            _PASS
             _RUN "Ajout de l'utilisateur ${main_user} au groupe libvirt" sudo usermod -aG libvirt "${main_user}"
         fi
     else
@@ -816,7 +835,6 @@ SETUP_GRUB(){
         current_timeout=$(grep '^GRUB_TIMEOUT=' /etc/default/grub | cut -d'=' -f2 || echo "")
 
         if [[ "${current_cmdline}" != "${target_cmdline}" ]] || [[ "${current_default}" != "menu" ]] || [[ "${current_timeout}" != "2" ]]; then
-            _PASS
             if [[ ! -f /etc/default/grub.origin ]]; then
                 sudo cp -a /etc/default/grub /etc/default/grub.origin
             fi
@@ -909,7 +927,6 @@ SETUP_FSTAB(){
     done < /etc/fstab
 
     if [[ "${fstab_changed}" == "true" ]]; then
-        _PASS
         sudo cp -a /etc/fstab /etc/fstab.bak
         _RUN "Application de noatime/lazytime dans /etc/fstab" sudo cp -a "${tmp_dir}/fstab.new" /etc/fstab
         _RUN "Rechargement du démon systemd" sudo systemctl daemon-reload
@@ -947,7 +964,6 @@ SETUP_SWAP(){
         local fs_type
         fs_type=$(stat -f -c %T /var)
 
-        _PASS
         if [[ "${fs_type}" == "btrfs" ]]; then
             if [[ -e "${swapdir}" ]]; then
                 if btrfs subvolume show "${swapdir}" >/dev/null 2>&1; then
@@ -1014,7 +1030,6 @@ SETUP_SWAP(){
 ########################################################################################################################
 SETUP_SUDO_RS() {
     _SECTION "Configuration sudo-rs et remplacement radical de sudo"
-    _PASS
     # 1. On installe sudo-rs
     if ! command -v sudo-rs &>/dev/null; then
         _RUN "Installation de sudo-rs" sudo dnf install -y sudo-rs
@@ -1059,7 +1074,6 @@ SETUP_SUDO_RS() {
         current_link=$(readlink "${sys_sudo}" || true)
     fi
 
-    _PASS
     if [[ "${current_link}" == "${sudo_rs_bin}" ]]; then
         _OK "Le lien symbolique sudo -> sudo-rs est déjà en place."
     else

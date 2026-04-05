@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 
-# url de mon compte git et dossier local de clonage des repos
-export MYREPOS="https://codeberg.org/jotenakis"
-export GIT_DIR="${HOME}/git"
-
 # paquets à installer
 export DNF_PACKAGES=(
-    zsh fastfetch util-linux-script sudo-rs foot ghostty kitty eza fzf neovim bat bat-extras grc axel rclone procs
+    zsh fastfetch util-linux-script foot ghostty kitty eza fzf neovim bat bat-extras grc axel rclone procs
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
-    nodejs-bash-language-server golang make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird
+    nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird
     vesktop telegram-desktop qbittorrent brave-browser helium-browser-bin qemu virt-manager virt-viewer gum stress-ng
     libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro
     # Ajoute tes autres paquets ici
@@ -55,13 +51,24 @@ declare -A BIN_MAPPING=(
 )
 export BIN_MAPPING
 
+# outils GO
+export GO_PACKAGES=(
+    "github.com/ashish0kumar/stormy@latest"
+    "github.com/0xjuanma/golazo@latest"
+    "github.com/zi0p4tch0/radiogogo@latest"
+    "github.com/xdagiz/xytz@latest"
+    "github.com/floatpane/matcha@latest"
+    # Ajoute tes autres paquets ici
+)
+
 # mes repos git à installer (dotfiles obligatoire)
+export MYREPOS="https://codeberg.org/jotenakis"
 export DOTFILES_REPO="${MYREPOS}/dotfiles"
-export DOTFILES_DIR="${GIT_DIR}/dotfiles"
+export DOTFILES_DIR="${HOME}/dotfiles"
 export GIT_REPOS=(
-    "${MYREPOS}/fedupdate.git|${GIT_DIR}/fedupdate"
-    "${MYREPOS}/backupsystem.git|${GIT_DIR}/backupsystem"
-    "${MYREPOS}/scripts.git|${GIT_DIR}/scripts"
+    "${MYREPOS}/fedupdate|${HOME}/fedupdate"
+    "${MYREPOS}/backupsystem|${HOME}/backupsystem"
+    "${MYREPOS}/scripts|${HOME}/scripts"
     "${DOTFILES_REPO}|${DOTFILES_DIR}"
     # Ajoute tes autres "repos|dossierlocaux" ici
 )
