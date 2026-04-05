@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=3.6
+readonly VER=3.7
 # variables globales en MAJ, locales en min
 # fonctions globales en MAJ, locales en min
 # fonctions helpers commencent par _  (_RUN, _SECTION, ...)
@@ -341,6 +341,7 @@ _DETECT_GRUB() {
 # FONCTIONS PRINCIPALES                                                                                                #
 ########################################################################################################################
 INITIALIZE() {
+    _PASS
     C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_MAGENTA='' C_CYAN='' C_BOLD=''
     if [[ -t 1 ]]; then
         C_RESET='\e[0m'
@@ -396,11 +397,16 @@ CHECK_ENV() {
     fi
 
     _PASS
-    _RUN "Dépendances initiales (curl, git, stow, pciutils, binutils, dnf-plugins-core policycoreutils-python-utils)" sudo dnf install -y curl git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils
+    _RUN "Dépendances initiales (curl, git, stow, crudini, pciutils, binutils, dnf-plugins-core policycoreutils-python-utils)" sudo dnf install -y curl git stow crudini pciutils dnf-plugins-core binutils policycoreutils-python-utils
 
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
     _OK "Environnement valide — ${fedora_rel}, utilisateur ${USER} avec droits sudo"
+
+    # aussitôt je conf dnf si besoin pour accélérer les download de paquets
+    sudo crudini --set /etc/dnf/dnf.conf main defaultyes true
+    sudo crudini --set /etc/dnf/dnf.conf main max_parallel_downloads 10
+
 }
 
 ########################################################################################################################
@@ -859,6 +865,28 @@ SETUP_ETC() {
         _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
     fi
 
+    # IO scheduler
+    local rules_file rules_content current
+    rules_file="/etc/udev/rules.d/60-ioschedulers.rules"
+    current=$(cat "${rules_file}" 2>/dev/null)
+    rules_content='# NVMe
+ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
+
+# SSD SATA / eMMC
+ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
+
+# HDD rotatif
+ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"'
+
+    if [[ "${current}" != "${rules_content}" ]]; then
+        printf '%s\n' "${rules_content}" | sudo tee "${rules_content}" > /dev/null
+        sudo udevadm control --reload-rules && sudo udevadm trigger
+        _OK "IO scheduler mis à jour (udev rule)."
+    else
+        echo "IO scheduler déjà à jour."
+    fi
+
+
     # --- Configuration Chrony (IPv4 only) ---
     local chrony_file chrony_content
     chrony_file="/etc/sysconfig/chronyd"
@@ -887,20 +915,6 @@ SETUP_ETC() {
     else
         _INFO "Le groupe libvirt n'existe pas. Ajout ignoré."
     fi
-
-    # --- dnf.conf ---
-    local dnf_content
-    dnf_content=$'[main]\ndefaultyes = true\nmax_parallel_downloads = 10\n'
-
-    if [[ -f /etc/dnf/dnf.conf ]] && echo "${dnf_content}" | sudo cmp -s - /etc/dnf/dnf.conf; then
-        _OK "Configuration DNF déjà à jour."
-    else
-        _PASS
-        sudo mkdir -p /etc/dnf
-        _RUN "Déploiement de la configuration de DNF" sudo bash -c "echo '${dnf_content}' | install -m 644 -o root -g root /dev/stdin /etc/dnf/dnf.conf"
-    fi
-
-
 
     # Nettoyage
     rm -rf "${tmp_dir}"
@@ -1204,10 +1218,9 @@ SETUP_SUDO_RS() {
     # 5. Déploiement de tes règles spécifiques
     _RUN "Règle PSD (90-profile-sync-daemon)" sudo bash -c "echo '%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper' > '${d_sudoers_rs_d}/90-profile-sync-daemon'"
     _RUN "Règles globales (99-timeout)" sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=60' > '${d_sudoers_rs_d}/99-timeout'"
-
-    _RUN "Permissions sur ${f_sudoers_rs}" sudo chmod 0440 "${f_sudoers_rs}"
-    _RUN "Permissions sur ${d_sudoers_rs_d}" sudo chmod 0750 "${d_sudoers_rs_d}"
-    _RUN "Permissions sur les fichiers de règles" sudo chmod 0440 "${d_sudoers_rs_d}/99-timeout" "${d_sudoers_rs_d}/90-profile-sync-daemon"
+    sudo chmod 0440 "${f_sudoers_rs}"
+    sudo chmod 0750 "${d_sudoers_rs_d}"
+    sudo chmod 0440 "${d_sudoers_rs_d}/99-timeout" "${d_sudoers_rs_d}/90-profile-sync-daemon"
 
     # 6. Nettoyage radical des anciens fichiers
     if [[ -f "/etc/sudoers" && ! -L "/etc/sudoers" ]]; then
@@ -1215,27 +1228,16 @@ SETUP_SUDO_RS() {
     fi
 
     if [[ -d "/etc/sudoers.d" ]]; then
-        _RUN "Nettoyage du contenu de /etc/sudoers.d" sudo bash -c 'rm -f /etc/sudoers.d/*'
+        _RUN "Nettoyage du contenu de /etc/sudoers.d" sudo rm -f /etc/sudoers.d/*
     else
         _RUN "Création du dossier de compatibilité /etc/sudoers.d" sudo mkdir -p /etc/sudoers.d
-        _RUN "Permissions sur le dossier de compatibilité" sudo chmod 0750 /etc/sudoers.d
+        sudo chmod 0750 /etc/sudoers.d
     fi
 
     # 7. Blocage propre des futures mises à jour du vieux sudo par DNF
-    local dnf_conf="/etc/dnf/dnf.conf"
-    if grep -q '^excludepkgs=' "${dnf_conf}"; then
-        if ! grep -Eq '^excludepkgs=.*(^|[ ,])sudo([ ,]|$)' "${dnf_conf}"; then
-            _RUN "Exclusion de sudo dans DNF (ajout propre)" \
-                sudo sed -i '/^excludepkgs=/ s/$/,sudo/' "${dnf_conf}"
-        else
-            _OK "sudo est déjà exclu proprement dans ${dnf_conf}."
-        fi
-    else
-        _RUN "Exclusion de sudo dans DNF (nouvelle ligne)" \
-            sudo bash -c "printf '\nexcludepkgs=sudo\n' >> '${dnf_conf}'"
-    fi
-
-    _OK "sudo-rs est définitivement en place."
+    sudo dnf versionlock add sudo > /dev/null 2>&1
+    sudo crudini --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
+    _OK "sudo-rs est en place et remplace définitivement sudo (dnf versionlock+excludepkgs)."
 }
 
 ########################################################################################################################
