@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=3.4
+readonly VER=3.5
 # variables globales en MAJ, locales en min
 # fonctions globales en MAJ, locales en min
 # fonctions helpers commencent par _  (_RUN, _SECTION, ...)
@@ -39,8 +39,8 @@ FONTS=(
 
 # paquets flatpak à installer
 FLATPAK_PKGS=(
-    "com.ktechpit.whatsie"
-    "io.github.giantpinkrobots.flatsweep"
+    #"com.ktechpit.whatsie"
+    #"io.github.giantpinkrobots.flatsweep"
     "com.github.tchx84.Flatseal"
     # Ajoute tes autres paquets ici
 )
@@ -280,7 +280,7 @@ _RUN() {
     spin() {
         local pid="$1" msg="$2" i=0
         while kill -0 "${pid}" 2>/dev/null; do
-            printf "\r %b%s%b %s" "${C_CYAN}" "${SPIN_FRAMES[$((i % 10))]}" "${C_RESET}" "${msg}"
+            printf "\r %b%s%b %s" "${C_RED}" "${SPIN_FRAMES[$((i % 10))]}" "${C_RESET}" "${msg}"
             sleep 0.05
             (( i++ )) || true
         done
@@ -546,9 +546,10 @@ INSTALL_CODECS() {
 ########################################################################################################################
 INSTALL_RPM_PACKAGES() {
     _SECTION "Paquets RPM"
-
+    local download_dir="./dnf-packages"
     local pkg
     local -a missing_packages=()
+    mkdir -p "${download_dir}"
 
     for pkg in "${DNF_PACKAGES[@]}"; do
         if ! rpm -q "${pkg}" &>/dev/null; then
@@ -560,10 +561,10 @@ INSTALL_RPM_PACKAGES() {
 
     if ((${#missing_packages[@]})); then
         _PASS
-        _OK "Paquets manquants : \"${missing_packages[*]}\"."
-        _RUN "Téléchargement des paquets manquants" sudo dnf download -y "${missing_packages[@]}"
-        _RUN "Installation des paquets manquants depuis le cache" sudo dnf install -y "${missing_packages[@]}"
-       # _RUN "Installation des paquets RPM manquants" sudo dnf install -y "${missing_packages[@]}"
+        _OK "Paquets manquants : ${missing_packages[*]}."
+        _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf download --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
+        _RUN "Installation des paquets manquants depuis le cache de téléchargement" sudo dnf install -y "${download_dir}"/*.rpm
+        rm -rf "${download_dir}"
     else
         _INFO "Tous les paquets RPM sont déjà installés."
     fi
@@ -774,21 +775,21 @@ SETUP_SHELL() {
     fi
 
     # 3- symlinks
-    local link target actual_target
-    for link in "${!SYMLINKS_TO_CREATE[@]}"; do
-        target="${SYMLINKS_TO_CREATE[${link}]}"
-        mkdir -p "${target}"
-        if [[ -L "${link}" ]]; then
-            actual_target=$(readlink -f "${link}")
-            if [[ "${actual_target}" != "${target}" ]]; then
-                _RUN "Mise à jour du lien symbolique ${link#.} " ln -sf "${target}" "${link}"
-            fi
-        elif [[ ! -e "${link}" ]]; then
-            _RUN "Création du lien symbolique ${link#.} " ln -sf "${target}" "${link}"
-        else
-            _INFO "${link} existe et n'est pas un lien symbolique, je ne touche à rien."
-        fi
-    done
+    # local link target actual_target
+    # for link in "${!SYMLINKS_TO_CREATE[@]}"; do
+    #     target="${SYMLINKS_TO_CREATE[${link}]}"
+    #     mkdir -p "${target}"
+    #     if [[ -L "${link}" ]]; then
+    #         actual_target=$(readlink -f "${link}")
+    #         if [[ "${actual_target}" != "${target}" ]]; then
+    #             _RUN "Mise à jour du lien symbolique ${link#.} " ln -sf "${target}" "${link}"
+    #         fi
+    #     elif [[ ! -e "${link}" ]]; then
+    #         _RUN "Création du lien symbolique ${link#.} " ln -sf "${target}" "${link}"
+    #     else
+    #         _INFO "${link} existe et n'est pas un lien symbolique, je ne touche à rien."
+    #     fi
+    # done
 
 }
 
@@ -833,7 +834,7 @@ SETUP_ETC() {
     readonly nm_dns_conf resolved_10_conf
 
     _PASS
-    _RUN "Déploiement configs DNS" sudo bash -c "
+    _RUN "Déploiement configuration DNS" sudo bash -c "
         mkdir -p /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d &&
         echo '${nm_dns_conf}' | install -m 644 -o root -g root /dev/stdin /etc/NetworkManager/conf.d/99-global-dns.conf &&
         echo '${RESOLVED_DNS_SERVERS}' | install -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf &&
@@ -846,7 +847,7 @@ SETUP_ETC() {
     # --- Optimisations Kernel (Sysctl) ---
     local sysctlfile sysctl_header full_sysctl_content
     sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
-    sysctl_header="# ========================================================================
+    sysctl_header="# =======================================================================
 # WARNING: Do not modify this file!
 # It is automatically generated and managed by ${SCRIPTNAME}.
 #
@@ -998,7 +999,7 @@ SETUP_FIREWALL() {
     if ! systemctl is-active --quiet firewalld; then
         _RUN "Démarrage et activation du service firewalld" sudo systemctl enable --now firewalld.service
     else
-        _INFO "Le service firewalld est déjà actif."
+        _OK "Le service firewalld est déjà actif."
     fi
 
     # 3. Configuration des services essentiels
@@ -1084,7 +1085,7 @@ SETUP_SWAP(){
             sudo rm -f "${swapdir}/swapfile"
             recreate_swap=true
         else
-            _OK "${swapdir}/swapfile existant et à la bonne taille (20GiB)."
+            _OK "${swapdir}/swapfile existant et à la bonne taille (${SWAP_SIZE}Go)."
         fi
     else
         recreate_swap=true
@@ -1224,11 +1225,11 @@ SETUP_SUDO_RS() {
 
     # 5. Déploiement de tes règles spécifiques
     _RUN "Règle PSD (90-profile-sync-daemon)" sudo bash -c "echo '%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper' > '${d_sudoers_rs_d}/90-profile-sync-daemon'"
-    _RUN "Règles globales (99-olivier)" sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=60' > '${d_sudoers_rs_d}/99-olivier'"
+    _RUN "Règles globales (99-timeout)" sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=60' > '${d_sudoers_rs_d}/99-timeout'"
 
     _RUN "Permissions sur ${f_sudoers_rs}" sudo chmod 0440 "${f_sudoers_rs}"
     _RUN "Permissions sur ${d_sudoers_rs_d}" sudo chmod 0750 "${d_sudoers_rs_d}"
-    _RUN "Permissions sur les fichiers de règles" sudo chmod 0440 "${d_sudoers_rs_d}/99-olivier" "${d_sudoers_rs_d}/90-profile-sync-daemon"
+    _RUN "Permissions sur les fichiers de règles" sudo chmod 0440 "${d_sudoers_rs_d}/99-timeout" "${d_sudoers_rs_d}/90-profile-sync-daemon"
 
     # 6. Nettoyage radical des anciens fichiers
     if [[ -f "/etc/sudoers" && ! -L "/etc/sudoers" ]]; then
@@ -1261,118 +1262,129 @@ SETUP_SUDO_RS() {
 
 ########################################################################################################################
 SETUP_KDE_PLASMA() {
-    _SECTION "Personnalisation de KDE Plasma 6 (Thèmes & Layout)"
+# on check KDE est lancé
+    if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
+        _SECTION "Personnalisation de KDE Plasma 6 (Thèmes & Layout)"
 
-    # 1. Base Dark
-    _RUN "Passage en mode Dark global" plasma-apply-lookandfeel -a org.kde.breezedark.desktop
+        # 1. Base Dark
+        _RUN "Passage en mode Dark global" plasma-apply-lookandfeel -a org.kde.breezedark.desktop
 
-    # 2. Color Scheme : Tokyo Night (Mise à jour sécurisée systématique)
-    local color_dir="${HOME}/.local/share/color-schemes"
-    local color_file="${color_dir}/TokyoNight.colors"
-    local tokyo_url="https://raw.githubusercontent.com/Jayy-Dev/Plasma-Tokyo-Night/plasma-6/colorscheme/TokyoNight.colors"
+        # 2. Color Scheme : Tokyo Night (Mise à jour sécurisée systématique)
+        local color_dir="${HOME}/.local/share/color-schemes"
+        local color_file="${color_dir}/TokyoNight.colors"
+        local tokyo_url="https://raw.githubusercontent.com/Jayy-Dev/Plasma-Tokyo-Night/plasma-6/colorscheme/TokyoNight.colors"
 
-    mkdir -p "${color_dir}"
+        mkdir -p "${color_dir}"
 
-    # -fsL garantit qu'on ne crée pas de fichier corrompu en cas de 404
-    _RUN "Téléchargement de TokyoNight.colors" curl -fsL "${tokyo_url}" -o "${color_file}"
+        # -fsL garantit qu'on ne crée pas de fichier corrompu en cas de 404
+        _RUN "Téléchargement de TokyoNight.colors" curl -fsL "${tokyo_url}" -o "${color_file}"
 
-    if [[ ! -s "${color_file}" ]]; then
-        _ERR "Le fichier téléchargé est introuvable ou vide. Faudra appliquer le schéma de couleurs manuellement..."
-    else
-        # Détection du nom exact par Plasma (extraction propre du premier mot)
-        local scheme=""
-        if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
-            scheme="$(plasma-apply-colorscheme --list-schemes 2>/dev/null | grep -i 'tokyonight' | awk '{print $2}' | head -n1 || true)"
+        if [[ ! -s "${color_file}" ]]; then
+            _ERR "Le fichier téléchargé est introuvable ou vide. Faudra appliquer le schéma de couleurs manuellement..."
+        else
+            # Détection du nom exact par Plasma (extraction propre du premier mot)
+            local scheme=""
+            if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
+                scheme="$(plasma-apply-colorscheme --list-schemes 2>/dev/null | grep -i 'tokyonight' | awk '{print $2}' | head -n1 || true)"
+            fi
+
+            [[ -n "${scheme}" ]] || _ERR "Tokyo Night non détecté par KDE Plasma ! Faudra appliquer manuellement..."
+
+            _RUN "Application du color scheme ${scheme}" plasma-apply-colorscheme "${scheme}"
+            kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}"
         fi
 
-        [[ -n "${scheme}" ]] || _ERR "Tokyo Night non détecté par KDE Plasma ! Faudra appliquer manuellement..."
+        # 3. Icônes : Tela Dark
+        local temp_tela
+        temp_tela=$(mktemp -d)
+        _RUN "Clonage des icônes Tela Dark" git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
+        _RUN "Installation des icônes Tela Dark" bash "${temp_tela}/tela/install.sh" -d "${HOME}/.local/share/icons"
+        kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark"
+        rm -rf "${temp_tela}"
 
-        _RUN "Application du color scheme ${scheme}" plasma-apply-colorscheme "${scheme}"
-        kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}"
-    fi
+        # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
+        mkdir -p "${HOME}/.local/share/icons"
+        local temp_cursor
+        temp_cursor=$(mktemp -d)
+        _RUN "Téléchargement du curseur Bibata Lavender" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
+        _RUN "Extraction du curseur" unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
+        kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
 
-    # 3. Icônes : Tela Dark
-    local temp_tela
-    temp_tela=$(mktemp -d)
-    _RUN "Clonage des icônes Tela Dark" git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
-    _RUN "Installation des icônes Tela Dark" bash "${temp_tela}/tela/install.sh" -d "${HOME}/.local/share/icons"
-    kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark"
-    rm -rf "${temp_tela}"
+        # Pointeur par défaut pour compatibilité GTK
+        mkdir -p "${HOME}/.local/share/icons/default"
+        echo -e "[Icon Theme]\nInherits=catppuccin-mocha-lavender-cursors" > "${HOME}/.local/share/icons/default/index.theme"
+        _OK "Curseur de secours (GTK fallback) configuré dans ~/.local/share/icons/default."
 
-    # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
-    mkdir -p "${HOME}/.local/share/icons"
-    local temp_cursor
-    temp_cursor=$(mktemp -d)
-    _RUN "Téléchargement du curseur Bibata Lavender" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
-    _RUN "Extraction du curseur" unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
-    kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
+        # Baloo
+        if command -v balooctl6 >/dev/null 2>&1; then
+            _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
+            _OK "Le service baloo est désactivé et sa base de données a été supprimée."
+        else
+            _INFO "L'outil balooctl n'est pas installé. Aucune action requise."
+        fi
 
-    # Pointeur par défaut pour compatibilité GTK
-    mkdir -p "${HOME}/.local/share/icons/default"
-    echo -e "[Icon Theme]\nInherits=catppuccin-mocha-lavender-cursors" > "${HOME}/.local/share/icons/default/index.theme"
-    _OK "Curseur de secours (GTK fallback) configuré dans ~/.local/share/icons/default."
+        # Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
+        _RUN "Application du thème (Tokyo Night, Tela, Bibata) aux Flatpaks" sudo flatpak override \
+            --filesystem="${HOME}/.local/share/icons:ro" \
+            --filesystem="${HOME}/.local/share/themes:ro" \
+            --filesystem="${HOME}/.icons:ro" \
+            --filesystem="xdg-config/gtk-3.0:ro" \
+            --filesystem="xdg-config/gtk-4.0:ro" \
+            --env="GTK_THEME=TokyoNight" \
+            --env="ICON_THEME=Tela-dark" \
+            --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
 
-    # Baloo
-    if command -v balooctl6 >/dev/null 2>&1; then
-        _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
-        _OK "Le service baloo est désactivé et sa base de données a été supprimée."
+        # déplacement du panneau principal
+        local target_pos="${KDEPANEL:-bottom}" # fallback en bas
+        if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
+            _INFO "plasmashell ne tourne pas. Configuration du panneau reportée."
+        else
+            plasma_eval() {
+                local script="$1"
+                busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s "${script}"
+            }
+            _RUN "Déplacement du panneau en position ${target_pos}" plasma_eval "
+                var allPanels = panels();
+                for (var i = 0; i < allPanels.length; i++) {
+                    allPanels[i].location = \"${target_pos}\";
+                    }
+            "
+            _RUN "Redémarrage de plasmashell" systemctl --user restart plasma-plasmashell.service
+        fi
+        _OK "Personnalisation KDE (TokyoNight, Tela, Bibata, Panneau) terminée."
     else
-        _INFO "L'outil balooctl n'est pas installé. Aucune action requise."
+        echo
+        _INFO "KDE n'a pas été détecté... Je ne touche pas à la customization de KDE."
     fi
-
-    # Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
-    _RUN "Application du thème (Tokyo Night, Tela, Bibata) aux Flatpaks" sudo flatpak override \
-        --filesystem="${HOME}/.local/share/icons:ro" \
-        --filesystem="${HOME}/.local/share/themes:ro" \
-        --filesystem="${HOME}/.icons:ro" \
-        --filesystem="xdg-config/gtk-3.0:ro" \
-        --filesystem="xdg-config/gtk-4.0:ro" \
-        --env="GTK_THEME=TokyoNight" \
-        --env="ICON_THEME=Tela-dark" \
-        --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
-
-    # déplacement du panneau principal
-    local target_pos="${KDEPANEL:-bottom}" # fallback en bas
-    if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
-        _INFO "plasmashell ne tourne pas. Configuration du panneau reportée."
-    else
-        plasma_eval() {
-            local script="$1"
-            busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s "${script}"
-        }
-        _RUN "Déplacement du panneau en position ${target_pos}" plasma_eval "
-            var allPanels = panels();
-            for (var i = 0; i < allPanels.length; i++) {
-                allPanels[i].location = \"${target_pos}\";
-                }
-        "
-        _RUN "Redémarrage de plasmashell" systemctl --user restart plasma-plasmashell.service
-    fi
-    _OK "Personnalisation KDE (TokyoNight, Tela, Bibata, Panneau) terminée."
 }
 
 ########################################################################################################################
 SETUP_PLM() {
-    _SECTION "Préparation de Plasma Login Manager"
+# on teste si KDE tourne
+    if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
+        _SECTION "Préparation de Plasma Login Manager"
 
-    if ! rpm -q plasma-login-manager >/dev/null 2>&1; then
-        _RUN "Installation de plasma-login-manager" sudo dnf install -y plasma-login-manager kcm-plasmalogin
+        if ! rpm -q plasma-login-manager >/dev/null 2>&1; then
+            _RUN "Installation de plasma-login-manager" sudo dnf install -y plasma-login-manager kcm-plasmalogin
+        else
+            _OK "plasma-login-manager déjà installé."
+        fi
+
+        if systemctl is-enabled --quiet sddm.service 2>/dev/null; then
+            _RUN "Désactivation de SDDM pour le prochain boot" sudo systemctl disable sddm.service
+        else
+            _INFO "SDDM déjà désactivé."
+        fi
+
+        if systemctl is-enabled --quiet plasmalogin.service 2>/dev/null; then
+            _OK "plasmalogin.service déjà activé."
+        else
+            _RUN "Activation de Plasma Login Manager pour le prochain boot" sudo systemctl enable --force plasmalogin.service
+        fi
     else
-        _OK "plasma-login-manager déjà installé."
+        echo
+        _INFO "KDE n'a pas été détecté... Je ne touche pas au display-manager."
     fi
-
-    if systemctl is-enabled --quiet sddm.service 2>/dev/null; then
-        _RUN "Désactivation de SDDM pour le prochain boot" sudo systemctl disable sddm.service
-    else
-        _INFO "SDDM déjà désactivé."
-    fi
-
-    if systemctl is-enabled --quiet plasmalogin.service 2>/dev/null; then
-        _OK "plasmalogin.service déjà activé."
-    else
-        _RUN "Activation de Plasma Login Manager pour le prochain boot" sudo systemctl enable --force plasmalogin.service
-    fi
-
 }
 
 ########################################################################################################################
