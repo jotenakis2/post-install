@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=3.5
+readonly VER=3.6
 # variables globales en MAJ, locales en min
 # fonctions globales en MAJ, locales en min
 # fonctions helpers commencent par _  (_RUN, _SECTION, ...)
 # paramètres customisables définies ci-dessous :
-
+# TODO : git privé (clé ssh, ...)
+#        psd
+#
 # ─── Variables globales ──────────────────────────────────────────────────────────────────────────────────────────────
 
 # url de mon compte git et dossier local de clonage des repos
@@ -87,15 +89,6 @@ declare -A SERVICES_TO_DISABLE=(
     ["ModemManager.service"]="service ModemManager"
     ["rsyslog.service"]="service rsyslog"
     # ajoute tes autres services systemd à désactiver ici
-)
-
-# lien symbolique du dossier utilisateur
-declare -A SYMLINKS_TO_CREATE=(
-    [".thunderbird"]="${HOME}/.config/thunderbird"
-    [".iptvnator"]="${HOME}/.config/iptvnator"
-    [".icons"]="${HOME}/.local/share/icons"
-    [".themes"]="${HOME}/.local/share/themes"
-    # Ajoute d'autres dossiers ici si besoin
 )
 
 # configuration du noyau
@@ -186,14 +179,14 @@ DNSSEC=yes
 '
 
 # taille du fichier swap en GiB (/var/swap/swapfile)
-SWAP_SIZE=5
+SWAP_SIZE=8
 
 # paramètres additionels de la ligne de commande du noyau
 # (couleurs catppuccin mocha pour le terminal ici, loglevel 5 et disable ipv6)
 CMDLINE="loglevel=3 ipv6.disable=1 vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200"
 
 # Position du panneau principal KDE : "top", "bottom", "left", "right" possibles
-KDEPANEL="top"
+KDEPANEL="left"
 
 # ─── /Variables globales ─────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -369,7 +362,6 @@ INITIALIZE() {
     export GOBIN="${XDG_BIN_HOME:-${HOME}/.local/bin}"
 
     mkdir -p "${GIT_DIR}" "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh"
-    _PASS
     sudo mkdir -p "/usr/local/bin"
 
     # Préparation d'une session sudo confortable et longue pour l'installation
@@ -546,9 +538,11 @@ INSTALL_CODECS() {
 ########################################################################################################################
 INSTALL_RPM_PACKAGES() {
     _SECTION "Paquets RPM"
-    local download_dir="./dnf-packages"
-    local pkg
-    local -a missing_packages=()
+    local pkg arch download_dir
+    local -a missing_packages
+    arch=$(uname -m)
+    download_dir="./dnf-packages"
+    missing_packages=()
     mkdir -p "${download_dir}"
 
     for pkg in "${DNF_PACKAGES[@]}"; do
@@ -562,7 +556,7 @@ INSTALL_RPM_PACKAGES() {
     if ((${#missing_packages[@]})); then
         _PASS
         _OK "Paquets manquants : ${missing_packages[*]}."
-        _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf download --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
+        _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf --setopt max_parallel_downloads=10 download --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
         _RUN "Installation des paquets manquants depuis le cache de téléchargement" sudo dnf install -y "${download_dir}"/*.rpm
         rm -rf "${download_dir}"
     else
@@ -773,23 +767,6 @@ SETUP_SHELL() {
         _RUN "Téléchargement du binaire Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
         chmod 777 "${omp_bin}"
     fi
-
-    # 3- symlinks
-    # local link target actual_target
-    # for link in "${!SYMLINKS_TO_CREATE[@]}"; do
-    #     target="${SYMLINKS_TO_CREATE[${link}]}"
-    #     mkdir -p "${target}"
-    #     if [[ -L "${link}" ]]; then
-    #         actual_target=$(readlink -f "${link}")
-    #         if [[ "${actual_target}" != "${target}" ]]; then
-    #             _RUN "Mise à jour du lien symbolique ${link#.} " ln -sf "${target}" "${link}"
-    #         fi
-    #     elif [[ ! -e "${link}" ]]; then
-    #         _RUN "Création du lien symbolique ${link#.} " ln -sf "${target}" "${link}"
-    #     else
-    #         _INFO "${link} existe et n'est pas un lien symbolique, je ne touche à rien."
-    #     fi
-    # done
 
 }
 
@@ -1221,7 +1198,8 @@ SETUP_SUDO_RS() {
     fi
     _PASS
     _RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -sf "${sudo_rs_bin}" "${local_bin_sudo}"
-    _RUN "Fixation des permissions SUID sur sudo-rs" sudo chmod 4111 "${sudo_rs_bin}"
+    sudo chmod 4111 "${sudo_rs_bin}"
+    sudo chmod 0000 "${sys_sudo_bak}"
 
     # 5. Déploiement de tes règles spécifiques
     _RUN "Règle PSD (90-profile-sync-daemon)" sudo bash -c "echo '%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper' > '${d_sudoers_rs_d}/90-profile-sync-daemon'"
