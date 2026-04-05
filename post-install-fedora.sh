@@ -1,196 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=3.7
+readonly VER=3.8
+# TODO : git privé (clé ssh, ...)
+#        psd
+#        custo panneau KDE avec favoris
+
 # variables globales en MAJ, locales en min
 # fonctions globales en MAJ, locales en min
 # fonctions helpers commencent par _  (_RUN, _SECTION, ...)
-# paramètres customisables définies ci-dessous :
-# TODO : git privé (clé ssh, ...)
-#        psd
-#
-# ─── Variables globales ──────────────────────────────────────────────────────────────────────────────────────────────
 
-# url de mon compte git et dossier local de clonage des repos
-MYREPOS="https://codeberg.org/jotenakis"
-GIT_DIR="${HOME}/git"
-
-# paquets à installer
-DNF_PACKAGES=(
-    zsh fastfetch util-linux-script sudo-rs foot ghostty kitty eza fzf neovim bat bat-extras grc axel rclone procs
-    wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
-    nodejs-bash-language-server golang make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird
-    vesktop telegram-desktop qbittorrent brave-browser helium-browser-bin qemu virt-manager virt-viewer gum stress-ng
-    libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro
-    # Ajoute tes autres paquets ici
-)
-
-# paquets à désinstaller
-DNF_REMOVE=(
-    zram-generator-defaults PackageKit-glib google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd
-    libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover
-    # Ajoute tes autres paquets ici
-)
-
-# polices à installer (les 2 nerd font ici sont dans le dépôt Terra qui est ajouté automatiquement)
-FONTS=(
-    jetbrainsmono-nerd-fonts
-    iosevka-nerd-fonts
-    # Ajoute tes autres paquets ici
-)
-
-# paquets flatpak à installer
-FLATPAK_PKGS=(
-    #"com.ktechpit.whatsie"
-    #"io.github.giantpinkrobots.flatsweep"
-    "com.github.tchx84.Flatseal"
-    # Ajoute tes autres paquets ici
-)
-
-# outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé"
-CARGO_PACKAGES=(
-    bandwhich bat bottom cargo-update diskus fd-find hyperfine netscanner parallel-disk-usage resvg
-    ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina
-    # Ajoute tes autres paquets ici
-)
-declare -A BIN_MAPPING=(
-        ["yazi-fm"]="yazi"
-        ["yazi-cli"]="ya"
-        ["tealdeer"]="tldr"
-        ["parallel-disk-usage"]="pdu"
-        ["fd-find"]="fd"
-        ["bottom"]="btm"
-        ["ripgrep"]="rg"
-        ["cargo-update"]="cargo-install-update cargo-install-update-config"
-        # Ajoute tes autres correspondances ici
-)
-
-# mes repos git à installer (dotfiles obligatoire)
-DOTFILES_REPO="${MYREPOS}/dotfiles"
-DOTFILES_DIR="${GIT_DIR}/dotfiles"
-GIT_REPOS=(
-    "${MYREPOS}/fedupdate.git|${GIT_DIR}/fedupdate"
-    "${MYREPOS}/backupsystem.git|${GIT_DIR}/backupsystem"
-    "${MYREPOS}/scripts.git|${GIT_DIR}/scripts"
-    "${DOTFILES_REPO}|${DOTFILES_DIR}"
-    # Ajoute tes autres "repos|dossierlocaux" ici
-)
-
-# services réseaux à autoriser dans le pare-feu
-FIREWALL_SERVICES=(
-    "mdns"
-    "ipp-client"
-    "samba-client"
-    # ajoute tes autres services réseaux à autoriser ici
-)
-
-# services systemd à désactiver
-declare -A SERVICES_TO_DISABLE=(
-    ["ModemManager.service"]="service ModemManager"
-    ["rsyslog.service"]="service rsyslog"
-    # ajoute tes autres services systemd à désactiver ici
-)
-
-# configuration du noyau
-SYSCTL_CONF='
-# optimizing
-vm.swappiness = 10
-vm.vfs_cache_pressure = 100
-vm.watermark_boost_factor = 0
-vm.watermark_scale_factor = 125
-vm.page-cluster = 0
-vm.dirty_background_ratio = 2
-vm.dirty_ratio = 3
-vm.dirty_bytes = 335544320
-vm.dirty_background_bytes = 167772160
-vm.dirty_writeback_centisecs = 1500
-net.core.somaxconn = 8192
-net.ipv4.tcp_congestion_control = bbr
-net.core.default_qdisc = fq
-net.core.netdev_max_backlog = 16384
-net.ipv4.tcp_fastopen = 3
-net.ipv4.tcp_slow_start_after_idle = 0
-kernel.task_delayacct = 1
-kernel.soft_watchdog = 0
-kernel.watchdog = 0
-kernel.dmesg_restrict = 0
-vm.laptop_mode=5
-fs.suid_dumpable=0
-kernel.core_pattern=|/bin/false
-
-# hardening
-dev.tty.ldisc_autoload = 0
-fs.protected_hardlinks = 1
-fs.protected_symlinks = 1
-kernel.core_uses_pid = 1
-kernel.ctrl-alt-del = 0
-kernel.perf_event_paranoid = 4
-kernel.randomize_va_space = 2
-kernel.sysrq = 16
-kernel.unprivileged_bpf_disabled = 1
-kernel.yama.ptrace_scope = 3
-net.core.bpf_jit_harden = 2
-net.ipv4.conf.all.accept_redirects = 0
-net.ipv4.conf.all.accept_source_route = 0
-net.ipv4.conf.all.bootp_relay = 0
-net.ipv4.conf.all.forwarding = 0
-net.ipv4.conf.all.log_martians = 1
-net.ipv4.conf.lo.log_martians = 1
-net.ipv4.conf.default.forwarding = 0
-net.ipv4.conf.all.proxy_arp = 0
-net.ipv4.conf.all.rp_filter = 1
-net.ipv4.conf.all.send_redirects = 0
-net.ipv4.conf.default.send_redirects = 0
-net.ipv4.conf.default.accept_redirects = 0
-net.ipv4.conf.default.secure_redirects = 0
-net.ipv4.conf.all.secure_redirects = 0
-net.ipv4.conf.default.accept_source_route = 0
-net.ipv4.tcp_max_syn_backlog = 4096
-net.ipv4.conf.default.log_martians = 1
-net.ipv4.icmp_echo_ignore_broadcasts = 1
-net.ipv4.icmp_ignore_bogus_error_responses = 1
-net.ipv4.ip_forward = 0
-net.ipv4.tcp_syncookies = 1
-net.ipv4.tcp_timestamps = 1
-net.ipv4.conf.default.rp_filter = 1
-'
-
-# configuration pour débloater brave browser
-BRAVE_POLICIES='
-{
-    "BraveRewardsDisabled": true,
-    "BraveWalletDisabled": true,
-    "BraveVPNDisabled": 1,
-    "BraveAIChatEnabled": false,
-    "TorDisabled": true,
-    "PasswordManagerEnabled": false,
-    "DnsOverHttpsMode": "automatic"
-}
-'
-
-# conf DNS à utiliser pour la résolution internet
-RESOLVED_DNS_SERVERS='
-[Resolve]
-DNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net
-FallbackDNS=1.1.1.1#one.one.one.one
-Domains=~.
-DNSOverTLS=yes
-DNSSEC=yes
-'
-
-# taille du fichier swap en GiB (/var/swap/swapfile)
-SWAP_SIZE=8
-
-# paramètres additionels de la ligne de commande du noyau
-# (couleurs catppuccin mocha pour le terminal ici, loglevel 5 et disable ipv6)
-CMDLINE="loglevel=3 ipv6.disable=1 vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200"
-
-# Position du panneau principal KDE : "top", "bottom", "left", "right" possibles
-KDEPANEL="left"
-
-# ─── /Variables globales ─────────────────────────────────────────────────────────────────────────────────────────────
-
-
+# paramètres customisables définies dans settings.sh.
+source settings.sh
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
@@ -244,8 +65,33 @@ MAIN() {
 # FONCTIONS HELPERS                                                                                                    #
 ########################################################################################################################
 _BANNER() {
-    printf "%b%b\n  ╔════════════════════════════════════╗\n  ║      ${SCRIPTNAME} (${VER})  ║\n  ╚════════════════════════════════════╝%b\n  Log : %s\n\n" "${C_CYAN}" "${C_BOLD}" "${C_MAGENTA}" "${LOG_FILE}"
-    echo -ne "${C_RESET}"
+    local color=$1
+    shift
+    local text="$*"
+    local fg cols
+    cols=60
+    case "${color}" in
+        red) fg=31;; green) fg=32;; yellow) fg=33;; blue) fg=34;;
+        magenta) fg=35;; cyan) fg=36;; white) fg=37;; *) fg=39;;
+    esac
+    local w=$((cols - 2))
+    (( w < 1 )) && return
+    local len=${#text}
+    (( len > w )) && text=${text:0:w} && len=w
+    local padl=$(( (w - len) / 2 ))
+    local padr=$(( w - len - padl ))
+
+    local TL=$'\xE2\x95\x94' TR=$'\xE2\x95\x97'
+    local BL=$'\xE2\x95\x9A' BR=$'\xE2\x95\x9D'
+    local H=$'\xE2\x95\x90' V=$'\xE2\x95\x91'
+    local hline
+    hline=$(printf '%*s' "${w}" '' | sed "s/ /${H}/g")
+
+    printf '\033[%sm%s%s%s\033[0m\n' "${fg}" "${TL}" "${hline}" "${TR}"
+    printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text}" "${padr}" '' "${V}"
+    printf '\033[%sm%s%s%s\033[0m\n' "${fg}" "${BL}" "${hline}" "${BR}"
+
+    return 0
 }
 _HEURE() {
     local date heure
@@ -341,7 +187,6 @@ _DETECT_GRUB() {
 # FONCTIONS PRINCIPALES                                                                                                #
 ########################################################################################################################
 INITIALIZE() {
-    _PASS
     C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_MAGENTA='' C_CYAN='' C_BOLD=''
     if [[ -t 1 ]]; then
         C_RESET='\e[0m'
@@ -352,6 +197,7 @@ INITIALIZE() {
         C_MAGENTA='\e[1;35m'
         C_CYAN='\e[1;36m'
     fi
+    _PASS
     LOG_DIR="${HOME}/.local/log"
     LOG_FILE="${LOG_DIR}/post-install-fedora-$(date +%Y%m%d-%H%M%S).log"
     INSTALL_DIR="${HOME}/.local/bin"
@@ -362,24 +208,34 @@ INITIALIZE() {
     export GOPATH="${XDG_DATA_HOME:-${HOME}/.local/share}/go"
     export GOBIN="${XDG_BIN_HOME:-${HOME}/.local/bin}"
 
-    mkdir -p "${GIT_DIR}" "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh"
-    sudo mkdir -p "/usr/local/bin"
+    # Dossiers utilisateur requis
+    mkdir -p "${GIT_DIR}" "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes"
+    # Dossiers système requis
+    sudo mkdir -p /usr/local/bin /etc/sudoers.d /etc/udev.d/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
 
     # Préparation d'une session sudo confortable et longue pour l'installation
     SUDOTMP="/etc/sudoers-rs.d/99_POST-INSTALL" # pour delete à la fin
     local sudotmp="/etc/sudoers.d/99_POST-INSTALL"
-    sudo mkdir -p /etc/sudoers.d
+
     sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=180' > '${sudotmp}'"
     sudo chmod 0440 "${sudotmp}"
+
+    SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+    _HEURE
+
+    # aussitôt je conf dnf si besoin pour accélérer les download de paquets
+    _RUN "Préparation" sudo dnf install -y crudini
+    if command -v crudini &>/dev/null; then
+        sudo crudini --set /etc/dnf/dnf.conf main defaultyes true
+        sudo crudini --set /etc/dnf/dnf.conf main max_parallel_downloads 10
+    fi
 
     # PATH
     export PATH="${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
 
-    SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
 
     #
-    _HEURE
-    _BANNER
+    _BANNER "blue" "${SCRIPTNAME} (${VER})"
 }
 
 ########################################################################################################################
@@ -397,15 +253,11 @@ CHECK_ENV() {
     fi
 
     _PASS
-    _RUN "Dépendances initiales (curl, git, stow, crudini, pciutils, binutils, dnf-plugins-core policycoreutils-python-utils)" sudo dnf install -y curl git stow crudini pciutils dnf-plugins-core binutils policycoreutils-python-utils
+    _RUN "Contrôle des dépendances obligatoires" sudo dnf install -y curl git stow crudini pciutils dnf-plugins-core binutils policycoreutils-python-utils
 
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
     _OK "Environnement valide — ${fedora_rel}, utilisateur ${USER} avec droits sudo"
-
-    # aussitôt je conf dnf si besoin pour accélérer les download de paquets
-    sudo crudini --set /etc/dnf/dnf.conf main defaultyes true
-    sudo crudini --set /etc/dnf/dnf.conf main max_parallel_downloads 10
 
 }
 
@@ -547,9 +399,8 @@ INSTALL_RPM_PACKAGES() {
     local pkg arch download_dir
     local -a missing_packages
     arch=$(uname -m)
-    download_dir="./dnf-packages"
+    download_dir="./dnf-packages$$"
     missing_packages=()
-    mkdir -p "${download_dir}"
 
     for pkg in "${DNF_PACKAGES[@]}"; do
         if ! rpm -q "${pkg}" &>/dev/null; then
@@ -560,9 +411,9 @@ INSTALL_RPM_PACKAGES() {
     done
 
     if ((${#missing_packages[@]})); then
-        _PASS
+        mkdir -p "${download_dir}"
         _OK "Paquets manquants : ${missing_packages[*]}."
-        _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf --setopt max_parallel_downloads=10 download --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
+        _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf download --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
         _RUN "Installation des paquets manquants depuis le cache de téléchargement" sudo dnf install -y "${download_dir}"/*.rpm
         rm -rf "${download_dir}"
     else
@@ -811,21 +662,30 @@ SETUP_ETC() {
     tmp_dir=$(mktemp -d)
 
     # --- NetworkManager & systemd-resolved ---
-    local nm_dns_conf resolved_10_conf
+    local nm_dns_conf resolved_10_conf restart=0
     nm_dns_conf=$'[main]\ndns=systemd-resolved\n'
     resolved_10_conf=$'[Resolve]\nLLMNR=no\n'
     readonly nm_dns_conf resolved_10_conf
 
     _PASS
-    _RUN "Déploiement configuration DNS" sudo bash -c "
-        mkdir -p /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d &&
-        echo '${nm_dns_conf}' | install -m 644 -o root -g root /dev/stdin /etc/NetworkManager/conf.d/99-global-dns.conf &&
-        echo '${RESOLVED_DNS_SERVERS}' | install -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf &&
-        echo '${resolved_10_conf}' | install -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf &&
-        ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-    "
-    _RUN "Redémarrage NetworkManager & systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
-
+    if ! grep -q "dns=systemd-resolved" /etc/NetworkManager/conf.d/*; then
+        _RUN "Configuration de NetworkManager pour systemd-resolved" sudo bash -c "
+        echo '${nm_dns_conf}' | install -m 644 -o root -g root /dev/stdin /etc/NetworkManager/conf.d/99-global-dns.conf
+        "
+        restart=1
+    else
+        _OK "NetworkManager déjà configuré pour utiliser systemd-resolved."
+    fi
+    sudo ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf # pas sécurité on force
+    if [[ ! -f /etc/systemd/resolved.conf.d/dns_servers.conf ]] || [[ ! -f /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ]]; then
+        _RUN "Déploiement de la configuration DNS (systemd-resolved)" sudo bash -c "echo '${RESOLVED_DNS_SERVERS}' | install -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf ; echo '${resolved_10_conf}' | install -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
+        restart=1
+    else
+        _OK "Configuration DNS (systemd-resolved) déjà présente."
+    fi
+    if [[ ${restart} -eq 1 ]]; then
+        _RUN "Redémarrage de NetworkManager & systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
+    fi
 
     # --- Optimisations Kernel (Sysctl) ---
     local sysctlfile sysctl_header full_sysctl_content
@@ -846,7 +706,6 @@ SETUP_ETC() {
         _OK "Configuration noyau déjà à jour (${sysctlfile})."
     else
         _PASS
-        sudo mkdir -p "/etc/sysctl.d/"
         _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
         _RUN "Application des paramètres." sudo sysctl -p "${sysctlfile}"
     fi
@@ -861,13 +720,13 @@ SETUP_ETC() {
         _OK "Configuration policies debloat Brave déjà à jour (${brave_policy_file})."
     else
         _PASS
-        sudo mkdir -p "/etc/brave/policies/managed/"
         _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
     fi
 
     # IO scheduler
     local rules_file rules_content current
     rules_file="/etc/udev/rules.d/60-ioschedulers.rules"
+    sudo touch "${rules_file}"
     current=$(cat "${rules_file}" 2>/dev/null)
     rules_content='# NVMe
 ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
@@ -879,7 +738,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="
 ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"'
 
     if [[ "${current}" != "${rules_content}" ]]; then
-        printf '%s\n' "${rules_content}" | sudo tee "${rules_content}" > /dev/null
+        printf '%s\n' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
         sudo udevadm control --reload-rules && sudo udevadm trigger
         _OK "IO scheduler mis à jour (udev rule)."
     else
@@ -887,18 +746,19 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
     fi
 
 
-    # --- Configuration Chrony (IPv4 only) ---
-    local chrony_file chrony_content
-    chrony_file="/etc/sysconfig/chronyd"
-    chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
-    readonly chrony_file chrony_content
-
-    if [[ -f "${chrony_file}" ]] && echo "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
-        _OK "Configuration chronyd déjà à jour."
-    else
-        _PASS
-        _RUN "Application de la configuration chronyd" sudo install -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
-        _RUN "Redémarrage du service chronyd" sudo systemctl try-restart chronyd
+    # --- Configuration Chrony (IPv4 only si IPv6 désactivé) ---
+    if echo "${CMDLINE}" | grep -q 'ipv6.disable=1'; then
+        local chrony_file chrony_content
+        chrony_file="/etc/sysconfig/chronyd"
+        chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
+        readonly chrony_file chrony_content
+        if [[ -f "${chrony_file}" ]] && echo "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
+            _OK "Configuration chronyd déjà à jour."
+        else
+            _PASS
+            _RUN "Application de la configuration chronyd" sudo install -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
+            _RUN "Redémarrage du service chronyd" sudo systemctl try-restart chronyd
+        fi
     fi
 
      # --- Groupe libvirt ---
@@ -937,8 +797,9 @@ SETUP_SYSTEMD(){
 ########################################################################################################################
 SETUP_GRUB(){
     # --- 3. Configuration GRUB ---
-    local is_grub
+    local is_grub zswap
     is_grub=$(_DETECT_GRUB)
+    zswap="zswap.enabled=1 zswap.compressor=lz4"
 
     if [[ "${is_grub}" == "true" ]]; then
         local luks_param="" target_cmdline="" current_cmdline="" current_default=""
@@ -947,7 +808,7 @@ SETUP_GRUB(){
             luks_param=$(grep -oP 'rd\.luks\.uuid=\S+' /etc/default/grub | head -n 1)
         fi
 
-        target_cmdline="${luks_param} rhgb zswap.enabled=1 zswap.compressor=lz4 ${CMDLINE}"
+        target_cmdline="${luks_param} rhgb ${zswap} ${CMDLINE} ${TTY_COLOR}"
         target_cmdline=$(echo "${target_cmdline}" | xargs)
 
         current_cmdline=$(grep '^GRUB_CMDLINE_LINUX=' /etc/default/grub | cut -d'"' -f2 || echo "")
@@ -1254,8 +1115,6 @@ SETUP_KDE_PLASMA() {
         local color_file="${color_dir}/TokyoNight.colors"
         local tokyo_url="https://raw.githubusercontent.com/Jayy-Dev/Plasma-Tokyo-Night/plasma-6/colorscheme/TokyoNight.colors"
 
-        mkdir -p "${color_dir}"
-
         # -fsL garantit qu'on ne crée pas de fichier corrompu en cas de 404
         _RUN "Téléchargement de TokyoNight.colors" curl -fsL "${tokyo_url}" -o "${color_file}"
 
@@ -1283,7 +1142,6 @@ SETUP_KDE_PLASMA() {
         rm -rf "${temp_tela}"
 
         # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
-        mkdir -p "${HOME}/.local/share/icons"
         local temp_cursor
         temp_cursor=$(mktemp -d)
         _RUN "Téléchargement du curseur Bibata Lavender" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
@@ -1291,7 +1149,6 @@ SETUP_KDE_PLASMA() {
         kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
 
         # Pointeur par défaut pour compatibilité GTK
-        mkdir -p "${HOME}/.local/share/icons/default"
         echo -e "[Icon Theme]\nInherits=catppuccin-mocha-lavender-cursors" > "${HOME}/.local/share/icons/default/index.theme"
         _OK "Curseur de secours (GTK fallback) configuré dans ~/.local/share/icons/default."
 
