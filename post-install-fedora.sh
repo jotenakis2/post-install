@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=4.0
+readonly VER=4.1
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        custo panneau KDE avec favoris
@@ -29,7 +29,6 @@ MAIN() {
     INSTALL_RPM_PACKAGES
     INSTALL_FONTS
     INSTALL_CODECS
-    INSTALL_RUST
     INSTALL_CARGO_PACKAGES
     INSTALL_GO_PACKAGES
     INSTALL_FLATPAK_PACKAGES
@@ -461,19 +460,15 @@ INSTALL_FLATPAK_PACKAGES() {
 }
 
 ########################################################################################################################
-INSTALL_RUST() {
-    _SECTION "Toolchain Rust"
-
-    if command -v rustup &>/dev/null; then
-        _RUN "Mise à jour rustup stable" rustup update stable
-    else
-        _RUN "Installation rustup" bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
-    fi
-}
-
-########################################################################################################################
 INSTALL_CARGO_PACKAGES() {
     _SECTION "Paquets Cargo"
+
+    # 0. toolchain rust
+    if command -v rustup &>/dev/null; then
+        _RUN "Mise à jour de la toolchain rust" rustup update stable
+    else
+        _RUN "Installation de la toolchain rust" bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
+    fi
 
     # 1. Installation de cargo-binstall sans compilation
     if ! command -v cargo-binstall &>/dev/null; then
@@ -537,22 +532,25 @@ INSTALL_CARGO_PACKAGES() {
 ########################################################################################################################
 INSTALL_GO_PACKAGES() {
     _SECTION "Paquets GO"
-    local pkg
-    # if ! command -v go &>/dev/null; then
-    #     _RUN "Installation de la toolchain GO" sudo dnf install -y golang make
-    # fi
-
-    local latest arch os gopkg
-    latest=$(curl -s https://go.dev/dl/ | grep -oP 'go\K\d+\.\d+\.\d+' | head -1)
-    arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-    os=$(uname | tr '[:upper:]' '[:lower:]')
-    gopkg="go${latest}.${os}-${arch}.tar.gz"
-
-    _RUN "Téléchargement de la toolchain Go v${latest}" noglob wget "https://go.dev/dl/${gopkg}"
-    sudo rm -rf /usr/local/go
-    _RUN "Installation de la toolchain Go v${latest}" sudo tar -C /usr/local -xzf "${gopkg}"
-    rm -f "${gopkg}"
+    local pkg current="" latest="" arch="" os="" gofile
     export PATH="/usr/local/go/bin:${PATH}"
+    if command -v go &>/dev/null; then
+         current="$(go version | grep -oP 'go\K\d+\.\d+\.\d+' || true)"
+    fi
+
+    latest=$(curl -s https://go.dev/dl/ | grep -oP 'go\K\d+\.\d+\.\d+' | head -1 || true)
+    arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
+    os=$(uname | tr '[:upper:]' '[:lower:]' || true)
+    gofile="go${latest}.${os}-${arch}.tar.gz"
+
+    if [[ "${current}" == "${latest}" ]] && command -v go &>/dev/null; then
+        _OK "Toolchain GO à jour et accessible"
+    else
+        _RUN "Téléchargement de la toolchain Go v${latest}" wget "https://go.dev/dl/${gofile}"
+        sudo rm -rf /usr/local/go
+        _RUN "Installation de la toolchain Go v${latest}" sudo tar -C /usr/local -xzf "${gofile}"
+        rm -f "${gofile}"
+    fi
 
     if command -v go &>/dev/null; then
          for pkg in "${GO_PACKAGES[@]}"; do
@@ -690,7 +688,7 @@ SETUP_ETC() {
     resolved_10_conf=$'[Resolve]\nLLMNR=no\n'
     readonly nm_dns_conf resolved_10_conf
 
-    if ! grep -q "dns=systemd-resolved" /etc/NetworkManager/conf.d/*; then
+    if ! grep -rq "dns=systemd-resolved" /etc/NetworkManager/conf.d; then
         _RUN "Configuration de NetworkManager pour systemd-resolved" sudo bash -c "
         echo '${nm_dns_conf}' | install -m 644 -o root -g root /dev/stdin /etc/NetworkManager/conf.d/99-global-dns.conf
         "
