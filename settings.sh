@@ -85,6 +85,7 @@ export FIREWALL_SERVICES=(
 declare -A SERVICES_TO_DISABLE=(
     ["ModemManager.service"]="service ModemManager"
     ["rsyslog.service"]="service rsyslog"
+    ["switcheroo-control.service"]="service switcheroo"
     # ajoute tes autres services systemd à désactiver ici
 )
 export SERVICES_TO_DISABLE

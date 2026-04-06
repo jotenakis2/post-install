@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=4.1
+readonly VER=4.2
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        custo panneau KDE avec favoris
@@ -232,6 +232,7 @@ INITIALIZE() {
 
 
     #
+    clear
     _BANNER "blue" "${SCRIPTNAME} (${VER})"
 }
 
@@ -476,7 +477,7 @@ INSTALL_CARGO_PACKAGES() {
     else
         _OK "cargo-binstall est déjà installé."
     fi
-    _RUN "  Lien symbolique : cargo-binstall -> /usr/local/bin" sudo ln -sf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
+    sudo ln -sf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
 
     local cmd
     for cmd in "${CARGO_PACKAGES[@]}"; do
@@ -508,11 +509,8 @@ INSTALL_CARGO_PACKAGES() {
                 if [[ -L "${dest_link}" ]]; then
                     current_target=$(readlink -f "${dest_link}" || true)
                 fi
-
                 if [[ "${current_target}" != "${src_bin}" ]]; then
-                    _RUN "  Lien symbolique : ${bin_name} -> /usr/local/bin" sudo ln -sf "${src_bin}" "${dest_link}"
-                else
-                    _OK "  Lien symbolique ${bin_name} déjà présent."
+                    sudo ln -sf "${src_bin}" "${dest_link}"
                 fi
             else
                 _ERR " Binaire introuvable : ${src_bin}"
@@ -521,7 +519,7 @@ INSTALL_CARGO_PACKAGES() {
     done
 
     # 3. Ajustement des permissions pour l'accès global
-    _RUN "Permissions : accès global aux binaires Cargo" \
+    _RUN "Permissions : accès global aux binaires Cargo dans ${CARGO_HOME}/bin" \
         chmod a+x "${HOME}" \
         "${HOME}/.local" \
         "${HOME}/.local/share" \
@@ -726,7 +724,7 @@ SETUP_ETC() {
         _OK "Configuration noyau déjà à jour (${sysctlfile})."
     else
         _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
-        _RUN "Application des paramètres." sudo sysctl -p "${sysctlfile}"
+        sudo sysctl -p "${sysctlfile}" >/dev/null 2>&1
     fi
 
     # --- Configuration Brave Browser (Policies debloat) ---
@@ -774,8 +772,8 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         if [[ -f "${chrony_file}" ]] && echo "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
             _OK "Configuration chronyd déjà à jour."
         else
-            _RUN "Application de la configuration chronyd" sudo install -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
-            _RUN "Redémarrage du service chronyd" sudo systemctl try-restart chronyd
+            _RUN "Configuration de chronyd" sudo install -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
+            sudo systemctl try-restart chronyd >/dev/null 2>&1
         fi
     fi
 
@@ -1002,9 +1000,9 @@ SETUP_SWAP(){
     # --- 2.5 SELinux : Autorisation pour systemd-logind ---
     # 1. On s'assure que le label est déclaré et appliqué (rapide et idempotent)
     if ! sudo semanage fcontext -l | grep -q "^${swapdir}(/.*)?"; then
-        _RUN "Déclaration du contexte SELinux pour ${swapdir}" sudo semanage fcontext -a -t swapfile_t "${swapdir}(/.*)?"
+        _RUN "Définition du contexte SELinux pour ${swapdir}" sudo semanage fcontext -a -t swapfile_t "${swapdir}(/.*)?"
     fi
-    _RUN "Application du contexte SELinux pour ${swapdir} (swapfile_t)" sudo restorecon -RF "${swapdir}"
+    sudo restorecon -RF "${swapdir}" >/dev/null 2>&1
 
     # 2. On vérifie si notre module SELinux local est déjà installé
     if ! sudo semodule -l | grep -q "^systemd_swap_search$"; then
@@ -1015,8 +1013,8 @@ SETUP_SWAP(){
         selinux_content=$'module systemd_swap_search 1.0;\nrequire {\ntype swapfile_t;\ntype systemd_logind_t;\nclass dir search;\n}\n#============= systemd_logind_t ==============\nallow systemd_logind_t swapfile_t:dir search;\n'
 
         cat <<< "${selinux_content}" > "${selinux_tmp}.te"
-        _RUN "Compilation du module SELinux systemd_swap_search" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
-        _RUN "Packaging du module SELinux systemd_swap_search" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
+        sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te" >/dev/null 2>&1
+        sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod" >/dev/null 2>&1
         _RUN "Installation du module SELinux systemd_swap_search" sudo semodule -i "${selinux_tmp}.pp"
 
         rm -f "${selinux_tmp}.*"
@@ -1156,18 +1154,16 @@ SETUP_KDE_PLASMA() {
         # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
         local temp_cursor
         temp_cursor=$(mktemp -d)
-        _RUN "Téléchargement du curseur Bibata Lavender" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
-        _RUN "Extraction du curseur" unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
+        _RUN "Installation du curseur Bibata Lavender" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
+        unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
         kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
 
         # Pointeur par défaut pour compatibilité GTK
         echo -e "[Icon Theme]\nInherits=catppuccin-mocha-lavender-cursors" > "${HOME}/.local/share/icons/default/index.theme"
-        _OK "Curseur de secours (GTK fallback) configuré dans ~/.local/share/icons/default."
 
         # Baloo
         if command -v balooctl6 >/dev/null 2>&1; then
             _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
-            _OK "Le service baloo est désactivé et sa base de données a été supprimée."
         else
             _INFO "L'outil balooctl n'est pas installé. Aucune action requise."
         fi
@@ -1200,7 +1196,6 @@ SETUP_KDE_PLASMA() {
             "
             _RUN "Redémarrage de plasmashell" systemctl --user restart plasma-plasmashell.service
         fi
-        _OK "Personnalisation KDE (TokyoNight, Tela, Bibata, Panneau) terminée."
     else
         echo
         _INFO "KDE n'a pas été détecté... Je ne touche pas à la customization de KDE."
