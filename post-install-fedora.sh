@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=4.3
+readonly VER=4.4
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        custo panneau KDE avec favoris
