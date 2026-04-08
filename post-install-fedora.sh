@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=4.2
+readonly VER=4.3
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        custo panneau KDE avec favoris
+#        revoir log
 
 # variables globales en MAJ, locales en min
 # fonctions globales en MAJ, locales en min
@@ -50,8 +51,8 @@ MAIN() {
     # Fin
     printf "\n%b%b  ✓ Terminé — rebooter pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
-    sudo rm -f "${SUDOTMP}"
-    _HEURE
+    _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
+    _HEURE >> "${LOG_FILE}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -109,6 +110,26 @@ _PASS() {
         printf "\n%b[🔐 SUDO]%b Autorisation requise pour %b%s%b : " "${C_RED}" "${C_RESET}" "${C_BOLD}" "${USER}" "${C_RESET}"
         sudo -v -p ""
     fi
+}
+_RUNSILENT() {
+    local msg="$1"; shift
+    [[ -n "${msg}" ]] && _OK "${msg}"
+
+    # Log tout,mais affiche juste les premières lignes si erreur
+    local tmperr
+    tmperr=$(mktemp)
+
+    "$@" 2>&1 | tee -a "${LOG_FILE}" > "${tmperr}"
+    local rc="${PIPESTATUS[0]}"
+
+    if (( rc != 0 )); then
+        head -5 "${tmperr}" >&2
+        echo "Échec de la commande : '$*'" >&2
+        echo "(voir ${LOG_FILE})" >&2
+    fi
+
+    rm -f "${tmperr}"
+    return "${rc}"
 }
 
 _RUN() {
@@ -206,25 +227,25 @@ INITIALIZE() {
     export GOBIN="${XDG_BIN_HOME:-${HOME}/.local/bin}"
 
     # Dossiers utilisateur requis
-    mkdir -p "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes"
+    _RUNSILENT "" mkdir -pv "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes"
     # Dossiers système requis
-    sudo mkdir -p /usr/local/bin /etc/sudoers.d /etc/udev.d/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
+    _RUNSILENT "" sudo mkdir -pv /usr/local/bin /etc/sudoers.d /etc/udev.d/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
 
     # Préparation d'une session sudo confortable et longue pour l'installation
     SUDOTMP="/etc/sudoers-rs.d/99_POST-INSTALL" # pour delete à la fin
     local sudotmp="/etc/sudoers.d/99_POST-INSTALL"
 
-    sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=180' > '${sudotmp}'"
-    sudo chmod 0440 "${sudotmp}"
+    _RUNSILENT "" sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=180' > '${sudotmp}'"
+    _RUNSILENT "" sudo chmod -v 0440 "${sudotmp}"
 
     SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-    _HEURE
+    _HEURE >> "${LOG_FILE}"
 
     # aussitôt je conf dnf si besoin pour accélérer les download de paquets
     _RUN "Préparation" sudo dnf install -y crudini
     if command -v crudini &>/dev/null; then
-        sudo crudini --set /etc/dnf/dnf.conf main defaultyes true
-        sudo crudini --set /etc/dnf/dnf.conf main max_parallel_downloads 10
+        _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main defaultyes true
+        _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main max_parallel_downloads 10
     fi
 
     # PATH
@@ -328,7 +349,7 @@ INSTALL_REPOS() {
         _OK "Terra déjà présent."
     fi
 
-    if ! dnf copr list 2>/dev/null | grep -q "bigmenpixel/profile-sync-daemon"; then
+    if ! dnf repolist 2>/dev/null | grep -q "bigmenpixel:profile-sync-daemon"; then
         _RUN "COPR profile-sync-daemon" sudo dnf copr enable -y bigmenpixel/profile-sync-daemon
         cache=1
     else
@@ -364,12 +385,16 @@ INSTALL_FONTS() {
 INSTALL_CODECS() {
     _SECTION "Codecs multimédia"
 
+    # codecs
     if ! rpm -q ffmpeg &>/dev/null; then
-        _RUN "Swap ffmpeg-free → ffmpeg" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
+        _RUN "Swap ffmpeg-free →  ffmpeg" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
     else
         _OK "ffmpeg (RPM Fusion) déjà présent."
     fi
+    _RUNSILENT "Activation Cisco h264." sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1
+    _RUNSILENT "Mise à jour groupe multimedia." sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin
 
+    # mesa swap
     local gpu_vendor
     gpu_vendor=$(lspci | grep -iE 'VGA|3D' | head -1 | tr '[:upper:]' '[:lower:]')
     _INFO "GPU détecté : ${gpu_vendor}"
@@ -409,11 +434,11 @@ INSTALL_RPM_PACKAGES() {
     done
 
     if ((${#missing_packages[@]})); then
-        mkdir -p "${download_dir}"
+        _RUNSILENT "" mkdir -pv "${download_dir}"
         _OK "Paquets manquants : ${missing_packages[*]}."
         _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf download --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
         _RUN "Installation des paquets manquants depuis le cache de téléchargement" sudo dnf install -y "${download_dir}"/*.rpm
-        rm -rf "${download_dir}"
+        _RUNSILENT "" rm -rvf "${download_dir}"
     else
         _INFO "Tous les paquets RPM sont déjà installés."
     fi
@@ -434,7 +459,7 @@ INSTALL_FLATPAK_PACKAGES() {
     _RUN "Ajout du dépôt Flathub" sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
     # 3. Activation de Flathub sans filtre
-    _RUN "Activation complète de Flathub" sudo flatpak remote-modify --no-filter --enable flathub
+    _RUNSILENT "" sudo flatpak remote-modify --no-filter --enable flathub
 
     # 4. Vérification et suppression du dépôt Fedora
     if flatpak remotes --columns=name | grep -q "^fedora$"; then
@@ -473,11 +498,11 @@ INSTALL_CARGO_PACKAGES() {
 
     # 1. Installation de cargo-binstall sans compilation
     if ! command -v cargo-binstall &>/dev/null; then
-        _RUN "Installation de cargo-binstall (pré-compilé)" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
+        _RUN "Installation de cargo-binstall" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
     else
         _OK "cargo-binstall est déjà installé."
     fi
-    sudo ln -sf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
+    _RUNSILENT "" sudo ln -svf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
 
     local cmd
     for cmd in "${CARGO_PACKAGES[@]}"; do
@@ -510,7 +535,7 @@ INSTALL_CARGO_PACKAGES() {
                     current_target=$(readlink -f "${dest_link}" || true)
                 fi
                 if [[ "${current_target}" != "${src_bin}" ]]; then
-                    sudo ln -sf "${src_bin}" "${dest_link}"
+                    _RUNSILENT "" sudo ln -svf "${src_bin}" "${dest_link}"
                 fi
             else
                 _ERR " Binaire introuvable : ${src_bin}"
@@ -519,12 +544,7 @@ INSTALL_CARGO_PACKAGES() {
     done
 
     # 3. Ajustement des permissions pour l'accès global
-    _RUN "Permissions : accès global aux binaires Cargo dans ${CARGO_HOME}/bin" \
-        chmod a+x "${HOME}" \
-        "${HOME}/.local" \
-        "${HOME}/.local/share" \
-        "${CARGO_HOME}" \
-        "${CARGO_HOME}/bin"
+    _RUNSILENT "" chmod a+x -v "${HOME}" "${HOME}/.local" "${HOME}/.local/share" "${CARGO_HOME}" "${CARGO_HOME}/bin"
 }
 
 ########################################################################################################################
@@ -545,14 +565,21 @@ INSTALL_GO_PACKAGES() {
         _OK "Toolchain GO à jour et accessible"
     else
         _RUN "Téléchargement de la toolchain Go v${latest}" wget "https://go.dev/dl/${gofile}"
-        sudo rm -rf /usr/local/go
+        _RUNSILENT "" sudo rm -rvf /usr/local/go
         _RUN "Installation de la toolchain Go v${latest}" sudo tar -C /usr/local -xzf "${gofile}"
-        rm -f "${gofile}"
+        _RUNSILENT "" rm -vf "${gofile}"
     fi
 
     if command -v go &>/dev/null; then
-         for pkg in "${GO_PACKAGES[@]}"; do
-            _RUN "Installation de ${pkg} dans ${GOBIN}" go install "${pkg}"
+        for pkg in "${!GO_PACKAGES[@]}"; do # on parcourt les clés du tableau associatif
+            local url
+            url="${GO_PACKAGES[${pkg}]}"
+            if ! command -v "${pkg}" &>/dev/null; then
+                _RUN "Installation/mise à jour de ${pkg} dans ${GOBIN}" go install "${url}"
+            else
+                _RUN "Mise à jour de ${pkg} dans ${GOBIN}" go install "${url}"
+            fi
+            _RUNSILENT "" sudo ln -svf "${GOBIN}/${pkg}" "/usr/local/bin"
         done
     fi
 }
@@ -600,7 +627,6 @@ SETUP_SHELL() {
 
     if ! grep -qxF "${zsh_bin}" /etc/shells; then
         echo "${zsh_bin}" | sudo tee -a /etc/shells > /dev/null
-        _OK "${zsh_bin} ajouté à /etc/shells."
     fi
 
     local user uid current_shell
@@ -641,7 +667,7 @@ SETUP_SHELL() {
         _RUN "Mise à jour de Oh-My-Posh" oh-my-posh upgrade
     else
         _RUN "Téléchargement du binaire Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
-        chmod 777 "${omp_bin}"
+        _RUNSILENT "" chmod 777 -v "${omp_bin}"
     fi
 
 }
@@ -655,11 +681,11 @@ SETUP_DOTFILES() {
     fi
 
     # 1- nettoyage avant stow pour éviter erreurs.
-    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc")
+    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc")
     local f
     for f in "${skel_files[@]}"; do
         if [[ -f "${HOME}/${f}" && ! -L "${HOME}/${f}" ]]; then
-            _RUN "Suppression du fichier système par défaut ${f}" rm -f "${HOME}/${f}"
+            _RUNSILENT "" rm -vf "${HOME}/${f}"
         fi
     done
 
@@ -677,9 +703,6 @@ SETUP_DOTFILES() {
 SETUP_ETC() {
     _SECTION "Configuration Système (/etc)"
 
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-
     # --- NetworkManager & systemd-resolved ---
     local nm_dns_conf resolved_10_conf restart=0
     nm_dns_conf=$'[main]\ndns=systemd-resolved\n'
@@ -694,7 +717,9 @@ SETUP_ETC() {
     else
         _OK "NetworkManager déjà configuré pour utiliser systemd-resolved."
     fi
-    sudo ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf # pas sécurité on force
+
+    _RUNSILENT "" sudo ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf # pas sécurité on force
+
     if [[ ! -f /etc/systemd/resolved.conf.d/dns_servers.conf ]] || [[ ! -f /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ]]; then
         _RUN "Déploiement de la configuration DNS (systemd-resolved)" sudo bash -c "echo '${RESOLVED_DNS_SERVERS}' | install -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf ; echo '${resolved_10_conf}' | install -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
         restart=1
@@ -724,7 +749,7 @@ SETUP_ETC() {
         _OK "Configuration noyau déjà à jour (${sysctlfile})."
     else
         _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
-        sudo sysctl -p "${sysctlfile}" >/dev/null 2>&1
+        _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
     fi
 
     # --- Configuration Brave Browser (Policies debloat) ---
@@ -756,7 +781,8 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 
     if [[ "${current}" != "${rules_content}" ]]; then
         printf '%s\n' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
-        sudo udevadm control --reload-rules && sudo udevadm trigger
+        _RUNSILENT "" sudo udevadm control --reload-rules
+        _RUNSILENT "" sudo udevadm trigger
         _OK "IO scheduler mis à jour (udev rule)."
     else
         echo "IO scheduler déjà à jour."
@@ -773,7 +799,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
             _OK "Configuration chronyd déjà à jour."
         else
             _RUN "Configuration de chronyd" sudo install -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
-            sudo systemctl try-restart chronyd >/dev/null 2>&1
+           _RUNSILENT "" sudo systemctl try-restart chronyd
         fi
     fi
 
@@ -787,12 +813,8 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         else
             _RUN "Ajout de l'utilisateur ${main_user} au groupe libvirt" sudo usermod -aG libvirt "${main_user}"
         fi
-    else
-        _INFO "Le groupe libvirt n'existe pas. Ajout ignoré."
     fi
 
-    # Nettoyage
-    rm -rf "${tmp_dir}"
 }
 
 ########################################################################################################################
@@ -814,7 +836,7 @@ SETUP_GRUB(){
     # --- 3. Configuration GRUB ---
     local is_grub zswap
     is_grub=$(_DETECT_GRUB)
-    zswap="zswap.enabled=1 zswap.compressor=lz4"
+    zswap="zswap.enabled=1 zswap.compressor=lz4" # on force l'usage d'un zswap, plus efficace que zram car s'appuie sur un backend physique en plus (file ou part)
 
     if [[ "${is_grub}" == "true" ]]; then
         local luks_param="" target_cmdline="" current_cmdline="" current_default=""
@@ -832,18 +854,20 @@ SETUP_GRUB(){
 
         if [[ "${current_cmdline}" != "${target_cmdline}" ]] || [[ "${current_default}" != "menu" ]] || [[ "${current_timeout}" != "2" ]]; then
             if [[ ! -f /etc/default/grub.origin ]]; then
-                sudo cp -a /etc/default/grub /etc/default/grub.origin
+                _RUNSILENT "" sudo cp -av /etc/default/grub /etc/default/grub.origin
             fi
-            sudo cp -a /etc/default/grub /etc/default/grub.bak
+            _RUNSILENT "" sudo cp -av /etc/default/grub /etc/default/grub.bak
 
             # Application des modifications (avec gestion de l'absence)
             _RUN "Mise à jour des paramètres de GRUB (zswap, menu affiché, ...)" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
+
             if grep -q '^GRUB_TIMEOUT=' /etc/default/grub; then
                 _RUN "Mise à jour du délai de GRUB (2 sec)" sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
             else
                 _RUN "Ajout d'un délai GRUB de 2 sec" sudo bash -c "echo 'GRUB_TIMEOUT=2' >> /etc/default/grub"
             fi
-            _RUN "Regénération de GRUB pour prendre en compte les nouveaux paramètres" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+
+            _RUN "Regénération de la configuration de GRUB pour inclure les nouveaux paramètres" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
         else
             _OK "GRUB est déjà correctement configuré."
         fi
@@ -891,7 +915,7 @@ SETUP_FSTAB(){
     # --- Optimisations Fstab (noatime, lazytime) ---
     local fstab_changed=false tmp_dir
     tmp_dir=$(mktemp -d)
-    true > "${tmp_dir}/fstab.new"
+    true > "${tmp_dir}/fstab.new" # on crée un fichier vide temporaire
 
     while IFS= read -r line || [[ -n "${line}" ]]; do
         if [[ "${line}" =~ ^[[:space:]]*# ]] || [[ -z "${line}" ]]; then # commentaire ou ligne vide ajouté "as is"
@@ -923,9 +947,9 @@ SETUP_FSTAB(){
     done < /etc/fstab
 
     if [[ "${fstab_changed}" == "true" ]]; then
-        sudo cp -a /etc/fstab /etc/fstab.bak
-        _RUN "Application de noatime/lazytime dans /etc/fstab" sudo cp -a "${tmp_dir}/fstab.new" /etc/fstab
-        _RUN "Rechargement du démon systemd" sudo systemctl daemon-reload
+        _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak
+        _RUN "Application de noatime/lazytime dans /etc/fstab" sudo cp -av "${tmp_dir}/fstab.new" /etc/fstab
+        _RUNSILENT "" sudo systemctl daemon-reload
     else
         _OK "Les options noatime/lazytime sont déjà présentes dans /etc/fstab."
     fi
@@ -945,12 +969,12 @@ SETUP_SWAP(){
         current_size=$(sudo stat -c %s "${swapdir}/swapfile" 2>/dev/null || echo 0)
 
         if [[ "${current_size}" -ne "${target_size}" ]]; then
-            _INFO "${swapdir}/swapfile existant mais taille différente (${current_size} octets). Recréation..."
-            sudo swapoff "${swapdir}/swapfile" 2>/dev/null || true
-            sudo rm -f "${swapdir}/swapfile"
+            _INFO "${swapdir}/swapfile existant mais taille différente de celle demandée (${current_size} octets). Recréation..."
+            _RUNSILENT "" sudo swapoff "${swapdir}/swapfile"
+            _RUNSILENT "" sudo rm -fv "${swapdir}/swapfile"
             recreate_swap=true
         else
-            _OK "${swapdir}/swapfile existant et à la bonne taille (${SWAP_SIZE}Go)."
+            _OK "${swapdir}/swapfile est déjà correctement installé."
         fi
     else
         recreate_swap=true
@@ -963,21 +987,20 @@ SETUP_SWAP(){
         if [[ "${fs_type}" == "btrfs" ]]; then
             if [[ -e "${swapdir}" ]]; then
                 if btrfs subvolume show "${swapdir}" >/dev/null 2>&1; then
-                    _OK "Sous-volume BTRFS ${swapdir} existe."
+                    _OK "Sous-volume BTRFS ${swapdir} existe déjà."
                 else
-                    _WARN "Dossier ${swapdir} existe, suppression..."
-                    sudo rm -rf "${swapdir}"
+                    _RUNSILENT "" sudo rm -rvf "${swapdir}"
                     _RUN "Création du sous-volume BTRFS ${swapdir}" sudo btrfs subvolume create "${swapdir}"
                 fi
             else
                 _RUN "Création du sous-volume BTRFS ${swapdir}" sudo btrfs subvolume create "${swapdir}"
             fi
             _RUN "Création du swapfile BTRFS (${SWAP_SIZE}GiB)" sudo btrfs filesystem mkswapfile --size "${SWAP_SIZE}g" "${swapdir}/swapfile"
-        else
-            sudo mkdir -p "${swapdir}"
-            _RUN "Allocation du swapfile classique (${SWAP_SIZE}GiB)" sudo fallocate -l "${SWAP_SIZE}G" "${swapdir}/swapfile"
-            sudo chmod 0600 "${swapdir}/swapfile"
-            _RUN "Formatage du swapfile" sudo mkswap "${swapdir}/swapfile"
+        else # ext4, ...
+            _RUNSILENT "" sudo mkdir -vp "${swapdir}"
+            _RUN "Création du swapfile (${SWAP_SIZE}GiB)" sudo fallocate -l "${SWAP_SIZE}G" "${swapdir}/swapfile"
+            _RUNSILENT "" sudo chmod 0600 -v "${swapdir}/swapfile"
+            _RUNSILENT "" sudo mkswap "${swapdir}/swapfile"
         fi
     fi
 
@@ -989,9 +1012,9 @@ SETUP_SWAP(){
 
     if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
         if [[ ! -f /etc/fstab.origin ]]; then
-            sudo cp -a /etc/fstab /etc/fstab.origin
+            _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.origin
         fi
-        sudo cp -a /etc/fstab /etc/fstab.bak
+        _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak
         _RUN "Ajout du swap à /etc/fstab" sudo bash -c "echo ${swapdir}/swapfile none swap defaults 0 0 >> /etc/fstab"
     else
         _OK "Swap déjà présent dans /etc/fstab."
@@ -1002,7 +1025,7 @@ SETUP_SWAP(){
     if ! sudo semanage fcontext -l | grep -q "^${swapdir}(/.*)?"; then
         _RUN "Définition du contexte SELinux pour ${swapdir}" sudo semanage fcontext -a -t swapfile_t "${swapdir}(/.*)?"
     fi
-    sudo restorecon -RF "${swapdir}" >/dev/null 2>&1
+    _RUNSILENT "" sudo restorecon -RF "${swapdir}"
 
     # 2. On vérifie si notre module SELinux local est déjà installé
     if ! sudo semodule -l | grep -q "^systemd_swap_search$"; then
@@ -1013,13 +1036,13 @@ SETUP_SWAP(){
         selinux_content=$'module systemd_swap_search 1.0;\nrequire {\ntype swapfile_t;\ntype systemd_logind_t;\nclass dir search;\n}\n#============= systemd_logind_t ==============\nallow systemd_logind_t swapfile_t:dir search;\n'
 
         cat <<< "${selinux_content}" > "${selinux_tmp}.te"
-        sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te" >/dev/null 2>&1
-        sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod" >/dev/null 2>&1
+        _RUNSILENT "" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
+        _RUNSILENT "" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
         _RUN "Installation du module SELinux systemd_swap_search" sudo semodule -i "${selinux_tmp}.pp"
 
-        rm -f "${selinux_tmp}.*"
+        _RUNSILENT "" rm -fv "${selinux_tmp}.*"
     else
-        _OK "Le module SELinux 'systemd_swap_search' est déjà actif."
+        _OK "Le module SELinux systemd_swap_search est déjà actif."
     fi
 }
 
@@ -1083,15 +1106,15 @@ SETUP_SUDO_RS() {
     fi
     _PASS
     _RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -sf "${sudo_rs_bin}" "${local_bin_sudo}"
-    sudo chmod 4111 "${sudo_rs_bin}"
-    sudo chmod 0000 "${sys_sudo_bak}"
+    _RUNSILENT "" sudo chmod -v 4111 "${sudo_rs_bin}"
+    _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
 
     # 5. Déploiement de tes règles spécifiques
     _RUN "Règle PSD (90-profile-sync-daemon)" sudo bash -c "echo '%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper' > '${d_sudoers_rs_d}/90-profile-sync-daemon'"
     _RUN "Règles globales (99-timeout)" sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=60' > '${d_sudoers_rs_d}/99-timeout'"
-    sudo chmod 0440 "${f_sudoers_rs}"
-    sudo chmod 0750 "${d_sudoers_rs_d}"
-    sudo chmod 0440 "${d_sudoers_rs_d}/99-timeout" "${d_sudoers_rs_d}/90-profile-sync-daemon"
+    _RUNSILENT "" sudo chmod -v 0440 "${f_sudoers_rs}"
+    _RUNSILENT "" sudo chmod -v 0750 "${d_sudoers_rs_d}"
+    _RUNSILENT "" sudo chmod -v 0440 "${d_sudoers_rs_d}/99-timeout" "${d_sudoers_rs_d}/90-profile-sync-daemon"
 
     # 6. Nettoyage radical des anciens fichiers
     if [[ -f "/etc/sudoers" && ! -L "/etc/sudoers" ]]; then
@@ -1102,12 +1125,12 @@ SETUP_SUDO_RS() {
         _RUN "Nettoyage du contenu de /etc/sudoers.d" sudo rm -f /etc/sudoers.d/*
     else
         _RUN "Création du dossier de compatibilité /etc/sudoers.d" sudo mkdir -p /etc/sudoers.d
-        sudo chmod 0750 /etc/sudoers.d
+        _RUNSILENT "" sudo chmod -v 0750 /etc/sudoers.d
     fi
 
     # 7. Blocage propre des futures mises à jour du vieux sudo par DNF
-    sudo dnf versionlock add sudo > /dev/null 2>&1
-    sudo crudini --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
+    _RUNSILENT "" sudo dnf versionlock add sudo
+    _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
     _OK "sudo-rs est en place et remplace définitivement sudo (dnf versionlock+excludepkgs)."
 }
 
@@ -1140,26 +1163,36 @@ SETUP_KDE_PLASMA() {
             [[ -n "${scheme}" ]] || _ERR "Tokyo Night non détecté par KDE Plasma ! Faudra appliquer manuellement..."
 
             _RUN "Application du color scheme ${scheme}" plasma-apply-colorscheme "${scheme}"
-            kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}"
+            _RUNSILENT "" kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}"
         fi
 
         # 3. Icônes : Tela Dark
         local temp_tela
-        temp_tela=$(mktemp -d)
-        _RUN "Clonage des icônes Tela Dark" git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
-        _RUN "Installation des icônes Tela Dark" bash "${temp_tela}/tela/install.sh" -d "${HOME}/.local/share/icons"
-        kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark"
-        rm -rf "${temp_tela}"
+        if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela*" -print -quit | grep -q .; then
+            temp_tela=$(mktemp -d)
+            _RUN "Téléchargement des icônes Tela Dark" git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
+            _RUN "Installation des icônes Tela Dark" bash "${temp_tela}/tela/install.sh" -d "${HOME}/.local/share/icons"
+            _RUNSILENT "" kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark"
+            _RUNSILENT "" rm -rvf "${temp_tela}"
+        else
+            _INFO "Le pack d'icônes Tela Dark est déjà installé."
+        fi
 
         # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
         local temp_cursor
         temp_cursor=$(mktemp -d)
-        _RUN "Installation du curseur Bibata Lavender" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
-        unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
-        kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
+        if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*catppuccin-mocha-lavender-cursors*" -print -quit | grep -q .; then
+            _RUN "Installation du curseur Bibata Lavender" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
+            _RUNSILENT "" unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
+            _RUNSILENT "" kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
+        else
+            _INFO "Le pack de curseurs Bibata Lavender est déjà installé."
+        fi
 
         # Pointeur par défaut pour compatibilité GTK
-        echo -e "[Icon Theme]\nInherits=catppuccin-mocha-lavender-cursors" > "${HOME}/.local/share/icons/default/index.theme"
+        if ! grep -q "catppuccin-mocha-lavender-cursors" "${HOME}/.local/share/icons/default/index.theme"; then
+            echo -e "[Icon Theme]\nInherits=catppuccin-mocha-lavender-cursors" > "${HOME}/.local/share/icons/default/index.theme"
+        fi
 
         # Baloo
         if command -v balooctl6 >/dev/null 2>&1; then
@@ -1194,7 +1227,7 @@ SETUP_KDE_PLASMA() {
                     allPanels[i].location = \"${target_pos}\";
                     }
             "
-            _RUN "Redémarrage de plasmashell" systemctl --user restart plasma-plasmashell.service
+            _RUNSILENT "" systemctl --user restart plasma-plasmashell.service
         fi
     else
         echo
@@ -1215,7 +1248,7 @@ SETUP_PLM() {
         fi
 
         if systemctl is-enabled --quiet sddm.service 2>/dev/null; then
-            _RUN "Désactivation de SDDM pour le prochain boot" sudo systemctl disable sddm.service
+            _RUN "Désactivation de SDDM à partir du prochain boot" sudo systemctl disable sddm.service
         else
             _INFO "SDDM déjà désactivé."
         fi
@@ -1223,7 +1256,7 @@ SETUP_PLM() {
         if systemctl is-enabled --quiet plasmalogin.service 2>/dev/null; then
             _OK "plasmalogin.service déjà activé."
         else
-            _RUN "Activation de Plasma Login Manager pour le prochain boot" sudo systemctl enable --force plasmalogin.service
+            _RUN "Activation de Plasma Login Manager à partir du prochain boot" sudo systemctl enable --force plasmalogin.service
         fi
     else
         echo

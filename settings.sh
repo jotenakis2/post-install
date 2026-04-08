@@ -52,14 +52,15 @@ declare -A BIN_MAPPING=(
 export BIN_MAPPING
 
 # outils GO
-export GO_PACKAGES=(
-    "github.com/ashish0kumar/stormy@latest"
-    "github.com/0xjuanma/golazo@latest"
-    "github.com/zi0p4tch0/radiogogo@latest"
-    "github.com/xdagiz/xytz@latest"
-    "github.com/floatpane/matcha@latest"
+declare -A GO_PACKAGES=(
+    ["stormy"]="github.com/ashish0kumar/stormy@latest"
+    ["golazo"]="github.com/0xjuanma/golazo@latest"
+    ["radiogogo"]="github.com/zi0p4tch0/radiogogo@latest"
+    ["xytz"]="github.com/xdagiz/xytz@latest"
+    ["matcha"]="github.com/floatpane/matcha@latest"
     # Ajoute tes autres paquets ici
 )
+export GO_PACKAGES
 
 # mes repos git à installer (dotfiles obligatoire)
 export MYREPOS="https://codeberg.org/jotenakis"
