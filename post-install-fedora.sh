@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=4.9
+readonly VER=5.0
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        custo panneau KDE avec favoris
@@ -388,11 +388,16 @@ INSTALL_CODECS() {
     # codecs
     if ! rpm -q ffmpeg &>/dev/null; then
         _RUN "Swap ffmpeg-free →  ffmpeg" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
+        _RUNSILENT "Mise à jour groupe multimedia." sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
     else
-        _OK "ffmpeg (RPM Fusion) déjà présent."
+        _OK "ffmpeg (rpmfusion) déjà présent."
+        _OK "Groupe multimedia déjà à jour."
     fi
-    _RUNSILENT "Activation Cisco h264." sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1 -y
-    _RUNSILENT "Mise à jour groupe multimedia." sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
+    if ! dnf repolist --enabled | grep -q '^fedora-cisco-openh264'; then
+        _RUNSILENT "Activation Cisco h264." sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1 -y
+    else
+        _OK "Cisco h264 déjà activé."
+    fi
 
     # mesa swap
     local gpu_vendor
