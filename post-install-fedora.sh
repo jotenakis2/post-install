@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=4.4
+readonly VER=4.5
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        custo panneau KDE avec favoris
@@ -40,7 +40,8 @@ MAIN() {
     SETUP_DOTFILES
     SETUP_ETC
     SETUP_SWAP
-    SETUP_FSTAB # ajout NFS à faire
+    SETUP_FSTAB
+    SETUP_NFS
     SETUP_GRUB
     SETUP_SYSTEMD
     SETUP_FIREWALL
@@ -391,8 +392,8 @@ INSTALL_CODECS() {
     else
         _OK "ffmpeg (RPM Fusion) déjà présent."
     fi
-    _RUNSILENT "Activation Cisco h264." sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1
-    _RUNSILENT "Mise à jour groupe multimedia." sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin
+    _RUNSILENT "Activation Cisco h264." sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1 -y
+    _RUNSILENT "Mise à jour groupe multimedia." sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
 
     # mesa swap
     local gpu_vendor
@@ -575,9 +576,9 @@ INSTALL_GO_PACKAGES() {
             local url
             url="${GO_PACKAGES[${pkg}]}"
             if ! command -v "${pkg}" &>/dev/null; then
-                _RUN "Installation/mise à jour de ${pkg} dans ${GOBIN}" go install "${url}"
+                _RUN "Installation de ${pkg}" go install "${url}"
             else
-                _RUN "Mise à jour de ${pkg} dans ${GOBIN}" go install "${url}"
+                _RUN "Mise à jour de ${pkg}" go install "${url}"
             fi
             _RUNSILENT "" sudo ln -svf "${GOBIN}/${pkg}" "/usr/local/bin"
         done
@@ -912,6 +913,19 @@ SETUP_FIREWALL() {
 
 ########################################################################################################################
 SETUP_FSTAB(){
+    _SECTION "Configuration FSTAB"
+    # SWAPFILE
+    local swapdir="/var/swap"
+    if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
+        if [[ ! -f /etc/fstab.origin ]]; then
+            _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.origin
+        fi
+        _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.swap
+        _RUN "Ajout du swap" sudo bash -c "echo ${swapdir}/swapfile none swap defaults 0 0 >> /etc/fstab"
+    else
+        _OK "Swap déjà présent dans /etc/fstab."
+    fi
+
     # --- Optimisations Fstab (noatime, lazytime) ---
     local fstab_changed=false tmp_dir
     tmp_dir=$(mktemp -d)
@@ -947,13 +961,29 @@ SETUP_FSTAB(){
     done < /etc/fstab
 
     if [[ "${fstab_changed}" == "true" ]]; then
-        _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak
+        _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.optimizations
         _RUN "Application de noatime/lazytime dans /etc/fstab" sudo cp -av "${tmp_dir}/fstab.new" /etc/fstab
         _RUNSILENT "" sudo systemctl daemon-reload
     else
         _OK "Les options noatime/lazytime sont déjà présentes dans /etc/fstab."
     fi
 
+    # NFS
+    if ! grep -q "${NFS_SHARE}" /etc/fstab >/dev/null; then
+        if grep -q "${NFS_MP}" /etc/fstab >/dev/null; then
+            _INFO "Le point de montage demandé (${NFS_MP}) est déjà présent dans /etc/fstab."
+            _INFO "Abandon de l'installation du partage réseau NFS."
+        else
+            _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
+            _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
+            echo "${NFS_SHARE}   ${NFS_MP}   nfs   defaults     0 0" | tee -a /etc/fstab >/dev/null
+            _RUNSILENT "" sudo systemctl daemon-reload
+            _RUNSILENT "" sudo mount -v "${NFS_MP}"
+            _RUN "Installation du partage réseau NFS." sudo ls -l "${NFS_MP}"
+        fi
+    else
+        _RUN "Montage NFS déjà installé."
+    fi
     # Nettoyage
     rm -rf "${tmp_dir}"
 }
@@ -1010,15 +1040,6 @@ SETUP_SWAP(){
         _OK "Swap déjà actif."
     fi
 
-    if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
-        if [[ ! -f /etc/fstab.origin ]]; then
-            _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.origin
-        fi
-        _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak
-        _RUN "Ajout du swap à /etc/fstab" sudo bash -c "echo ${swapdir}/swapfile none swap defaults 0 0 >> /etc/fstab"
-    else
-        _OK "Swap déjà présent dans /etc/fstab."
-    fi
 
     # --- 2.5 SELinux : Autorisation pour systemd-logind ---
     # 1. On s'assure que le label est déclaré et appliqué (rapide et idempotent)
@@ -1168,7 +1189,7 @@ SETUP_KDE_PLASMA() {
 
         # 3. Icônes : Tela Dark
         local temp_tela
-        if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela*" -print -quit | grep -q .; then
+        if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela*" -print -quit | grep -q . >/dev/null; then
             temp_tela=$(mktemp -d)
             _RUN "Téléchargement des icônes Tela Dark" git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
             _RUN "Installation des icônes Tela Dark" bash "${temp_tela}/tela/install.sh" -d "${HOME}/.local/share/icons"
@@ -1181,7 +1202,7 @@ SETUP_KDE_PLASMA() {
         # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
         local temp_cursor
         temp_cursor=$(mktemp -d)
-        if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*catppuccin-mocha-lavender-cursors*" -print -quit | grep -q .; then
+        if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*catppuccin-mocha-lavender-cursors*" -print -quit | grep -q . >/dev/null; then
             _RUN "Installation du curseur Bibata Lavender" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
             _RUNSILENT "" unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
             _RUNSILENT "" kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
@@ -1190,7 +1211,7 @@ SETUP_KDE_PLASMA() {
         fi
 
         # Pointeur par défaut pour compatibilité GTK
-        if ! grep -q "catppuccin-mocha-lavender-cursors" "${HOME}/.local/share/icons/default/index.theme"; then
+        if ! grep -q "catppuccin-mocha-lavender-cursors" "${HOME}/.local/share/icons/default/index.theme" >/dev/null; then
             echo -e "[Icon Theme]\nInherits=catppuccin-mocha-lavender-cursors" > "${HOME}/.local/share/icons/default/index.theme"
         fi
 
@@ -1213,22 +1234,22 @@ SETUP_KDE_PLASMA() {
             --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
 
         # déplacement du panneau principal
-        local target_pos="${KDEPANEL:-bottom}" # fallback en bas
-        if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
-            _INFO "plasmashell ne tourne pas. Configuration du panneau reportée."
-        else
-            plasma_eval() {
-                local script="$1"
-                busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s "${script}"
-            }
-            _RUN "Déplacement du panneau en position ${target_pos}" plasma_eval "
-                var allPanels = panels();
-                for (var i = 0; i < allPanels.length; i++) {
-                    allPanels[i].location = \"${target_pos}\";
-                    }
-            "
-            _RUNSILENT "" systemctl --user restart plasma-plasmashell.service
-        fi
+        # local target_pos="${KDEPANEL:-bottom}" # fallback en bas
+        # if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
+        #     _INFO "plasmashell ne tourne pas. Configuration du panneau reportée."
+        # else
+        #     plasma_eval() {
+        #         local script="$1"
+        #         busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s "${script}"
+        #     }
+        #     _RUN "Déplacement du panneau en position ${target_pos}" plasma_eval "
+        #         var allPanels = panels();
+        #         for (var i = 0; i < allPanels.length; i++) {
+        #             allPanels[i].location = \"${target_pos}\";
+        #             }
+        #     "
+        #     _RUNSILENT "" systemctl --user restart plasma-plasmashell.service
+        # fi
     else
         echo
         _INFO "KDE n'a pas été détecté... Je ne touche pas à la customization de KDE."

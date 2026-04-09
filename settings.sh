@@ -34,7 +34,7 @@ export FLATPAK_PKGS=(
 
 # outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé"
 export CARGO_PACKAGES=(
-    bandwhich bat bottom cargo-update diskus fd-find hyperfine netscanner parallel-disk-usage resvg
+    cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg
     ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina
     # Ajoute tes autres paquets ici
 )
@@ -57,7 +57,7 @@ declare -A GO_PACKAGES=(
     ["golazo"]="github.com/0xjuanma/golazo@latest"
     ["radiogogo"]="github.com/zi0p4tch0/radiogogo@latest"
     ["xytz"]="github.com/xdagiz/xytz@latest"
-    ["matcha"]="github.com/floatpane/matcha@latest"
+    #["matcha"]="github.com/floatpane/matcha@latest"
     # Ajoute tes autres paquets ici
 )
 export GO_PACKAGES
@@ -186,4 +186,8 @@ export TTY_COLOR="vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,1
 export CMDLINE="ipv6.disable=1"
 
 # Position du panneau principal KDE : "top", "bottom", "left", "right" possibles
-export KDEPANEL="bottom"
+#export KDEPANEL="bottom"
+
+# Montage NFS
+export NFS_SHARE="192.168.50.51:/mnt/usbdrive/data"
+export NFS_MP="/media/NAS"
