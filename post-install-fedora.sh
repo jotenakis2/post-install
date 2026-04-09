@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=5.5
+readonly VER=5.6
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        revoir log
@@ -67,7 +67,7 @@ _BANNER() {
     shift
     local text="$*"
     local fg cols
-    cols=60
+    cols=100
     case "${color}" in
         red) fg=31;; green) fg=32;; yellow) fg=33;; blue) fg=34;;
         magenta) fg=35;; cyan) fg=36;; white) fg=37;; *) fg=39;;
@@ -85,28 +85,21 @@ _BANNER() {
     local hline
     hline=$(printf '%*s' "${w}" '' | sed "s/ /${H}/g")
 
-    printf '\033[%sm%s%s%s\033[0m\n' "${fg}" "${TL}" "${hline}" "${TR}"
-    printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text}" "${padr}" '' "${V}"
-    printf '\033[%sm%s%s%s\033[0m\n' "${fg}" "${BL}" "${hline}" "${BR}"
+    printf '\033[%sm%s%s%s\033[0m\n' "${fg}" "${TL}" "${hline}" "${TR}" | tee -a "${LOG_FILE}"
+    printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text}" "${padr}" '' "${V}" | tee -a "${LOG_FILE}"
+    printf '\033[%sm%s%s%s\033[0m\n' "${fg}" "${BL}" "${hline}" "${BR}" | tee -a "${LOG_FILE}"
 
     return 0
 }
 
-_SECTION() {
-    local text="$*"
-    local fg=36 # cyan
-    local cols=30
-    local w=$((cols - 2))
+_SECTION() { # CYAN
+    local text fg cols w len padl padr V
+    text="$*" fg=36 cols=50 w=$((cols - 2)) len=${#text} V="━━━━━━━"
     (( w < 1 )) && return
-    local len=${#text}
     (( len > w )) && text=${text:0:w} && len=w
-    local padl=$(( (w - len) / 2 ))
-    local padr=$(( w - len - padl ))
-
-    local V="━━━━"
-
-    printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text^^}" "${padr}" '' "${V}"
-
+    padl=$(( (w - len) / 2 ))
+    padr=$(( w - len - padl ))
+    printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text^^}" "${padr}" '' "${V}" | tee -a "${LOG_FILE}"
     return 0
 }
 
@@ -116,7 +109,7 @@ _HEURE() {
     heure=$(date '+%A %d %B %Y')
     echo "${date}, le ${heure}" | tee -a "${LOG_FILE}"
 }
-#_SECTION()  { printf "\n%b%b━━━━ %s ━━━━%b\n" "${C_CYAN}" "${C_BOLD}" "${*^^}" "${C_RESET}" | tee -a "${LOG_FILE}"; }
+
 _OK()       { printf " %b✓%b %s\n" "${C_GREEN}"  "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
 _ERR()      { printf " %b✗%b %s\n" "${C_RED}"    "${C_RESET}" "$*" | tee -a "${LOG_FILE}" >&2; }
 _INFO()     { printf " %b→%b %s\n" "${C_YELLOW}"   "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
@@ -358,7 +351,7 @@ REMOVE_RPM_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_REPOS() {
-    _SECTION "Dépôts"
+    _SECTION "Dépôts RPM"
 
     local fedora_ver cache=0
     fedora_ver=$(rpm -E '%fedora')
@@ -636,7 +629,7 @@ INSTALL_GO_PACKAGES() {
 
 ########################################################################################################################
 CLONE_GIT() {
-    _SECTION "Téléchargement et mise à jour des dépôts Git personnels"
+    _SECTION "dépôts Git personnels"
 
     local repo_entry repo_url dest_dir repo_name backup_dir
 
@@ -726,7 +719,7 @@ SETUP_SHELL() {
     # _RUNSILENT "" ln -sv "${HOME}/.config/mozilla/firefox" "${HOME}/.mozilla"
     _SYMLINK "${HOME}/.local/share/icons" "${HOME}/.icons"
     _SYMLINK "${HOME}/.local/share/themes" "${HOME}/.themes"
-    _SYMLINK "${HOME}/.config/mozilla/firefox" "${HOME}/.mozilla"
+    _SYMLINK "${HOME}/.config/mozilla/firefox" "${HOME}/.mozilla/firefox"
 }
 
 ########################################################################################################################
@@ -1127,7 +1120,7 @@ SETUP_SWAP(){
 
 ########################################################################################################################
 SETUP_SUDO_RS() {
-    _SECTION "Configuration sudo-rs (remplacement de sudo)"
+    _SECTION "Configuration sudo-rs"
     # 1. On installe sudo-rs
     if ! command -v sudo-rs &>/dev/null; then
         _RUN "Installation de sudo-rs" sudo dnf install -y sudo-rs
