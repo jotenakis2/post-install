@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=5.4
+readonly VER=5.5
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        revoir log
@@ -91,17 +91,60 @@ _BANNER() {
 
     return 0
 }
+
+_SECTION() {
+    local text="$*"
+    local fg=36 # cyan
+    local cols=30
+    local w=$((cols - 2))
+    (( w < 1 )) && return
+    local len=${#text}
+    (( len > w )) && text=${text:0:w} && len=w
+    local padl=$(( (w - len) / 2 ))
+    local padr=$(( w - len - padl ))
+
+    local V="━━━━"
+
+    printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text^^}" "${padr}" '' "${V}"
+
+    return 0
+}
+
 _HEURE() {
     local date heure
     date=$(date '+%T')
     heure=$(date '+%A %d %B %Y')
     echo "${date}, le ${heure}" | tee -a "${LOG_FILE}"
 }
-_SECTION()  { printf "\n%b%b━━━━ %s ━━━━%b\n" "${C_CYAN}" "${C_BOLD}" "${*^^}" "${C_RESET}" | tee -a "${LOG_FILE}"; }
+#_SECTION()  { printf "\n%b%b━━━━ %s ━━━━%b\n" "${C_CYAN}" "${C_BOLD}" "${*^^}" "${C_RESET}" | tee -a "${LOG_FILE}"; }
 _OK()       { printf " %b✓%b %s\n" "${C_GREEN}"  "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
 _ERR()      { printf " %b✗%b %s\n" "${C_RED}"    "${C_RESET}" "$*" | tee -a "${LOG_FILE}" >&2; }
 _INFO()     { printf " %b→%b %s\n" "${C_YELLOW}"   "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
 _DIE()      { _ERR "$*"; exit 1; }
+
+_SYMLINK() {
+    local src="$1"
+    local dst="$2"
+
+    if [[ -L "${dst}" ]]; then
+        local current_target
+        current_target=$(readlink "${dst}")
+
+        if [[ "${current_target}" = "${src}" ]]; then
+            _OK "Lien déjà présent : ${dst} → ${src} (pas de changement)"
+        else
+            _ERR "Lien ${dst} existe déjà mais pointe vers '${current_target}', pas vers '${src}'. Je ne change rien."
+            return 1
+        fi
+    else
+        mkdir -p "$(dirname "${dst}")"
+        if ln -s "${src}" "${dst}"; then
+            _OK "Lien créé : ${dst} → ${src}"
+        else
+            _ERR "Échec de création du lien : ${dst} → ${src}"
+        fi
+    fi
+}
 
 _PASS() {
     # On vérifie silencieusement si l'autorisation est requise, si oui on gère un joli prompt
@@ -204,7 +247,8 @@ _DETECT_GRUB() {
 # FONCTIONS PRINCIPALES                                                                                                #
 ########################################################################################################################
 INITIALIZE() {
-    C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_MAGENTA='' C_CYAN='' C_BOLD=''
+    C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_MAGENTA='' #C_CYAN=''
+    C_BOLD=''
     if [[ -t 1 ]]; then
         C_RESET='\e[0m'
         C_BOLD='\e[1m'
@@ -212,7 +256,7 @@ INITIALIZE() {
         C_GREEN='\e[1;32m'
         C_YELLOW='\e[1;33m'
         C_MAGENTA='\e[1;35m'
-        C_CYAN='\e[1;36m'
+        #C_CYAN='\e[1;36m'
     fi
     _PASS
     LOG_DIR="${HOME}/.local/log"
@@ -241,7 +285,9 @@ INITIALIZE() {
     _HEURE >> "${LOG_FILE}"
 
     # aussitôt je conf dnf si besoin pour accélérer les download de paquets
-    _RUN "Préparation" sudo dnf install -y crudini
+    if ! rpm -q crudini >/dev/null 2>&1; then
+        _RUN "Préparation" sudo dnf install -y crudini
+    fi
     if command -v crudini &>/dev/null; then
         _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main defaultyes true
         _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main max_parallel_downloads 10
@@ -675,8 +721,12 @@ SETUP_SHELL() {
     fi
 
     # 3- symlinks
-    _RUNSILENT "Liens symboliques dans ${HOME}" ln -sfv "${HOME}/.local/share/icons" "${HOME}/.icons"
-    _RUNSILENT "" ln -sfv "${HOME}/.local/share/themes" "${HOME}/.themes"
+    # _RUNSILENT "Liens symboliques dans ${HOME}" ln -sfv "${HOME}/.local/share/icons" "${HOME}/.icons"
+    # _RUNSILENT "" ln -sfv "${HOME}/.local/share/themes" "${HOME}/.themes"
+    # _RUNSILENT "" ln -sv "${HOME}/.config/mozilla/firefox" "${HOME}/.mozilla"
+    _SYMLINK "${HOME}/.local/share/icons" "${HOME}/.icons"
+    _SYMLINK "${HOME}/.local/share/themes" "${HOME}/.themes"
+    _SYMLINK "${HOME}/.config/mozilla/firefox" "${HOME}/.mozilla"
 }
 
 ########################################################################################################################
@@ -1099,7 +1149,7 @@ SETUP_SUDO_RS() {
 
     # 3. Assurer la présence stricte des inclusions dans le nouveau fichier
     # CORRECTION : Utilisation de ~ comme délimiteur sed pour ne pas interférer avec le OU (|)
-    if ! grep -q "@includedir /etc/sudoers-rs.d" "${f_sudoers_rs}"; then
+    if ! sudo grep -q "@includedir /etc/sudoers-rs.d" "${f_sudoers_rs}"; then
         _RUN "Configuration des includedir dans ${f_sudoers_rs}" sudo bash -c "
             sed -i -E 's~^(@|#)includedir[[:space:]]+/etc/sudoers\.d~@includedir /etc/sudoers-rs.d~g' '${f_sudoers_rs}'
 
@@ -1140,22 +1190,36 @@ SETUP_SUDO_RS() {
     _RUNSILENT "" sudo chmod -v 4111 "${sudo_rs_bin}"
     _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
 
-    # 5. Déploiement de tes règles spécifiques
-    _RUN "Règle PSD (90-profile-sync-daemon)" sudo bash -c "echo '%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper' > '${d_sudoers_rs_d}/90-profile-sync-daemon'"
-    _RUN "Règles globales (99-timeout)" sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=60' > '${d_sudoers_rs_d}/99-timeout'"
+    # 5. Déploiement des règles spécifiques
+    local pattern="%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper"
+    local file="${d_sudoers_rs_d}/90-profile-sync-daemon"
+    if ! sudo grep -q "${pattern}" "${file}" > /dev/null; then
+        _RUN "Mise en place de la règle profile-sync-daemon." echo "${pattern}" | sudo tee "${file}" > /dev/null
+    else
+        _OK "Règle profile-sync-daemon déjà existante (${file})."
+    fi
+
+    local pattern="Defaults pwfeedback,timestamp_timeout=60"
+    local file2="${d_sudoers_rs_d}/99-timeout"
+    if ! sudo grep -q "${pattern}" "${file2}" > /dev/null; then
+        _RUN "Mise en place de la règle timeout." echo "${pattern}" | sudo tee "${file2}" > /dev/null
+    else
+        _OK "Règle timeout déjà existante (${file2})."
+    fi
+
     _RUNSILENT "" sudo chmod -v 0440 "${f_sudoers_rs}"
     _RUNSILENT "" sudo chmod -v 0750 "${d_sudoers_rs_d}"
-    _RUNSILENT "" sudo chmod -v 0440 "${d_sudoers_rs_d}/99-timeout" "${d_sudoers_rs_d}/90-profile-sync-daemon"
+    _RUNSILENT "" sudo chmod -v 0440 "${file}" "${file2}"
 
     # 6. Nettoyage radical des anciens fichiers
     if [[ -f "/etc/sudoers" && ! -L "/etc/sudoers" ]]; then
-        _RUN "Désactivation de /etc/sudoers (renommé en .bak)" sudo mv -f /etc/sudoers /etc/sudoers.bak
+        _RUNSILENT "" sudo mv -vf /etc/sudoers /etc/sudoers.bak
     fi
 
     if [[ -d "/etc/sudoers.d" ]]; then
-        _RUN "Nettoyage du contenu de /etc/sudoers.d" sudo rm -f /etc/sudoers.d/*
+        _RUNSILENT "" sudo rm -vf /etc/sudoers.d/*
     else
-        _RUN "Création du dossier de compatibilité /etc/sudoers.d" sudo mkdir -p /etc/sudoers.d
+        _RUNSILENT "" sudo mkdir -pv /etc/sudoers.d
         _RUNSILENT "" sudo chmod -v 0750 /etc/sudoers.d
     fi
 
@@ -1257,16 +1321,11 @@ SETUP_KDE_PLASMA() {
         # fi
         if pgrep plasmashell > /dev/null 2>&1; then
             _RUN "Redémarrage de l'interface de KDE Plasma 6..." bash -c "\
-            kwriteconfig6 --file kdeglobals --group Icons --key Theme \"Tela-dark\" \
-            kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme \"catppuccin-mocha-lavender-cursors\" \
-            kwriteconfig6 --file kdeglobals --group General --key ColorScheme \"${scheme}\" \
-            plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" \
+            kwriteconfig6 --file kdeglobals --group Icons --key Theme \"Tela-dark\" ;\
+            kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme \"catppuccin-mocha-lavender-cursors\" ;\
+            [[ -n \"${scheme}\" ]] && kwriteconfig6 --file kdeglobals --group General --key ColorScheme \"${scheme}\" ;\
+            plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ;\
             systemctl --user restart plasma-plasmashell.service"
-            # _RUNSILENT "" kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark"
-            # _RUNSILENT "" kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
-            # [[ -n "${scheme}" ]] && _RUNSILENT "" kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}"
-            # _RUNSILENT "" plasma-apply-wallpaperimage "${HOME}/.local/share/wallpapers/SpacePlasma.jpg"
-            # _RUNSILENT "" systemctl --user restart plasma-plasmashell.service
         fi
     else
         echo
