@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=4.5
+readonly VER=4.7
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        custo panneau KDE avec favoris
@@ -49,7 +49,7 @@ MAIN() {
     SETUP_SUDO_RS
 
     # Fin
-    printf "\n%b%b  ✓ Terminé — rebooter pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
+    printf "\n%b%b  ✓ Terminé — REDÉMARREZ pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
     _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
     _HEURE >> "${LOG_FILE}"
@@ -98,7 +98,7 @@ _HEURE() {
     heure=$(date '+%A %d %B %Y')
     echo "${date}, le ${heure}" | tee -a "${LOG_FILE}"
 }
-_SECTION()  { printf "\n%b%b━━━ %s ━━━%b\n" "${C_CYAN}" "${C_BOLD}" "$*" "${C_RESET}" | tee -a "${LOG_FILE}"; }
+_SECTION()  { printf "\n%b%b━━━━ %s ━━━━%b\n" "${C_CYAN}" "${C_BOLD}" "${*^^}" "${C_RESET}" | tee -a "${LOG_FILE}"; }
 _OK()       { printf " %b✓%b %s\n" "${C_GREEN}"  "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
 _ERR()      { printf " %b✗%b %s\n" "${C_RED}"    "${C_RESET}" "$*" | tee -a "${LOG_FILE}" >&2; }
 _INFO()     { printf " %b→%b %s\n" "${C_YELLOW}"   "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
@@ -271,7 +271,7 @@ CHECK_ENV() {
         _DIE "L'utilisateur ${USER} n'appartient pas au groupe 'wheel' (sudo). Abandon."
     fi
 
-    _RUN "Contrôle des dépendances obligatoires" sudo dnf install -y curl git stow crudini pciutils dnf-plugins-core binutils policycoreutils-python-utils
+    _RUN "Contrôle des dépendances obligatoires" sudo dnf install -y curl git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils
 
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
@@ -586,7 +586,7 @@ INSTALL_GO_PACKAGES() {
 
 ########################################################################################################################
 CLONE_GIT() {
-    _SECTION "Clonage et mise à jour des dépôts Git personnels"
+    _SECTION "Téléchargement et mise à jour des dépôts Git personnels"
 
     local repo_entry repo_url dest_dir repo_name backup_dir
 
@@ -610,7 +610,7 @@ CLONE_GIT() {
             fi
 
             # La voie est libre, on clone
-            _RUN "Clonage de ${repo_name}" git clone "${repo_url}" "${dest_dir}"
+            _RUN "Téléchargement de ${repo_name}" git clone "${repo_url}" "${dest_dir}"
         fi
     done
 
@@ -670,6 +670,9 @@ SETUP_SHELL() {
         _RUNSILENT "" chmod 777 -v "${omp_bin}"
     fi
 
+    # 3- symlinks
+    _RUNSILENT "Liens symboliques dans ${HOME}" ln -sfv "${HOME}/.local/share/icons" "${HOME}/.icons"
+    _RUNSILENT "" ln -sfv "${HOME}/.local/share/themes" "${HOME}/.themes"
 }
 
 ########################################################################################################################
@@ -682,10 +685,10 @@ SETUP_DOTFILES() {
 
     # 1- nettoyage avant stow pour éviter erreurs.
     local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc")
-    local f
-    for f in "${skel_files[@]}"; do
-        if [[ -f "${HOME}/${f}" && ! -L "${HOME}/${f}" ]]; then
-            _RUNSILENT "" rm -vf "${HOME}/${f}"
+    local file
+    for file in "${skel_files[@]}"; do
+        if [[ -f "${HOME}/${file}" && ! -L "${HOME}/${file}" ]]; then
+            _RUNSILENT "" rm -vf "${HOME}/${file}"
         fi
     done
 

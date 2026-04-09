@@ -1,41 +1,52 @@
 #!/usr/bin/env bash
+########################################################
+#   Paramètres utilisateur de post-install-fedora.sh   #
+########################################################
 
-# paquets à installer
-export DNF_PACKAGES=(
+# paquets RPM à installer #---------------------------------------------------------------------------------------------------
+DNF_PACKAGES=(
     zsh fastfetch util-linux-script foot ghostty kitty eza fzf neovim bat bat-extras grc axel rclone procs
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird
-    vesktop telegram-desktop qbittorrent brave-browser helium-browser-bin qemu virt-manager virt-viewer gum stress-ng
-    libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro
+    vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng
+    libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro rsyslog
     # Ajoute tes autres paquets ici
 )
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# paquets à désinstaller
-export DNF_REMOVE=(
+
+# paquets RPM à désinstaller #------------------------------------------------------------------------------------------------
+DNF_REMOVE=(
     zram-generator-defaults PackageKit-glib google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd
     libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover
     # Ajoute tes autres paquets ici
 )
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# polices à installer (les 2 nerd font ici sont dans le dépôt Terra qui est ajouté automatiquement)
-export FONTS=(
+
+# polices à installer (les 2 nerd font ici sont dans le dépôt Terra qui est ajouté automatiquement) #-------------------------
+FONTS=(
     jetbrainsmono-nerd-fonts
     iosevka-nerd-fonts
     # Ajoute tes autres paquets ici
 )
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# paquets flatpak à installer
-export FLATPAK_PKGS=(
-    #"com.ktechpit.whatsie"
+
+# paquets flatpak à installer #-----------------------------------------------------------------------------------------------
+FLATPAK_PKGS=(
+    "com.ktechpit.whatsie"
     #"io.github.giantpinkrobots.flatsweep"
     # "com.github.tchx84.Flatseal"
     # Ajoute tes autres paquets ici
 )
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé"
-export CARGO_PACKAGES=(
+
+# outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé" #--------------------------------------------
+CARGO_PACKAGES=(
     cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg
-    ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina
+    ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina eza
     # Ajoute tes autres paquets ici
 )
 declare -A BIN_MAPPING=(
@@ -49,9 +60,10 @@ declare -A BIN_MAPPING=(
         ["cargo-update"]="cargo-install-update cargo-install-update-config"
         # Ajoute tes autres correspondances ici
 )
-export BIN_MAPPING
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# outils GO
+
+# outils GO #-----------------------------------------------------------------------------------------------------------------
 declare -A GO_PACKAGES=(
     ["stormy"]="github.com/ashish0kumar/stormy@latest"
     ["golazo"]="github.com/0xjuanma/golazo@latest"
@@ -60,39 +72,44 @@ declare -A GO_PACKAGES=(
     #["matcha"]="github.com/floatpane/matcha@latest"
     # Ajoute tes autres paquets ici
 )
-export GO_PACKAGES
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# mes repos git à installer (dotfiles obligatoire)
-export MYREPOS="https://codeberg.org/jotenakis"
-export DOTFILES_REPO="${MYREPOS}/dotfiles"
-export DOTFILES_DIR="${HOME}/dotfiles"
-export GIT_REPOS=(
+
+# mes repos git à installer (dotfiles obligatoire) #--------------------------------------------------------------------------
+MYREPOS="https://codeberg.org/jotenakis"
+DOTFILES_REPO="${MYREPOS}/dotfiles"
+DOTFILES_DIR="${HOME}/dotfiles"
+GIT_REPOS=(
     "${MYREPOS}/fedupdate|${HOME}/fedupdate"
     "${MYREPOS}/backupsystem|${HOME}/backupsystem"
     "${MYREPOS}/scripts|${HOME}/scripts"
     "${DOTFILES_REPO}|${DOTFILES_DIR}"
     # Ajoute tes autres "repos|dossierlocaux" ici
 )
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# services réseaux à autoriser dans le pare-feu
-export FIREWALL_SERVICES=(
+
+# services réseaux à autoriser dans le pare-feu #-----------------------------------------------------------------------------
+FIREWALL_SERVICES=(
     "mdns"
     "ipp-client"
     "samba-client"
     # ajoute tes autres services réseaux à autoriser ici
 )
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# services systemd à désactiver
+
+# services systemd à désactiver #---------------------------------------------------------------------------------------------
 declare -A SERVICES_TO_DISABLE=(
     ["ModemManager.service"]="service ModemManager"
-    ["rsyslog.service"]="service rsyslog"
     ["switcheroo-control.service"]="service switcheroo"
     # ajoute tes autres services systemd à désactiver ici
 )
-export SERVICES_TO_DISABLE
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# configuration du noyau
-export SYSCTL_CONF='
+
+# configuration du noyau #----------------------------------------------------------------------------------------------------
+SYSCTL_CONF='
 # optimizing
 vm.swappiness = 10
 vm.vfs_cache_pressure = 100
@@ -154,9 +171,11 @@ net.ipv4.tcp_syncookies = 1
 net.ipv4.tcp_timestamps = 1
 net.ipv4.conf.default.rp_filter = 1
 '
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# configuration pour débloater brave browser
-export BRAVE_POLICIES='{
+
+# configuration pour débloater brave browser #--------------------------------------------------------------------------------
+BRAVE_POLICIES='{
     "BraveRewardsDisabled": true,
     "BraveWalletDisabled": true,
     "BraveVPNDisabled": 1,
@@ -166,28 +185,64 @@ export BRAVE_POLICIES='{
     "DnsOverHttpsMode": "automatic"
 }
 '
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# conf DNS
-export RESOLVED_DNS_SERVERS='[Resolve]
+
+# conf DNS #------------------------------------------------------------------------------------------------------------------
+RESOLVED_DNS_SERVERS='[Resolve]
 DNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net
 FallbackDNS=1.1.1.1#one.one.one.one
 Domains=~.
 DNSOverTLS=yes
 DNSSEC=yes
 ' # dot quad9, fallback dot cloudflare, DNSSEC on, pour toutes les résolutions externes.
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# taille du fichier swap en GiB (/var/swap/swapfile)
-export SWAP_SIZE=8
 
-# Couleur du TTY (console virtuelle non graphique)
-export TTY_COLOR="vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200" #catppuccin mocha
+# taille du fichier swap en GiB (/var/swap/swapfile) #------------------------------------------------------------------------
+SWAP_SIZE=8
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# paramètres additionels de la ligne de commande du noyau (zswap sera automatiquement ajouté même si non spécifié ici)
-export CMDLINE="ipv6.disable=1"
 
-# Position du panneau principal KDE : "top", "bottom", "left", "right" possibles
-#export KDEPANEL="bottom"
+# Couleur du TTY (console virtuelle non graphique) #--------------------------------------------------------------------------
+TTY_COLOR="vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200" #catppuccin mocha
+#-----------------------------------------------------------------------------------------------------------------------------
 
-# Montage NFS
-export NFS_SHARE="192.168.50.51:/mnt/usbdrive/data"
-export NFS_MP="/media/NAS"
+
+# paramètres additionels de la ligne de commande du noyau (zswap sera automatiquement ajouté même si non spécifié ici) -------
+CMDLINE="ipv6.disable=1"
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
+# Montage NFS #---------------------------------------------------------------------------------------------------------------
+NFS_SHARE="192.168.50.51:/mnt/usbdrive/data"
+NFS_MP="/media/NAS"
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
+
+###############################################################################################################################
+###############################################################################################################################
+###############################################################################################################################
+export DNF_PACKAGES
+export DNF_REMOVE
+export FONTS
+export FLATPAK_PKGS
+export CARGO_PACKAGES
+export BIN_MAPPING
+export GO_PACKAGES
+export MYREPOS
+export DOTFILES_REPO
+export DOTFILES_DIR
+export GIT_REPOS
+export FIREWALL_SERVICES
+export SERVICES_TO_DISABLE
+export SYSCTL_CONF=
+export BRAVE_POLICIES=
+export RESOLVED_DNS_SERVERS=
+export SWAP_SIZE
+export TTY_COLOR
+export CMDLINE
+export NFS_SHARE
+export NFS_MP
+###############################################################################################################################
