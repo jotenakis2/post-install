@@ -41,7 +41,6 @@ MAIN() {
     SETUP_ETC
     SETUP_SWAP
     SETUP_FSTAB
-    SETUP_NFS
     SETUP_GRUB
     SETUP_SYSTEMD
     SETUP_FIREWALL
@@ -834,10 +833,11 @@ SETUP_SYSTEMD(){
 
 ########################################################################################################################
 SETUP_GRUB(){
-    # --- 3. Configuration GRUB ---
     local is_grub zswap
     is_grub=$(_DETECT_GRUB)
     zswap="zswap.enabled=1 zswap.compressor=lz4" # on force l'usage d'un zswap, plus efficace que zram car s'appuie sur un backend physique en plus (file ou part)
+
+    _SECTION "Configuration du bootloader GRUB"
 
     if [[ "${is_grub}" == "true" ]]; then
         local luks_param="" target_cmdline="" current_cmdline="" current_default=""
@@ -976,7 +976,7 @@ SETUP_FSTAB(){
         else
             _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
             _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
-            echo "${NFS_SHARE}   ${NFS_MP}   nfs   defaults     0 0" | tee -a /etc/fstab >/dev/null
+            echo "${NFS_SHARE}   ${NFS_MP}   nfs   defaults     0 0" | sudo tee -a /etc/fstab >/dev/null
             _RUNSILENT "" sudo systemctl daemon-reload
             _RUNSILENT "" sudo mount -v "${NFS_MP}"
             _RUN "Installation du partage réseau NFS." sudo ls -l "${NFS_MP}"
@@ -1211,7 +1211,7 @@ SETUP_KDE_PLASMA() {
         fi
 
         # Pointeur par défaut pour compatibilité GTK
-        if ! grep -q "catppuccin-mocha-lavender-cursors" "${HOME}/.local/share/icons/default/index.theme" >/dev/null; then
+        if [[ -f "${HOME}/.local/share/icons/default/index.theme" ]] && ! grep -q "catppuccin-mocha-lavender-cursors" "${HOME}/.local/share/icons/default/index.theme"; then
             echo -e "[Icon Theme]\nInherits=catppuccin-mocha-lavender-cursors" > "${HOME}/.local/share/icons/default/index.theme"
         fi
 
@@ -1250,6 +1250,9 @@ SETUP_KDE_PLASMA() {
         #     "
         #     _RUNSILENT "" systemctl --user restart plasma-plasmashell.service
         # fi
+        if pgrep plasmashell > /dev/null 2>&1; then
+            _RUNSILENT "" systemctl --user restart plasma-plasmashell.service
+        fi
     else
         echo
         _INFO "KDE n'a pas été détecté... Je ne touche pas à la customization de KDE."
