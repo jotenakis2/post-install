@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=6.0
+readonly VER=6.1
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        revoir log
@@ -133,7 +133,7 @@ _SYMLINK() {
         fi
     else
         mkdir -p "$(dirname "${dst}")"
-        if ln -s "${src}" "${dst}"; then
+        if sudo ln -s "${src}" "${dst}"; then
             _OK "Lien créé : ${dst} → ${src}"
         else
             _ERR "Échec de création du lien : ${dst} → ${src}"
@@ -1164,23 +1164,23 @@ SETUP_SUDO_RS() {
     local sudo_rs_bin="/usr/bin/sudo-rs"
     local local_bin_sudo="/usr/local/bin/sudo"
 
-    # local current_link=""
-    # if [[ -L "${sys_sudo}" ]]; then
-    #     current_link=$(readlink "${sys_sudo}" || true)
-    # fi
-    #
-    # if [[ "${current_link}" == "${sudo_rs_bin}" ]]; then
-    #     _OK "Le lien symbolique sudo -> sudo-rs est déjà en place."
-    # else
-    #     # CORRECTION : On regroupe le 'mv' et le 'ln' dans le même appel sudo pour ne pas bloquer le système !
-    #     _RUN "Remplacement radical du binaire sudo" sudo bash -c "
-    #         if [[ -f '${sys_sudo}' && ! -L '${sys_sudo}' ]]; then
-    #             mv -f '${sys_sudo}' '${sys_sudo_bak}'
-    #         fi
-    #         ln -sf '${sudo_rs_bin}' '${sys_sudo}'
-    #     "
-    # fi
-    _SYMLINK "${sudo_rs_bin}" "${sys_sudo}"
+     local current_link=""
+     if [[ -L "${sys_sudo}" ]]; then
+         current_link=$(readlink "${sys_sudo}" || true)
+     fi
+
+     if [[ "${current_link}" == "${sudo_rs_bin}" ]]; then
+         _OK "Le lien symbolique sudo -> sudo-rs est déjà en place."
+     else
+         # CORRECTION : On regroupe le 'mv' et le 'ln' dans le même appel sudo pour ne pas bloquer le système !
+         _RUN "Remplacement radical du binaire sudo" sudo bash -c "
+             if [[ -f '${sys_sudo}' && ! -L '${sys_sudo}' ]]; then
+                 mv -f '${sys_sudo}' '${sys_sudo_bak}'
+             fi
+             ln -sf '${sudo_rs_bin}' '${sys_sudo}'
+         "
+    fi
+
     _PASS
     #_RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
     _SYMLINK "${sudo_rs_bin}" "${local_bin_sudo}"
