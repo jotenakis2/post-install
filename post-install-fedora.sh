@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=5.6
+readonly VER=6.0
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        revoir log
@@ -99,7 +99,9 @@ _SECTION() { # CYAN
     (( len > w )) && text=${text:0:w} && len=w
     padl=$(( (w - len) / 2 ))
     padr=$(( w - len - padl ))
+    echo
     printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text^^}" "${padr}" '' "${V}" | tee -a "${LOG_FILE}"
+    echo
     return 0
 }
 
@@ -998,7 +1000,7 @@ SETUP_FSTAB(){
             if [[ ! ",${opts}," =~ ,lazytime, ]]; then
                 opts="${opts},lazytime"
             fi
-            if [[ ! ",${opts}," =~ ,commit, ]] && [[ "${fs}" = "ext4" ]]; then
+            if [[ ! ",${opts}," =~ ,commit=60, ]] && [[ "${fs}" = "ext4" ]]; then
                 opts="${opts},commit=60"
             fi
             if [[ "${orig_opts}" != "${opts}" ]]; then
@@ -1162,24 +1164,26 @@ SETUP_SUDO_RS() {
     local sudo_rs_bin="/usr/bin/sudo-rs"
     local local_bin_sudo="/usr/local/bin/sudo"
 
-    local current_link=""
-    if [[ -L "${sys_sudo}" ]]; then
-        current_link=$(readlink "${sys_sudo}" || true)
-    fi
-
-    if [[ "${current_link}" == "${sudo_rs_bin}" ]]; then
-        _OK "Le lien symbolique sudo -> sudo-rs est déjà en place."
-    else
-        # CORRECTION : On regroupe le 'mv' et le 'ln' dans le même appel sudo pour ne pas bloquer le système !
-        _RUN "Remplacement radical du binaire sudo" sudo bash -c "
-            if [[ -f '${sys_sudo}' && ! -L '${sys_sudo}' ]]; then
-                mv -f '${sys_sudo}' '${sys_sudo_bak}'
-            fi
-            ln -sf '${sudo_rs_bin}' '${sys_sudo}'
-        "
-    fi
+    # local current_link=""
+    # if [[ -L "${sys_sudo}" ]]; then
+    #     current_link=$(readlink "${sys_sudo}" || true)
+    # fi
+    #
+    # if [[ "${current_link}" == "${sudo_rs_bin}" ]]; then
+    #     _OK "Le lien symbolique sudo -> sudo-rs est déjà en place."
+    # else
+    #     # CORRECTION : On regroupe le 'mv' et le 'ln' dans le même appel sudo pour ne pas bloquer le système !
+    #     _RUN "Remplacement radical du binaire sudo" sudo bash -c "
+    #         if [[ -f '${sys_sudo}' && ! -L '${sys_sudo}' ]]; then
+    #             mv -f '${sys_sudo}' '${sys_sudo_bak}'
+    #         fi
+    #         ln -sf '${sudo_rs_bin}' '${sys_sudo}'
+    #     "
+    # fi
+    _SYMLINK "${sudo_rs_bin}" "${sys_sudo}"
     _PASS
-    _RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
+    #_RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
+    _SYMLINK "${sudo_rs_bin}" "${local_bin_sudo}"
     _RUNSILENT "" sudo chmod -v 4111 "${sudo_rs_bin}"
     _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
 
