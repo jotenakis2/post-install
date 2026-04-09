@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=5.0
+readonly VER=5.1
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        custo panneau KDE avec favoris
@@ -1100,17 +1100,19 @@ SETUP_SUDO_RS() {
 
     # 3. Assurer la présence stricte des inclusions dans le nouveau fichier
     # CORRECTION : Utilisation de ~ comme délimiteur sed pour ne pas interférer avec le OU (|)
-    _RUN "Configuration des includedir dans ${f_sudoers_rs}" sudo bash -c "
-        sed -i -E 's~^(@|#)includedir[[:space:]]+/etc/sudoers\.d~@includedir /etc/sudoers-rs.d~g' '${f_sudoers_rs}'
+    if ! grep -q "@includedir /etc/sudoers-rs.d" "${f_sudoers_rs}"; then
+        _RUN "Configuration des includedir dans ${f_sudoers_rs}" sudo bash -c "
+            sed -i -E 's~^(@|#)includedir[[:space:]]+/etc/sudoers\.d~@includedir /etc/sudoers-rs.d~g' '${f_sudoers_rs}'
 
-        if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers-rs\.d' '${f_sudoers_rs}'; then
-            echo -e '\n@includedir /etc/sudoers-rs.d' >> '${f_sudoers_rs}'
-        fi
+            if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers-rs\.d' '${f_sudoers_rs}'; then
+                echo -e '\n@includedir /etc/sudoers-rs.d' >> '${f_sudoers_rs}'
+            fi
 
-        if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers\.d' '${f_sudoers_rs}'; then
-            echo -e '# Fallback pour les paquets Fedora\n@includedir /etc/sudoers.d' >> '${f_sudoers_rs}'
-        fi
-    "
+            if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers\.d' '${f_sudoers_rs}'; then
+                echo -e '# Fallback pour les paquets Fedora\n@includedir /etc/sudoers.d' >> '${f_sudoers_rs}'
+            fi
+        "
+    fi
 
     # 4. Remplacement du binaire sudo (La BASCULE CRITIQUE)
     local sys_sudo="/usr/bin/sudo"
@@ -1135,7 +1137,7 @@ SETUP_SUDO_RS() {
         "
     fi
     _PASS
-    _RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -sf "${sudo_rs_bin}" "${local_bin_sudo}"
+    _RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
     _RUNSILENT "" sudo chmod -v 4111 "${sudo_rs_bin}"
     _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
 
