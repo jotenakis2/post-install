@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=5.2
+readonly VER=5.3
 # TODO : git privé (clé ssh, ...)
 #        psd
-#        custo panneau KDE avec favoris
 #        revoir log
 
 # variables globales en MAJ, locales en min
@@ -689,7 +688,7 @@ SETUP_DOTFILES() {
     fi
 
     # 1- nettoyage avant stow pour éviter erreurs.
-    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc")
+    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/konsolerc" ".config/user-dirs.dirs" ".config/user-dirs.locale")
     local file
     for file in "${skel_files[@]}"; do
         if [[ -f "${HOME}/${file}" && ! -L "${HOME}/${file}" ]]; then
@@ -1257,10 +1256,17 @@ SETUP_KDE_PLASMA() {
         #     _RUNSILENT "" systemctl --user restart plasma-plasmashell.service
         # fi
         if pgrep plasmashell > /dev/null 2>&1; then
-            _RUNSILENT "" kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark"
-            _RUNSILENT "" kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
-            [[ -n "${scheme}" ]] && _RUNSILENT "" kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}"
-            _RUNSILENT "" systemctl --user restart plasma-plasmashell.service
+            _RUN "Redémarrage de l'interface de KDE Plasma 6..." sleep 2 \
+            kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark" \
+            kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors" \
+            kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}" \
+            plasma-apply-wallpaperimage "${HOME}/.local/share/wallpapers/SpacePlasma.jpg" \
+            systemctl --user restart plasma-plasmashell.service
+            # _RUNSILENT "" kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark"
+            # _RUNSILENT "" kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
+            # [[ -n "${scheme}" ]] && _RUNSILENT "" kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}"
+            # _RUNSILENT "" plasma-apply-wallpaperimage "${HOME}/.local/share/wallpapers/SpacePlasma.jpg"
+            # _RUNSILENT "" systemctl --user restart plasma-plasmashell.service
         fi
     else
         echo
