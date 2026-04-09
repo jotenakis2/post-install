@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=4.8
+readonly VER=4.9
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        custo panneau KDE avec favoris
@@ -951,7 +951,9 @@ SETUP_FSTAB(){
             if [[ ! ",${opts}," =~ ,lazytime, ]]; then
                 opts="${opts},lazytime"
             fi
-
+            if [[ ! ",${opts}," =~ ,commit, ]] && [[ "${fs}" = "ext4" ]]; then
+                opts="${opts},commit=60"
+            fi
             if [[ "${orig_opts}" != "${opts}" ]]; then
                 fstab_changed=true
                 printf "%-40s %-24s %-8s %-32s %-2s %s\n" "${dev}" "${mp}" "${fs}" "${opts}" "${dump}" "${pass}" >> "${tmp_dir}/fstab.new"
@@ -964,10 +966,10 @@ SETUP_FSTAB(){
 
     if [[ "${fstab_changed}" == "true" ]]; then
         _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.optimizations
-        _RUN "Application de noatime/lazytime dans /etc/fstab" sudo cp -av "${tmp_dir}/fstab.new" /etc/fstab
+        _RUN "Optimisations des systèmes de fichier" sudo cp -av "${tmp_dir}/fstab.new" /etc/fstab
         _RUNSILENT "" sudo systemctl daemon-reload
     else
-        _OK "Les options noatime/lazytime sont déjà présentes dans /etc/fstab."
+        _OK "Les options d'optimisations sont déjà présentes dans /etc/fstab."
     fi
 
     # NFS
@@ -1161,7 +1163,7 @@ SETUP_SUDO_RS() {
 SETUP_KDE_PLASMA() {
 # on check KDE est lancé
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
-        _SECTION "Personnalisation de KDE Plasma 6 (Thèmes & Layout)"
+        _SECTION "Personnalisation de KDE Plasma 6"
 
         # 1. Base Dark
         _RUN "Passage en mode Dark global" plasma-apply-lookandfeel -a org.kde.breezedark.desktop
@@ -1181,12 +1183,9 @@ SETUP_KDE_PLASMA() {
             local scheme=""
             if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
                 scheme="$(plasma-apply-colorscheme --list-schemes 2>/dev/null | grep -i 'tokyonight' | awk '{print $2}' | head -n1 || true)"
+                [[ -z "${scheme}" ]] && _ERR "Tokyo Night non détecté par KDE Plasma ! Faudra appliquer manuellement..."
+                _RUN "Application de la palette de couleurs ${scheme}" plasma-apply-colorscheme "${scheme}"
             fi
-
-            [[ -n "${scheme}" ]] || _ERR "Tokyo Night non détecté par KDE Plasma ! Faudra appliquer manuellement..."
-
-            _RUN "Application du color scheme ${scheme}" plasma-apply-colorscheme "${scheme}"
-            _RUNSILENT "" kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}"
         fi
 
         # 3. Icônes : Tela Dark
@@ -1195,7 +1194,6 @@ SETUP_KDE_PLASMA() {
             temp_tela=$(mktemp -d)
             _RUN "Téléchargement des icônes Tela Dark" git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
             _RUN "Installation des icônes Tela Dark" bash "${temp_tela}/tela/install.sh" -d "${HOME}/.local/share/icons"
-            _RUNSILENT "" kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark"
             _RUNSILENT "" rm -rvf "${temp_tela}"
         else
             _INFO "Le pack d'icônes Tela Dark est déjà installé."
@@ -1207,7 +1205,6 @@ SETUP_KDE_PLASMA() {
         if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*catppuccin-mocha-lavender-cursors*" -print -quit | grep -q . >/dev/null; then
             _RUN "Installation du curseur Bibata Lavender" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
             _RUNSILENT "" unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
-            _RUNSILENT "" kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
         else
             _INFO "Le pack de curseurs Bibata Lavender est déjà installé."
         fi
@@ -1253,6 +1250,9 @@ SETUP_KDE_PLASMA() {
         #     _RUNSILENT "" systemctl --user restart plasma-plasmashell.service
         # fi
         if pgrep plasmashell > /dev/null 2>&1; then
+            _RUNSILENT "" kwriteconfig6 --file kdeglobals --group Icons --key Theme "Tela-dark"
+            _RUNSILENT "" kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme "catppuccin-mocha-lavender-cursors"
+            [[ -n "${scheme}" ]] && _RUNSILENT "" kwriteconfig6 --file kdeglobals --group General --key ColorScheme "${scheme}"
             _RUNSILENT "" systemctl --user restart plasma-plasmashell.service
         fi
     else
