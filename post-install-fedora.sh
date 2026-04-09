@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=4.7
+readonly VER=4.8
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        custo panneau KDE avec favoris
@@ -39,13 +39,13 @@ MAIN() {
     SETUP_SHELL
     SETUP_DOTFILES
     SETUP_ETC
-    SETUP_SWAP
+     SETUP_SYSTEMD
+     SETUP_FIREWALL
+     SETUP_SWAP
     SETUP_FSTAB
     SETUP_GRUB
-    SETUP_SYSTEMD
-    SETUP_FIREWALL
     SETUP_KDE_PLASMA
-    SETUP_PLM
+     SETUP_PLM
     SETUP_SUDO_RS
 
     # Fin
@@ -227,7 +227,7 @@ INITIALIZE() {
     export GOBIN="${XDG_BIN_HOME:-${HOME}/.local/bin}"
 
     # Dossiers utilisateur requis
-    _RUNSILENT "" mkdir -pv "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes"
+    _RUNSILENT "" mkdir -pv "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
     # Dossiers système requis
     _RUNSILENT "" sudo mkdir -pv /usr/local/bin /etc/sudoers.d /etc/udev.d/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
 
@@ -446,7 +446,7 @@ INSTALL_RPM_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_FLATPAK_PACKAGES() {
-    _SECTION "Configuration/Installation de Flatpak"
+    _SECTION "Paquets Flatpak"
 
     # 1. Vérification et installation de Flatpak
     if ! command -v flatpak >/dev/null 2>&1; then
@@ -456,14 +456,14 @@ INSTALL_FLATPAK_PACKAGES() {
     fi
 
     # 2. Ajout de Flathub s'il n'existe pas
-    _RUN "Ajout du dépôt Flathub" sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    _RUN "Ajout du dépôt Flathub" sudo flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
     # 3. Activation de Flathub sans filtre
-    _RUNSILENT "" sudo flatpak remote-modify --no-filter --enable flathub
+    _RUNSILENT "" sudo flatpak --verbose remote-modify --no-filter --enable flathub
 
     # 4. Vérification et suppression du dépôt Fedora
     if flatpak remotes --columns=name | grep -q "^fedora$"; then
-        _RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak remote-delete --force fedora
+        _RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak --verbose remote-delete --force fedora
     else
         _OK "Le dépôt Fedora Flatpak n'est pas présent."
     fi
@@ -474,7 +474,7 @@ INSTALL_FLATPAK_PACKAGES() {
             if flatpak info "${pkg}" >/dev/null 2>&1; then
                 _OK "Flatpak '${pkg}' est déjà installé."
             else
-                _RUN "Installation de ${pkg}" sudo flatpak install -y flathub "${pkg}"
+                _RUN "Installation de ${pkg}" sudo flatpak --verbose install -y flathub "${pkg}"
             fi
         done
     else
@@ -482,7 +482,7 @@ INSTALL_FLATPAK_PACKAGES() {
     fi
 
     # 7. Petit nettoyage des runtimes inutilisés
-    _RUN "Nettoyage des runtimes Flatpak orphelins" sudo flatpak uninstall --unused -y
+    _RUN "Nettoyage des runtimes Flatpak orphelins" sudo flatpak --verbose uninstall --unused -y
 }
 
 ########################################################################################################################
@@ -619,7 +619,7 @@ CLONE_GIT() {
 
 ########################################################################################################################
 SETUP_SHELL() {
-    _SECTION "Shell (zsh, oh-my-posh, symlinks)"
+    _SECTION "Shell"
 
     # 1- zsh
     local zsh_bin
@@ -840,7 +840,7 @@ SETUP_GRUB(){
     is_grub=$(_DETECT_GRUB)
     zswap="zswap.enabled=1 zswap.compressor=lz4" # on force l'usage d'un zswap, plus efficace que zram car s'appuie sur un backend physique en plus (file ou part)
 
-    _SECTION "Configuration du bootloader GRUB"
+    _SECTION "Configuration de GRUB"
 
     if [[ "${is_grub}" == "true" ]]; then
         local luks_param="" target_cmdline="" current_cmdline="" current_default=""
@@ -882,7 +882,6 @@ SETUP_GRUB(){
 
 ########################################################################################################################
 SETUP_FIREWALL() {
-    _SECTION "Configuration du Pare-feu (Firewalld)"
 
     # 1. Vérification de l'installation du paquet
     if ! rpm -q firewalld >/dev/null 2>&1; then
@@ -1072,7 +1071,7 @@ SETUP_SWAP(){
 
 ########################################################################################################################
 SETUP_SUDO_RS() {
-    _SECTION "Configuration sudo-rs et remplacement radical de sudo"
+    _SECTION "Configuration sudo-rs (remplacement de sudo)"
     # 1. On installe sudo-rs
     if ! command -v sudo-rs &>/dev/null; then
         _RUN "Installation de sudo-rs" sudo dnf install -y sudo-rs
@@ -1266,7 +1265,6 @@ SETUP_KDE_PLASMA() {
 SETUP_PLM() {
 # on teste si KDE tourne
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
-        _SECTION "Préparation de Plasma Login Manager"
 
         if ! rpm -q plasma-login-manager >/dev/null 2>&1; then
             _RUN "Installation de plasma-login-manager" sudo dnf install -y plasma-login-manager kcm-plasmalogin

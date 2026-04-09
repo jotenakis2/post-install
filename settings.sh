@@ -9,7 +9,7 @@ DNF_PACKAGES=(
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird
     vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng
-    libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro rsyslog
+    libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -18,7 +18,7 @@ DNF_PACKAGES=(
 # paquets RPM à désinstaller #------------------------------------------------------------------------------------------------
 DNF_REMOVE=(
     zram-generator-defaults PackageKit-glib google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd
-    libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover
+    libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover rsyslog
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
