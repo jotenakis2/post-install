@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=6.8
+readonly VER=6.9
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        revoir log
@@ -852,7 +852,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 '
 
     if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
-        echo "IO scheduler déjà à jour."
+        _OK "IO scheduler déjà à jour."
     else
         printf '%s\n' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
         _RUNSILENT "" sudo udevadm control --reload-rules
@@ -1319,7 +1319,7 @@ SETUP_KDE_PLASMA() {
 
         # Baloo
         if command -v balooctl6 >/dev/null 2>&1; then
-            if ! balooctl6 > /dev/null; then
+            if ! balooctl6 status > /dev/null; then
                 _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
             fi
         else
