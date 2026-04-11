@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=6.1
+readonly VER=6.2
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        revoir log
@@ -67,7 +67,7 @@ _BANNER() {
     shift
     local text="$*"
     local fg cols
-    cols=100
+    cols="${COLUMNS}"
     case "${color}" in
         red) fg=31;; green) fg=32;; yellow) fg=33;; blue) fg=34;;
         magenta) fg=35;; cyan) fg=36;; white) fg=37;; *) fg=39;;
@@ -94,7 +94,7 @@ _BANNER() {
 
 _SECTION() { # CYAN
     local text fg cols w len padl padr V
-    text="$*" fg=36 cols=50 w=$((cols - 2)) len=${#text} V="━━━━━━━"
+    text="$*" fg=36 cols="${COLUMNS}" w=$((cols - 2)) len=${#text} V="━━━━━━━━━━━━━━━━━━━━━━━━━"
     (( w < 1 )) && return
     (( len > w )) && text=${text:0:w} && len=w
     padl=$(( (w - len) / 2 ))
@@ -141,6 +141,11 @@ _SYMLINK() {
     fi
 }
 
+_PLASMA_EVAL() {
+    local script="$1"
+    busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s "${script}"
+}
+
 _PASS() {
     # On vérifie silencieusement si l'autorisation est requise, si oui on gère un joli prompt
     if ! sudo -n true 2>/dev/null; then
@@ -172,7 +177,7 @@ _RUNSILENT() {
 _RUN() {
     local msg="$1"; shift
 
-    spin() {
+    _SPIN() {
         local pid="$1" msg="$2" i=0
         while kill -0 "${pid}" 2>/dev/null; do
             printf "\r %b%s%b %s" "${C_RED}" "${SPIN_FRAMES[$((i % 10))]}" "${C_RESET}" "${msg}"
@@ -184,7 +189,7 @@ _RUN() {
 
     "$@" >> "${LOG_FILE}" 2>&1 &
     local pid=$!
-    spin "${pid}" "${msg}"
+    _SPIN "${pid}" "${msg}"
     if wait "${pid}"; then
         _OK "${msg}"
     else
@@ -1029,7 +1034,7 @@ SETUP_FSTAB(){
         else
             _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
             _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
-            echo "${NFS_SHARE}   ${NFS_MP}   nfs   defaults     0 0" | sudo tee -a /etc/fstab >/dev/null
+            echo "${NFS_SHARE}   ${NFS_MP}   nfs   defaults,nofail,x-systemd.automount,x-systemd.device-timeout=30     0 0" | sudo tee -a /etc/fstab >/dev/null
             _RUNSILENT "" sudo systemctl daemon-reload
             _RUNSILENT "" sudo mount -v "${NFS_MP}"
             _RUN "Installation du partage réseau NFS." sudo ls -l "${NFS_MP}"
@@ -1260,7 +1265,7 @@ SETUP_KDE_PLASMA() {
         if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela*" -print -quit | grep -q . >/dev/null; then
             temp_tela=$(mktemp -d)
             _RUN "Téléchargement des icônes Tela Dark" git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
-            _RUN "Installation des icônes Tela Dark" bash "${temp_tela}/tela/install.sh" -d "${HOME}/.local/share/icons"
+            _RUN "Installation des icônes Tela Dark" bash "${temp_tela}/tela/install.sh dracula" -d "${HOME}/.local/share/icons"
             _RUNSILENT "" rm -rvf "${temp_tela}"
         else
             _INFO "Le pack d'icônes Tela Dark est déjà installé."
@@ -1299,29 +1304,25 @@ SETUP_KDE_PLASMA() {
             --env="ICON_THEME=Tela-dark" \
             --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
 
-        # déplacement du panneau principal
-        # local target_pos="${KDEPANEL:-bottom}" # fallback en bas
-        # if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
-        #     _INFO "plasmashell ne tourne pas. Configuration du panneau reportée."
-        # else
-        #     plasma_eval() {
-        #         local script="$1"
-        #         busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s "${script}"
-        #     }
-        #     _RUN "Déplacement du panneau en position ${target_pos}" plasma_eval "
-        #         var allPanels = panels();
-        #         for (var i = 0; i < allPanels.length; i++) {
-        #             allPanels[i].location = \"${target_pos}\";
-        #             }
-        #     "
-        #     _RUNSILENT "" systemctl --user restart plasma-plasmashell.service
-        # fi
+        déplacement du panneau principal
+        local target_pos="${KDEPANEL:-bottom}" # fallback en bas
+        if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
+            _INFO "plasmashell ne tourne pas. Configuration du panneau reportée."
+        else
+            _RUN "Déplacement du panneau en position ${target_pos}" _PLASMA_EVAL "
+                var allPanels = panels();
+                for (var i = 0; i < allPanels.length; i++) {
+                    allPanels[i].location = \"${target_pos}\";
+                    }
+            "
+        fi
         if pgrep plasmashell > /dev/null 2>&1; then
             _RUN "Redémarrage de l'interface de KDE Plasma 6..." bash -c "\
             kwriteconfig6 --file kdeglobals --group Icons --key Theme \"Tela-dark\" ;\
             kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme \"catppuccin-mocha-lavender-cursors\" ;\
-            [[ -n \"${scheme}\" ]] && kwriteconfig6 --file kdeglobals --group General --key ColorScheme \"${scheme}\" ;\
+            [[ -n \"${scheme}\" ]] && plasma-apply-colorscheme \"${scheme}\" ;\
             plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ;\
+            kwriteconfig6 --file ksplashrc --group KSplash --key Theme Colourful-Ring-Splashscreen-Plasma6 ;\
             systemctl --user restart plasma-plasmashell.service"
         fi
     else

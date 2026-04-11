@@ -183,8 +183,7 @@ BRAVE_POLICIES='{
     "TorDisabled": true,
     "PasswordManagerEnabled": false,
     "DnsOverHttpsMode": "automatic"
-}
-'
+}'
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
@@ -214,6 +213,11 @@ CMDLINE="ipv6.disable=1"
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
+# paramètres additionels de la ligne de commande du noyau (zswap sera automatiquement ajouté même si non spécifié ici) -------
+KDEPANEL="top"
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
 # Montage NFS #---------------------------------------------------------------------------------------------------------------
 NFS_SHARE="192.168.50.51:/mnt/usbdrive/data"
 NFS_MP="/media/NAS"
@@ -237,12 +241,13 @@ export DOTFILES_DIR
 export GIT_REPOS
 export FIREWALL_SERVICES
 export SERVICES_TO_DISABLE
-export SYSCTL_CONF=
-export BRAVE_POLICIES=
-export RESOLVED_DNS_SERVERS=
+export SYSCTL_CONF
+export BRAVE_POLICIES
+export RESOLVED_DNS_SERVERS
 export SWAP_SIZE
 export TTY_COLOR
 export CMDLINE
+export KDEPANEL
 export NFS_SHARE
 export NFS_MP
 ###############################################################################################################################
