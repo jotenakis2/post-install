@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=6.2
+readonly VER=6.3
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        revoir log
@@ -94,7 +94,7 @@ _BANNER() {
 
 _SECTION() { # CYAN
     local text fg cols w len padl padr V
-    text="$*" fg=36 cols="${COLUMNS}" w=$((cols - 2)) len=${#text} V="━━━━━━━━━━━━━━━━━━━━━━━━━"
+    text="$*" fg=36 cols=100 w=$((cols - 2)) len=${#text} V="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     (( w < 1 )) && return
     (( len > w )) && text=${text:0:w} && len=w
     padl=$(( (w - len) / 2 ))
@@ -272,7 +272,7 @@ INITIALIZE() {
     # Dossiers utilisateur requis
     _RUNSILENT "" mkdir -pv "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
     # Dossiers système requis
-    _RUNSILENT "" sudo mkdir -pv /usr/local/bin /etc/sudoers.d /etc/udev.d/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
+    _RUNSILENT "" sudo mkdir -pv /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
 
     # Préparation d'une session sudo confortable et longue pour l'installation
     SUDOTMP="/etc/sudoers-rs.d/99_POST-INSTALL" # pour delete à la fin
@@ -823,7 +823,7 @@ SETUP_ETC() {
 
     # IO scheduler
     local rules_file rules_content current
-    rules_file="/etc/udev.d/rules.d/60-ioschedulers.rules"
+    rules_file="/etc/udev/rules.d/60-ioschedulers.rules"
     sudo touch "${rules_file}"
     current=$(cat "${rules_file}" 2>/dev/null || true)
     rules_content='# NVMe
@@ -1196,7 +1196,7 @@ SETUP_SUDO_RS() {
     local pattern="%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper"
     local file="${d_sudoers_rs_d}/90-profile-sync-daemon"
     if ! sudo grep -q "${pattern}" "${file}" > /dev/null; then
-        _RUN "Mise en place de la règle profile-sync-daemon." echo "${pattern}" | sudo tee "${file}" > /dev/null
+        _RUN "Mise en place de la règle profile-sync-daemon." bash -c "echo \"${pattern}\" > \"${file}\""
     else
         _OK "Règle profile-sync-daemon déjà existante (${file})."
     fi
@@ -1204,7 +1204,7 @@ SETUP_SUDO_RS() {
     local pattern="Defaults pwfeedback,timestamp_timeout=60"
     local file2="${d_sudoers_rs_d}/99-timeout"
     if ! sudo grep -q "${pattern}" "${file2}" > /dev/null; then
-        _RUN "Mise en place de la règle timeout." echo "${pattern}" | sudo tee "${file2}" > /dev/null
+        _RUN "Mise en place de la règle timeout." bash -c "echo \"${pattern}\" > \"${file2}\""
     else
         _OK "Règle timeout déjà existante (${file2})."
     fi
@@ -1265,7 +1265,7 @@ SETUP_KDE_PLASMA() {
         if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela*" -print -quit | grep -q . >/dev/null; then
             temp_tela=$(mktemp -d)
             _RUN "Téléchargement des icônes Tela Dark" git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
-            _RUN "Installation des icônes Tela Dark" bash "${temp_tela}/tela/install.sh dracula" -d "${HOME}/.local/share/icons"
+            _RUN "Installation des icônes Tela Dark" bash "${temp_tela}/tela/install.sh -c dracula" -d "${HOME}/.local/share/icons"
             _RUNSILENT "" rm -rvf "${temp_tela}"
         else
             _INFO "Le pack d'icônes Tela Dark est déjà installé."
@@ -1304,7 +1304,7 @@ SETUP_KDE_PLASMA() {
             --env="ICON_THEME=Tela-dark" \
             --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
 
-        déplacement du panneau principal
+        # déplacement du panneau principal
         local target_pos="${KDEPANEL:-bottom}" # fallback en bas
         if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
             _INFO "plasmashell ne tourne pas. Configuration du panneau reportée."
