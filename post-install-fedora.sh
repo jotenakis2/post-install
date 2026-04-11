@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=6.6
+readonly VER=6.7
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        revoir log
@@ -1206,26 +1206,26 @@ SETUP_SUDO_RS() {
     # 5. Déploiement des règles spécifiques
     local pattern="%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper"
     local file="${d_sudoers_rs_d}/90-profile-sync-daemon"
-    if [[ -f "${file}" ]]; then
+    if sudo test -f "${file}"; then
         if ! sudo grep -q "${pattern}" "${file}" > /dev/null; then
-            _RUN "Mise en place de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
+            _RUN "Mise à jour de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
         else
             _OK "Règle \"profile-sync-daemon\" déjà existante (${file})."
         fi
     else
-        _RUN "Mise en place de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
+        _RUN "Création de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
     fi
 
     local pattern="Defaults pwfeedback,timestamp_timeout=60"
     local file2="${d_sudoers_rs_d}/99-timeout"
-    if [[ -f "${file2}" ]]; then
+    if sudo test -f "${file2}"; then
         if ! sudo grep -q "${pattern}" "${file2}" > /dev/null; then
-            _RUN "Mise en place de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
+            _RUN "Mise à jour de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
         else
             _OK "Règle \"timeout\" déjà existante (${file2})."
         fi
     else
-        _RUN "Mise en place de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
+        _RUN "Création de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
     fi
 
     _RUNSILENT "" sudo chmod -v 0440 "${f_sudoers_rs}"
