@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=6.5
+readonly VER=6.6
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        revoir log
@@ -1244,10 +1244,10 @@ SETUP_SUDO_RS() {
     _RUNSILENT "" sudo chmod -v 0750 /etc/sudoers.d
 
     # 7. Blocage propre des futures mises à jour du vieux sudo par DNF
-    if ! sudo dnf versionlock list | grep sudo; then
+    if ! sudo dnf versionlock list | grep -q sudo; then
         _RUNSILENT "" sudo dnf versionlock add sudo
     fi
-    if ! sudo grep sudo /etc/dnf/dnf.conf; then
+    if ! sudo grep -q sudo /etc/dnf/dnf.conf; then
         _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
     fi
     _OK "sudo-rs est en place et remplace définitivement sudo."
