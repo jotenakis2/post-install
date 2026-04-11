@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=6.3
+readonly VER=6.4
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        revoir log
@@ -94,7 +94,7 @@ _BANNER() {
 
 _SECTION() { # CYAN
     local text fg cols w len padl padr V
-    text="$*" fg=36 cols=100 w=$((cols - 2)) len=${#text} V="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    text="$*" fg=36 cols=100 w=$((cols - 2)) len=${#text} V="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     (( w < 1 )) && return
     (( len > w )) && text=${text:0:w} && len=w
     padl=$(( (w - len) / 2 ))
@@ -1219,11 +1219,10 @@ SETUP_SUDO_RS() {
     fi
 
     if [[ -d "/etc/sudoers.d" ]]; then
-        _RUNSILENT "" sudo rm -vf /etc/sudoers.d/*
-    else
-        _RUNSILENT "" sudo mkdir -pv /etc/sudoers.d
-        _RUNSILENT "" sudo chmod -v 0750 /etc/sudoers.d
+        _RUNSILENT "" sudo rm -vrf /etc/sudoers.d
     fi
+    _RUNSILENT "" sudo mkdir -pv /etc/sudoers.d
+    _RUNSILENT "" sudo chmod -v 0750 /etc/sudoers.d
 
     # 7. Blocage propre des futures mises à jour du vieux sudo par DNF
     _RUNSILENT "" sudo dnf versionlock add sudo
