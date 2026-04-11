@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=6.7
+readonly VER=6.8
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        revoir log
@@ -299,7 +299,7 @@ INITIALIZE() {
 
     #
     clear
-    _BANNER "blue" "${SCRIPTNAME} (${VER})"
+    _BANNER "yellow" "${SCRIPTNAME} (${VER})"
 }
 
 ########################################################################################################################
@@ -506,7 +506,11 @@ INSTALL_FLATPAK_PACKAGES() {
     fi
 
     # 2. Ajout de Flathub s'il n'existe pas
-    _RUN "Ajout du dépôt Flathub" sudo flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    if ! flatpak --columns=name remotes | grep -q "^flathub$"; then
+        _RUN "Ajout du dépôt Flathub" sudo flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    else
+        _OK "Dépot flathub déjà présent"
+    fi
 
     # 3. Activation de Flathub sans filtre
     _RUNSILENT "" sudo flatpak --verbose remote-modify --no-filter --enable flathub
@@ -894,7 +898,7 @@ SETUP_SYSTEMD(){
         if systemctl is-enabled --quiet "${service}" 2>/dev/null; then
             _RUN "Désactivation du ${description}" sudo systemctl disable --now "${service}"
         else
-            _INFO "Le ${description} est déjà désactivé."
+            _OK "Le ${description} est déjà désactivé."
         fi
     done
 }
@@ -1040,12 +1044,13 @@ SETUP_FSTAB(){
     # NFS
     if ! grep -q "${NFS_SHARE}" /etc/fstab >/dev/null; then
         if grep -q "${NFS_MP}" /etc/fstab >/dev/null; then
-            _INFO "Le point de montage demandé (${NFS_MP}) est déjà présent dans /etc/fstab."
+            _INFO "Le point de montage demandé (${NFS_MP}) est déjà présent dans /etc/fstab :"
+            grep "${NFS_MP}" /etc/fstab
             _INFO "Abandon de l'installation du partage réseau NFS."
         else
             _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
             _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
-            echo "${NFS_SHARE}   ${NFS_MP}   nfs   defaults,nofail,x-systemd.automount,x-systemd.device-timeout=30     0 0" | sudo tee -a /etc/fstab >/dev/null
+            echo "${NFS_SHARE}   ${NFS_MP}   nfs   defaults,nofail,noatime,lazytime,x-systemd.automount,x-systemd.device-timeout=30     0 0" | sudo tee -a /etc/fstab >/dev/null
             _RUNSILENT "" sudo systemctl daemon-reload
             _RUNSILENT "" sudo mount -v "${NFS_MP}"
             _RUN "Installation du partage réseau NFS." sudo ls -l "${NFS_MP}"
@@ -1294,7 +1299,7 @@ SETUP_KDE_PLASMA() {
             _RUN "Installation des icônes Tela-dracula" bash "${temp_tela}/tela/install.sh -c dracula" -d "${HOME}/.local/share/icons"
             _RUNSILENT "" rm -rvf "${temp_tela}"
         else
-            _INFO "Le pack d'icônes Tela-dracula est déjà installé."
+            _OK "Le pack d'icônes Tela-dracula est déjà installé."
         fi
 
         # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
@@ -1304,7 +1309,7 @@ SETUP_KDE_PLASMA() {
             _RUN "Installation du curseur Bibata Lavender" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
             _RUNSILENT "" unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
         else
-            _INFO "Le pack de curseurs Bibata Lavender est déjà installé."
+            _OK "Le pack de curseurs Bibata Lavender est déjà installé."
         fi
 
         # Pointeur par défaut pour compatibilité GTK
@@ -1373,7 +1378,7 @@ SETUP_PLM() {
         if systemctl is-enabled --quiet sddm.service 2>/dev/null; then
             _RUN "Désactivation de SDDM à partir du prochain boot" sudo systemctl disable sddm.service
         else
-            _INFO "SDDM déjà désactivé."
+            _OK "SDDM déjà désactivé."
         fi
 
         if systemctl is-enabled --quiet plasmalogin.service 2>/dev/null; then
