@@ -1319,7 +1319,7 @@ SETUP_KDE_PLASMA() {
 
         # Baloo
         if command -v balooctl6 >/dev/null 2>&1; then
-            if ! balooctl6 status > /dev/null 2>&1; then
+            if balooctl6 status > /dev/null 2>&1; then
                 _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
             else
                 _OK "Service d'indexation déjà désactivé"
