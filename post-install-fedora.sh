@@ -1225,9 +1225,13 @@ SETUP_SUDO_RS() {
     _RUNSILENT "" sudo chmod -v 0750 /etc/sudoers.d
 
     # 7. Blocage propre des futures mises à jour du vieux sudo par DNF
-    _RUNSILENT "" sudo dnf versionlock add sudo
-    _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
-    _OK "sudo-rs est en place et remplace définitivement sudo (dnf versionlock+excludepkgs)."
+    if ! sudo dnf versionlock list | grep sudo; then
+        _RUNSILENT "" sudo dnf versionlock add sudo
+    fi
+    if ! sudo grep sudo /etc/dnf/dnf.conf; then
+        _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
+    fi
+    _OK "sudo-rs est en place et remplace définitivement sudo."
 }
 
 ########################################################################################################################
@@ -1245,7 +1249,11 @@ SETUP_KDE_PLASMA() {
         local tokyo_url="https://raw.githubusercontent.com/Jayy-Dev/Plasma-Tokyo-Night/plasma-6/colorscheme/TokyoNight.colors"
 
         # -fsL garantit qu'on ne crée pas de fichier corrompu en cas de 404
-        _RUN "Téléchargement de TokyoNight.colors" curl -fsL "${tokyo_url}" -o "${color_file}"
+        if [[ ! -f "${color_file}" ]]; then
+            _RUN "Téléchargement de TokyoNight.colors" curl -fsL "${tokyo_url}" -o "${color_file}"
+        else
+            _OK "TokyoNight déjà présent"
+        fi
 
         if [[ ! -s "${color_file}" ]]; then
             _ERR "Le fichier téléchargé est introuvable ou vide. Faudra appliquer le schéma de couleurs manuellement..."
@@ -1259,15 +1267,15 @@ SETUP_KDE_PLASMA() {
             fi
         fi
 
-        # 3. Icônes : Tela Dark
+        # 3. Icônes : Tela-dracula
         local temp_tela
-        if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela*" -print -quit | grep -q . >/dev/null; then
+        if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela-dracula*" -print -quit | grep -q . >/dev/null; then
             temp_tela=$(mktemp -d)
-            _RUN "Téléchargement des icônes Tela Dark" git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
-            _RUN "Installation des icônes Tela Dark" bash "${temp_tela}/tela/install.sh -c dracula" -d "${HOME}/.local/share/icons"
+            _RUN "Téléchargement des icônes Tela-dracula" git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
+            _RUN "Installation des icônes Tela-dracula" bash "${temp_tela}/tela/install.sh -c dracula" -d "${HOME}/.local/share/icons"
             _RUNSILENT "" rm -rvf "${temp_tela}"
         else
-            _INFO "Le pack d'icônes Tela Dark est déjà installé."
+            _INFO "Le pack d'icônes Tela-dracula est déjà installé."
         fi
 
         # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
@@ -1287,20 +1295,22 @@ SETUP_KDE_PLASMA() {
 
         # Baloo
         if command -v balooctl6 >/dev/null 2>&1; then
-            _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
+            if ! balooctl6 > /dev/null; then
+                _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
+            fi
         else
             _INFO "L'outil balooctl n'est pas installé. Aucune action requise."
         fi
 
         # Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
-        _RUN "Application du thème (Tokyo Night, Tela, Bibata) aux Flatpaks" sudo flatpak override \
+        _RUNSILENT "Application du thème (Tokyo Night, Tela, Bibata) aux Flatpaks" sudo flatpak override \
             --filesystem="${HOME}/.local/share/icons:ro" \
             --filesystem="${HOME}/.local/share/themes:ro" \
             --filesystem="${HOME}/.icons:ro" \
             --filesystem="xdg-config/gtk-3.0:ro" \
             --filesystem="xdg-config/gtk-4.0:ro" \
             --env="GTK_THEME=TokyoNight" \
-            --env="ICON_THEME=Tela-dark" \
+            --env="ICON_THEME=Tela-dracula-dark" \
             --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
 
         # déplacement du panneau principal
@@ -1317,7 +1327,7 @@ SETUP_KDE_PLASMA() {
         fi
         if pgrep plasmashell > /dev/null 2>&1; then
             _RUN "Redémarrage de l'interface de KDE Plasma 6..." bash -c "\
-            kwriteconfig6 --file kdeglobals --group Icons --key Theme \"Tela-dark\" ;\
+            kwriteconfig6 --file kdeglobals --group Icons --key Theme \"Tela-dracula-dark\" ;\
             kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme \"catppuccin-mocha-lavender-cursors\" ;\
             [[ -n \"${scheme}\" ]] && plasma-apply-colorscheme \"${scheme}\" ;\
             plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ;\
