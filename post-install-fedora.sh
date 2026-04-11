@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=6.4
+readonly VER=6.5
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        revoir log
@@ -38,13 +38,13 @@ MAIN() {
     SETUP_SHELL
     SETUP_DOTFILES
     SETUP_ETC
-     SETUP_SYSTEMD
-     SETUP_FIREWALL
-     SETUP_SWAP
+      SETUP_SYSTEMD
+      SETUP_FIREWALL
+      SETUP_SWAP
     SETUP_FSTAB
     SETUP_GRUB
     SETUP_KDE_PLASMA
-     SETUP_PLM
+      SETUP_PLM
     SETUP_SUDO_RS
 
     # Fin
@@ -94,14 +94,14 @@ _BANNER() {
 
 _SECTION() { # CYAN
     local text fg cols w len padl padr V
-    text="$*" fg=36 cols=100 w=$((cols - 2)) len=${#text} V="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    text="$*" fg=36 cols=80 w=$((cols - 2)) len=${#text} V="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     (( w < 1 )) && return
     (( len > w )) && text=${text:0:w} && len=w
     padl=$(( (w - len) / 2 ))
     padr=$(( w - len - padl ))
-    echo
+    echo "" ; echo ""
     printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text^^}" "${padr}" '' "${V}" | tee -a "${LOG_FILE}"
-    echo
+    echo ""
     return 0
 }
 
@@ -721,12 +721,23 @@ SETUP_SHELL() {
     fi
 
     # 3- symlinks
-    # _RUNSILENT "Liens symboliques dans ${HOME}" ln -sfv "${HOME}/.local/share/icons" "${HOME}/.icons"
-    # _RUNSILENT "" ln -sfv "${HOME}/.local/share/themes" "${HOME}/.themes"
-    # _RUNSILENT "" ln -sv "${HOME}/.config/mozilla/firefox" "${HOME}/.mozilla"
     _SYMLINK "${HOME}/.local/share/icons" "${HOME}/.icons"
     _SYMLINK "${HOME}/.local/share/themes" "${HOME}/.themes"
     _SYMLINK "${HOME}/.config/mozilla/firefox" "${HOME}/.mozilla/firefox"
+    _SYMLINK "${HOME}/.config/thunderbird" "${HOME}/.thunderbird"
+
+    # 4- installation de fedupdate
+    local here fedupdate
+    fedupdate=$(command -v fedupdate)
+    if [[ -z "${fedupdate}" ]] && command -v make >/dev/null 2>&1; then
+        here=$(pwd)
+        cd "${HOME}/fedupdate"
+        _RUNSILENT "Installation de fedupdate" make install
+        cd "${here}"
+    elif [[ -n "${fedupdate}" ]]; then
+        _OK "fedupdate est déjà installé (${fedupdate})"
+    fi
+
 }
 
 ########################################################################################################################
@@ -1195,18 +1206,26 @@ SETUP_SUDO_RS() {
     # 5. Déploiement des règles spécifiques
     local pattern="%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper"
     local file="${d_sudoers_rs_d}/90-profile-sync-daemon"
-    if ! sudo grep -q "${pattern}" "${file}" > /dev/null; then
-        _RUN "Mise en place de la règle profile-sync-daemon." bash -c "echo \"${pattern}\" > \"${file}\""
+    if [[ -f "${file}" ]]; then
+        if ! sudo grep -q "${pattern}" "${file}" > /dev/null; then
+            _RUN "Mise en place de la règle profile-sync-daemon." bash -c "echo \"${pattern}\" > \"${file}\""
+        else
+            _OK "Règle profile-sync-daemon déjà existante (${file})."
+        fi
     else
-        _OK "Règle profile-sync-daemon déjà existante (${file})."
+        _RUN "Mise en place de la règle profile-sync-daemon." bash -c "echo \"${pattern}\" > \"${file}\""
     fi
 
     local pattern="Defaults pwfeedback,timestamp_timeout=60"
     local file2="${d_sudoers_rs_d}/99-timeout"
-    if ! sudo grep -q "${pattern}" "${file2}" > /dev/null; then
-        _RUN "Mise en place de la règle timeout." bash -c "echo \"${pattern}\" > \"${file2}\""
+    if [[ -f "${file2}" ]]; then
+        if ! sudo grep -q "${pattern}" "${file2}" > /dev/null; then
+            _RUN "Mise en place de la règle timeout." bash -c "echo \"${pattern}\" > \"${file2}\""
+        else
+            _OK "Règle timeout déjà existante (${file2})."
+        fi
     else
-        _OK "Règle timeout déjà existante (${file2})."
+        _RUN "Mise en place de la règle timeout." bash -c "echo \"${pattern}\" > \"${file2}\""
     fi
 
     _RUNSILENT "" sudo chmod -v 0440 "${f_sudoers_rs}"
