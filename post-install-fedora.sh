@@ -851,13 +851,13 @@ ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="
 ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
 '
 
-    if [[ "${current}" != "${rules_content}" ]]; then
+    if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
+        echo "IO scheduler déjà à jour."
+    else
         printf '%s\n' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
         _OK "IO scheduler mis à jour (udev rule)."
-    else
-        echo "IO scheduler déjà à jour."
     fi
 
 
