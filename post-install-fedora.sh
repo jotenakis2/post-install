@@ -94,7 +94,7 @@ _BANNER() {
 
 _SECTION() { # CYAN
     local text fg cols w len padl padr V
-    text="$*" fg=36 cols=80 w=$((cols - 2)) len=${#text} V="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    text="$*" fg=36 cols=50 w=$((cols - 2)) len=${#text} V="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     (( w < 1 )) && return
     (( len > w )) && text=${text:0:w} && len=w
     padl=$(( (w - len) / 2 ))
@@ -727,16 +727,16 @@ SETUP_SHELL() {
     _SYMLINK "${HOME}/.config/thunderbird" "${HOME}/.thunderbird"
 
     # 4- installation de fedupdate
-    local here fedupdate
-    fedupdate=$(command -v fedupdate)
-    if [[ -z "${fedupdate}" ]] && command -v make >/dev/null 2>&1; then
-        here=$(pwd)
-        cd "${HOME}/fedupdate"
-        _RUNSILENT "Installation de fedupdate" make install
-        cd "${here}"
-    elif [[ -n "${fedupdate}" ]]; then
-        _OK "fedupdate est déjà installé (${fedupdate})"
-    fi
+    # local here fedupdate
+    # fedupdate=$(command -v fedupdate)
+    # if [[ -z "${fedupdate}" ]] && command -v make >/dev/null 2>&1; then
+    #     here=$(pwd)
+    #     cd "${HOME}/fedupdate"
+    #     _RUNSILENT "Installation de fedupdate" make install
+    #     cd "${here}"
+    # elif [[ -n "${fedupdate}" ]]; then
+    #     _OK "fedupdate est déjà installé (${fedupdate})"
+    # fi
 
 }
 
@@ -1208,24 +1208,24 @@ SETUP_SUDO_RS() {
     local file="${d_sudoers_rs_d}/90-profile-sync-daemon"
     if [[ -f "${file}" ]]; then
         if ! sudo grep -q "${pattern}" "${file}" > /dev/null; then
-            _RUN "Mise en place de la règle \"profile-sync-daemon\"." bash -c "echo \"${pattern}\" > \"${file}\""
+            _RUN "Mise en place de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
         else
             _OK "Règle \"profile-sync-daemon\" déjà existante (${file})."
         fi
     else
-        _RUN "Mise en place de la règle \"profile-sync-daemon\"." bash -c "echo \"${pattern}\" > \"${file}\""
+        _RUN "Mise en place de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
     fi
 
     local pattern="Defaults pwfeedback,timestamp_timeout=60"
     local file2="${d_sudoers_rs_d}/99-timeout"
     if [[ -f "${file2}" ]]; then
         if ! sudo grep -q "${pattern}" "${file2}" > /dev/null; then
-            _RUN "Mise en place de la règle \"timeout\"." bash -c "echo \"${pattern}\" > \"${file2}\""
+            _RUN "Mise en place de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
         else
             _OK "Règle \"timeout\" déjà existante (${file2})."
         fi
     else
-        _RUN "Mise en place de la règle \"timeout\"." bash -c "echo \"${pattern}\" > \"${file2}\""
+        _RUN "Mise en place de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
     fi
 
     _RUNSILENT "" sudo chmod -v 0440 "${f_sudoers_rs}"
