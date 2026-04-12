@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=6.9
+readonly VER=7.1
 # TODO : git privé (clé ssh, ...)
 #        psd
 
@@ -91,19 +91,6 @@ _BANNER() {
     return 0
 }
 
-# _SECTION() { # CYAN
-#     local text fg cols w len padl padr V
-#     text="$*" fg=36 cols=50 w=$((cols - 2)) len=${#text} V="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-#     (( w < 1 )) && return
-#     (( len > w )) && text=${text:0:w} && len=w
-#     padl=$(( (w - len) / 2 ))
-#     padr=$(( w - len - padl ))
-#     echo "" ; echo ""
-#     printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text^^}" "${padr}" '' "${V}" | tee -a "${LOG_FILE}"
-#     echo ""
-#     return 0
-# }
-
 _SECTION() {
     local msg="${1^^}"
     local fillertype="${2}"
@@ -112,7 +99,7 @@ _SECTION() {
 
     declare -i term_cols # Terminal width
     term_cols="${COLUMNS}" || return 1
-    echo -e -n "${color}"
+    echo -e "${color}"
 
     declare -i str_len="${#msg}" # Length of $msg
     [[ ${str_len} -ge ${term_cols} ]] && {
@@ -130,7 +117,7 @@ _SECTION() {
     printf "%s%s%s" "${filler}" "${msg}" "${filler}"
     [[ $(((term_cols - str_len) % 2)) -ne 0 ]] && printf "%s" "${ch}"
     printf "\n"
-    echo -ne "${C_RESET}"
+    echo -e "${C_RESET}"
     return 0
 }
 
@@ -334,7 +321,7 @@ INITIALIZE() {
 
 ########################################################################################################################
 CHECK_ENV() {
-    _SECTION "Vérification environnement" "*" "${C_GREEN}"
+    _SECTION " Vérification environnement " "*" "${C_GREEN}"
 
     [[ -n "${BASH_VERSION:-}" ]]       || _DIE "Ce script requiert bash."
     [[ "${BASH_VERSINFO[0]}" -ge 5 ]]  || _DIE "Bash >= 5 requis (actuel : ${BASH_VERSION})."
@@ -356,7 +343,7 @@ CHECK_ENV() {
 
 ########################################################################################################################
 REMOVE_RPM_PACKAGES() {
-    _SECTION "Suppression paquets indésirables" "*" "${C_GREEN}"
+    _SECTION " Suppression paquets indésirables " "*" "${C_GREEN}"
 
     local pkg wants_systemd_networkd_removal
     wants_systemd_networkd_removal=0
@@ -388,7 +375,7 @@ REMOVE_RPM_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_REPOS() {
-    _SECTION "Dépôts RPM" "*" "${C_GREEN}"
+    _SECTION " Dépôts RPM " "*" "${C_GREEN}"
 
     local fedora_ver cache=0
     fedora_ver=$(rpm -E '%fedora')
@@ -444,7 +431,7 @@ INSTALL_REPOS() {
 
 ########################################################################################################################
 INSTALL_FONTS() {
-    _SECTION "Nerd Fonts" "*" "${C_GREEN}"
+    _SECTION " Nerd Fonts " "*" "${C_GREEN}"
 
     local font
     for font in "${FONTS[@]}"; do
@@ -458,7 +445,7 @@ INSTALL_FONTS() {
 
 ########################################################################################################################
 INSTALL_CODECS() {
-    _SECTION "Codecs multimédia" "*" "${C_GREEN}"
+    _SECTION " Codecs multimédia " "*" "${C_GREEN}"
 
     # codecs
     if ! rpm -q ffmpeg &>/dev/null; then
@@ -492,13 +479,13 @@ INSTALL_CODECS() {
             _OK "intel-media-driver déjà présent."
         fi
     else
-        _INFO "GPU non AMD/Intel — Mesa swap ignoré."
+        _INFO "GPU ni AMD ni Intel => Pas de swap mesa à faire."
     fi
 }
 
 ########################################################################################################################
 INSTALL_RPM_PACKAGES() {
-    _SECTION "Paquets RPM" "*" "${C_GREEN}"
+    _SECTION " Paquets RPM " "*" "${C_GREEN}"
     local pkg arch download_dir
     local -a missing_packages
     arch=$(uname -m)
@@ -526,7 +513,7 @@ INSTALL_RPM_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_FLATPAK_PACKAGES() {
-    _SECTION "Paquets Flatpak" "*" "${C_GREEN}"
+    _SECTION " Paquets Flatpak " "*" "${C_GREEN}"
 
     # 1. Vérification et installation de Flatpak
     if ! command -v flatpak >/dev/null 2>&1; then
@@ -571,7 +558,7 @@ INSTALL_FLATPAK_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_CARGO_PACKAGES() {
-    _SECTION "Paquets Cargo" "*" "${C_GREEN}"
+    _SECTION " Paquets Cargo " "*" "${C_GREEN}"
 
     # 0. toolchain rust
     if command -v rustup &>/dev/null; then
@@ -633,7 +620,7 @@ INSTALL_CARGO_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_GO_PACKAGES() {
-    _SECTION "Paquets GO" "*" "${C_GREEN}"
+    _SECTION " Paquets GO " "*" "${C_GREEN}"
     local pkg current="" latest="" arch="" os="" gofile
     export PATH="/usr/local/go/bin:${PATH}"
     if command -v go &>/dev/null; then
@@ -648,9 +635,10 @@ INSTALL_GO_PACKAGES() {
     if [[ "${current}" == "${latest}" ]] && command -v go &>/dev/null; then
         _OK "Toolchain GO à jour et accessible"
     else
-        _RUN "Téléchargement de la toolchain Go v${latest}" wget "https://go.dev/dl/${gofile}"
+        _RUN "Téléchargement de la toolchain Go" wget "https://go.dev/dl/${gofile}"
+        echo "Installation de la toolchain GO v${latest}" >> "${LOG_FILE}"
         _RUNSILENT "" sudo rm -rvf /usr/local/go
-        _RUN "Installation de la toolchain Go v${latest}" sudo tar -C /usr/local -xzf "${gofile}"
+        _RUN "Installation de la toolchain Go" sudo tar -C /usr/local -xvzf "${gofile}"
         _RUNSILENT "" rm -vf "${gofile}"
     fi
 
@@ -670,7 +658,7 @@ INSTALL_GO_PACKAGES() {
 
 ########################################################################################################################
 CLONE_GIT() {
-    _SECTION "dépôts Git personnels" "*" "${C_GREEN}"
+    _SECTION " dépôts Git personnels " "*" "${C_GREEN}"
 
     local repo_entry repo_url dest_dir repo_name backup_dir
 
@@ -703,7 +691,7 @@ CLONE_GIT() {
 
 ########################################################################################################################
 SETUP_SHELL() {
-    _SECTION "Shell" "*" "${C_GREEN}"
+    _SECTION " Shell " "*" "${C_GREEN}"
 
     # 1- zsh
     local zsh_bin
@@ -776,7 +764,7 @@ SETUP_SHELL() {
 
 ########################################################################################################################
 SETUP_DOTFILES() {
-    _SECTION "Dotfiles" "*" "${C_GREEN}"
+    _SECTION " Dotfiles " "*" "${C_GREEN}"
     if [[ ! -d "${DOTFILES_DIR}" ]]; then
         _ERR "Le dossier ${DOTFILES_DIR} est introuvable. Stow ignoré."
         return
@@ -803,7 +791,7 @@ SETUP_DOTFILES() {
 
 ########################################################################################################################
 SETUP_ETC() {
-    _SECTION "Configuration Système" "*" "${C_GREEN}"
+    _SECTION " Configuration Système " "*" "${C_GREEN}"
 
     # --- Hostname ---
     local currenthost
@@ -892,7 +880,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         _OK "Règle IO scheduler déjà à jour"
     else
         #printf '%s\n' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
-        _RUN "Règle IO scheduler créée" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_content}" <<< "${rules_file}"
+        _RUN "Règle IO scheduler créée" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
     fi
@@ -905,7 +893,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
     if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
         _OK "Règle udev persistante (${UDEVDESCR}) à jour"
     else
-        _RUN "Règle udev persistante (${UDEVDESCR}) créée" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_content}" <<< "${rules_file}"
+        _RUN "Règle udev persistante (${UDEVDESCR}) créée" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
 
@@ -959,7 +947,7 @@ SETUP_GRUB(){
     is_grub=$(_DETECT_GRUB)
     zswap="zswap.enabled=1 zswap.compressor=lz4" # on force l'usage d'un zswap, plus efficace que zram car s'appuie sur un backend physique en plus (file ou part)
 
-    _SECTION "Configuration de GRUB" "*" "${C_GREEN}"
+    _SECTION " Configuration de GRUB " "*" "${C_GREEN}"
 
     if [[ "${is_grub}" == "true" ]]; then
         local luks_param="" target_cmdline="" current_cmdline="" current_default=""
@@ -1034,7 +1022,7 @@ SETUP_FIREWALL() {
 
 ########################################################################################################################
 SETUP_FSTAB(){
-    _SECTION "Configuration FSTAB" "*" "${C_GREEN}"
+    _SECTION " Configuration FSTAB " "*" "${C_GREEN}"
     # SWAPFILE
     local swapdir="/var/swap"
     if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
@@ -1193,7 +1181,7 @@ SETUP_SWAP(){
 
 ########################################################################################################################
 SETUP_SUDO_RS() {
-    _SECTION "Configuration sudo-rs" "*" "${C_GREEN}"
+    _SECTION " Configuration sudo-rs " "*" "${C_GREEN}"
     # 1. On installe sudo-rs
     if ! command -v sudo-rs &>/dev/null; then
         _RUN "Installation de sudo-rs" sudo dnf install -y sudo-rs
@@ -1312,7 +1300,7 @@ SETUP_SUDO_RS() {
 SETUP_KDE_PLASMA() {
 # on check KDE est lancé
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
-        _SECTION "Personnalisation de KDE Plasma 6" "*" "${C_GREEN}"
+        _SECTION " Personnalisation de KDE Plasma 6 " "*" "${C_GREEN}"
 
         # 1. Base Dark
         _RUN "Passage en mode Dark global" plasma-apply-lookandfeel -a org.kde.breezedark.desktop
