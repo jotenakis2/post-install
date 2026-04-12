@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=8.3
+readonly VER=8.4
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        msmtp
@@ -449,7 +449,8 @@ INSTALL_GO_PACKAGES() {
          current="$(go version | grep -oP 'go\K\d+\.\d+\.\d+' || true)"
     fi
 
-    _RUN "Contrôle de la dernière version disponible de la toolchain GO" latest="$(curl -s https://go.dev/dl/ | grep -oP 'go\K\d+\.\d+\.\d+' | head -1 || true)"
+    _RUN "Contrôle de la dernière version disponible de la toolchain GO" curl -s https://go.dev/dl/ | grep -oP 'go\K\d+\.\d+\.\d+' | head -1 > /tmp/gover
+    latest=$(cat /tmp/gover || true)
     arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
     os=$(uname | tr '[:upper:]' '[:lower:]' || true)
     gofile="go${latest}.${os}-${arch}.tar.gz"
