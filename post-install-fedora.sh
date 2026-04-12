@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=8.5
+readonly VER=8.6
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        msmtp
@@ -443,13 +443,16 @@ INSTALL_CARGO_PACKAGES() {
 ########################################################################################################################
 INSTALL_GO_PACKAGES() {
     _SECTION " Paquets GO " "━" "${C_GREEN}"
-    local pkg current="" latest="" arch="" os="" gofile
-    export PATH="/usr/local/go/bin:${PATH}"
+    local pkg current="" latest="" arch="" os="" gofile=""
+
+    if [[ ! "${PATH}" =~ "/usr/local/go/bin" ]]; then
+        export PATH="/usr/local/go/bin:${PATH}"
+    fi
     if command -v go &>/dev/null; then
          current="$(go version | grep -oP 'go\K\d+\.\d+\.\d+' || true)"
     fi
 
-    _RUN "Contrôle de la dernière version disponible de la toolchain GO" curl -s https://go.dev/dl/ > /tmp/gover
+    _RUN "Contrôle de la dernière version disponible de la toolchain GO" bash -c 'curl -s https://go.dev/dl/ > /tmp/gover'
     latest=$(grep -oP 'go\K\d+\.\d+\.\d+' /tmp/gover | head -1 || true)
     arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
     os=$(uname | tr '[:upper:]' '[:lower:]' || true)
