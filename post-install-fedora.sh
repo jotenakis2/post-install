@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=8.2
+readonly VER=8.3
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        msmtp
@@ -358,14 +358,14 @@ INSTALL_FLATPAK_PACKAGES() {
     if flatpak remotes --columns=name | grep -q "^fedora$"; then
         _RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak --verbose remote-delete --force fedora
     else
-        _OK "Le dépôt Fedora Flatpak n'est pas présent."
+        _OK "Le dépôt Fedora Flatpak a déjà été supprimé"
     fi
 
     # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
     if [[ ${#FLATPAK_PKGS[@]} -gt 0 ]]; then
         for pkg in "${FLATPAK_PKGS[@]}"; do
             if flatpak info "${pkg}" >/dev/null 2>&1; then
-                _OK "Flatpak '${pkg}' est déjà installé."
+                _OK "Flatpak '${pkg}' est déjà installé"
             else
                 _RUN "Installation de ${pkg}" sudo flatpak --verbose install -y flathub "${pkg}"
             fi
@@ -449,13 +449,13 @@ INSTALL_GO_PACKAGES() {
          current="$(go version | grep -oP 'go\K\d+\.\d+\.\d+' || true)"
     fi
 
-    latest=$(curl -s https://go.dev/dl/ | grep -oP 'go\K\d+\.\d+\.\d+' | head -1 || true)
+    _RUN "Contrôle de la dernière version disponible de la toolchain GO" latest="$(curl -s https://go.dev/dl/ | grep -oP 'go\K\d+\.\d+\.\d+' | head -1 || true)"
     arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
     os=$(uname | tr '[:upper:]' '[:lower:]' || true)
     gofile="go${latest}.${os}-${arch}.tar.gz"
 
     if [[ "${current}" == "${latest}" ]] && command -v go &>/dev/null; then
-        _OK "Toolchain GO à jour et accessible"
+        _OK "Toolchain GO à jour"
     else
         _RUN "Téléchargement de la toolchain Go" wget "https://go.dev/dl/${gofile}"
         echo "Installation de la toolchain GO v${latest}" >> "${LOG_FILE}"
@@ -852,7 +852,7 @@ SETUP_FSTAB(){
             _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.origin
         fi
         _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.swap
-        _RUN "Ajout du swap" sudo bash -c "echo ${swapdir}/swapfile none swap defaults 0 0 >> /etc/fstab"
+        _RUN "Ajout du swap" sudo bash -c "echo ${swapdir}/swapfile none swap defaults,nofail 0 0 >> /etc/fstab"
     else
         _OK "Swap déjà présent dans /etc/fstab."
     fi
@@ -1148,6 +1148,7 @@ SETUP_KDE_PLASMA() {
                 currentlist=$(LANG=C plasma-apply-colorscheme --list-schemes 2>/dev/null)
                 currentscheme=$(echo "${currentlist}" | grep -i 'current color scheme' | awk '{print $2}' || true)
                 tokyoexist=$(echo "${currentlist}" | grep -i 'tokyonight' | awk '{print $2}' | head -n1 || true)
+                echo "${tokyoexist} et ${currentscheme}"
                 if [[ -z "${tokyoexist}" ]]; then
                     _ERR "Tokyo Night non détecté par KDE Plasma ! Faudra appliquer manuellement..."
                 else

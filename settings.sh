@@ -14,7 +14,7 @@ DNF_PACKAGES=(
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird
     vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng
-    libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro konversation olivier
+    libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro konversation
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
