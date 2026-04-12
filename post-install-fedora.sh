@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=8.1
+readonly VER=8.2
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        msmtp
@@ -129,7 +129,7 @@ INITIALIZE() {
 
 ########################################################################################################################
 CHECK_ENV() {
-    _SECTION " Vérification environnement " "—" "${C_GREEN}"
+    _SECTION " Vérification environnement " "━" "${C_GREEN}"
 
     [[ -n "${BASH_VERSION:-}" ]]       || _DIE "Ce script requiert bash."
     [[ "${BASH_VERSINFO[0]}" -ge 5 ]]  || _DIE "Bash >= 5 requis (actuel : ${BASH_VERSION})."
@@ -165,7 +165,7 @@ CHECK_ENV() {
 
 ########################################################################################################################
 REMOVE_RPM_PACKAGES() {
-    _SECTION " Suppression paquets indésirables " "*" "${C_GREEN}"
+    _SECTION " Suppression paquets indésirables " "━" "${C_GREEN}"
 
     local pkg wants_systemd_networkd_removal
     wants_systemd_networkd_removal=0
@@ -197,7 +197,7 @@ REMOVE_RPM_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_REPOS() {
-    _SECTION " Dépôts RPM " "*" "${C_GREEN}"
+    _SECTION " Dépôts RPM " "━" "${C_GREEN}"
 
     local fedora_ver cache=0
     fedora_ver=$(rpm -E '%fedora')
@@ -253,7 +253,7 @@ INSTALL_REPOS() {
 
 ########################################################################################################################
 INSTALL_FONTS() {
-    _SECTION " Nerd Fonts " "*" "${C_GREEN}"
+    _SECTION " Nerd Fonts " "━" "${C_GREEN}"
 
     local font
     for font in "${FONTS[@]}"; do
@@ -267,7 +267,7 @@ INSTALL_FONTS() {
 
 ########################################################################################################################
 INSTALL_CODECS() {
-    _SECTION " Codecs multimédia " "*" "${C_GREEN}"
+    _SECTION " Codecs multimédia " "━" "${C_GREEN}"
 
     # codecs
     if ! rpm -q ffmpeg &>/dev/null; then
@@ -307,7 +307,7 @@ INSTALL_CODECS() {
 
 ########################################################################################################################
 INSTALL_RPM_PACKAGES() {
-    _SECTION " Paquets RPM " "*" "${C_GREEN}"
+    _SECTION " Paquets RPM " "━" "${C_GREEN}"
     local pkg arch download_dir
     local -a missing_packages
     arch=$(uname -m)
@@ -335,7 +335,7 @@ INSTALL_RPM_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_FLATPAK_PACKAGES() {
-    _SECTION " Paquets Flatpak " "*" "${C_GREEN}"
+    _SECTION " Paquets Flatpak " "━" "${C_GREEN}"
 
     # 1. Vérification et installation de Flatpak
     if ! command -v flatpak >/dev/null 2>&1; then
@@ -380,7 +380,7 @@ INSTALL_FLATPAK_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_CARGO_PACKAGES() {
-    _SECTION " Paquets Cargo " "*" "${C_GREEN}"
+    _SECTION " Paquets Cargo " "━" "${C_GREEN}"
 
     # 0. toolchain rust
     if command -v rustup &>/dev/null; then
@@ -442,7 +442,7 @@ INSTALL_CARGO_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_GO_PACKAGES() {
-    _SECTION " Paquets GO " "*" "${C_GREEN}"
+    _SECTION " Paquets GO " "━" "${C_GREEN}"
     local pkg current="" latest="" arch="" os="" gofile
     export PATH="/usr/local/go/bin:${PATH}"
     if command -v go &>/dev/null; then
@@ -480,7 +480,7 @@ INSTALL_GO_PACKAGES() {
 
 ########################################################################################################################
 CLONE_GIT() {
-    _SECTION " dépôts Git personnels " "*" "${C_GREEN}"
+    _SECTION " dépôts Git personnels " "━" "${C_GREEN}"
 
     local repo_entry repo_url dest_dir repo_name backup_dir
 
@@ -513,7 +513,7 @@ CLONE_GIT() {
 
 ########################################################################################################################
 SETUP_SHELL() {
-    _SECTION " Shell " "*" "${C_GREEN}"
+    _SECTION " Shell " "━" "${C_GREEN}"
 
     # 1- zsh
     local zsh_bin
@@ -586,7 +586,7 @@ SETUP_SHELL() {
 
 ########################################################################################################################
 SETUP_DOTFILES() {
-    _SECTION " Dotfiles " "*" "${C_GREEN}"
+    _SECTION " Dotfiles " "━" "${C_GREEN}"
     if [[ ! -d "${DOTFILES_DIR}" ]]; then
         _ERR "Le dossier ${DOTFILES_DIR} est introuvable. Stow ignoré."
         return
@@ -613,7 +613,7 @@ SETUP_DOTFILES() {
 
 ########################################################################################################################
 SETUP_ETC() {
-    _SECTION " Configuration Système " "*" "${C_GREEN}"
+    _SECTION " Configuration Système " "━" "${C_GREEN}"
 
     # --- Hostname ---
     local currenthost
@@ -769,7 +769,7 @@ SETUP_GRUB(){
     is_grub=$(_DETECT_GRUB)
     zswap="zswap.enabled=1 zswap.compressor=lz4" # on force l'usage d'un zswap, plus efficace que zram car s'appuie sur un backend physique en plus (file ou part)
 
-    _SECTION " Configuration de GRUB " "*" "${C_GREEN}"
+    _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
 
     if [[ "${is_grub}" == "true" ]]; then
         local luks_param="" target_cmdline="" current_cmdline="" current_default=""
@@ -844,7 +844,7 @@ SETUP_FIREWALL() {
 
 ########################################################################################################################
 SETUP_FSTAB(){
-    _SECTION " Configuration FSTAB " "*" "${C_GREEN}"
+    _SECTION " Configuration FSTAB " "━" "${C_GREEN}"
     # SWAPFILE
     local swapdir="/var/swap"
     if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
@@ -1003,7 +1003,7 @@ SETUP_SWAP(){
 
 ########################################################################################################################
 SETUP_SUDO_RS() {
-    _SECTION " Configuration sudo-rs " "*" "${C_GREEN}"
+    _SECTION " Configuration sudo-rs " "━" "${C_GREEN}"
     # 1. On installe sudo-rs
     if ! command -v sudo-rs &>/dev/null; then
         _RUN "Installation de sudo-rs" sudo dnf install -y sudo-rs
@@ -1122,7 +1122,7 @@ SETUP_SUDO_RS() {
 SETUP_KDE_PLASMA() {
 # on check KDE est lancé
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
-        _SECTION " Personnalisation de KDE Plasma 6 " "*" "${C_GREEN}"
+        _SECTION " Personnalisation de KDE Plasma 6 " "━" "${C_GREEN}"
 
         # 1. Base Dark
         _RUN "Passage en mode Dark global" plasma-apply-lookandfeel -a org.kde.breezedark.desktop
@@ -1222,16 +1222,18 @@ SETUP_KDE_PLASMA() {
         fi
 
         # Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
-        _RUNSILENT "" sudo flatpak override \
-            --filesystem="${HOME}/.local/share/icons:ro" \
-            --filesystem="${HOME}/.local/share/themes:ro" \
-            --filesystem="${HOME}/.icons:ro" \
-            --filesystem="${HOME}/.themes:ro" \
-            --filesystem="xdg-config/gtk-3.0:ro" \
-            --filesystem="xdg-config/gtk-4.0:ro" \
-            --env="GTK_THEME=TokyoNight" \
-            --env="ICON_THEME=Tela-dracula-dark" \
-            --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
+        if command -v flatpak &>/dev/null; then
+            _RUNSILENT "" sudo flatpak override \
+                --filesystem="${HOME}/.local/share/icons:ro" \
+                --filesystem="${HOME}/.local/share/themes:ro" \
+                --filesystem="${HOME}/.icons:ro" \
+                --filesystem="${HOME}/.themes:ro" \
+                --filesystem="xdg-config/gtk-3.0:ro" \
+                --filesystem="xdg-config/gtk-4.0:ro" \
+                --env="GTK_THEME=TokyoNight" \
+                --env="ICON_THEME=Tela-dracula-dark" \
+                --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
+        fi
     else
         echo
         _INFO "KDE n'a pas été détecté... Je ne touche pas à la customization de KDE."
