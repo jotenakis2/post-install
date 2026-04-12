@@ -4,7 +4,6 @@ readonly SCRIPTNAME="${0##*/}"
 readonly VER=6.9
 # TODO : git privé (clé ssh, ...)
 #        psd
-#        revoir log
 
 # variables globales en MAJ, locales en min
 # fonctions globales en MAJ, locales en min
@@ -92,18 +91,49 @@ _BANNER() {
     return 0
 }
 
-_SECTION() { # CYAN
-    local text fg cols w len padl padr V
-    text="$*" fg=36 cols=50 w=$((cols - 2)) len=${#text} V="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    (( w < 1 )) && return
-    (( len > w )) && text=${text:0:w} && len=w
-    padl=$(( (w - len) / 2 ))
-    padr=$(( w - len - padl ))
-    echo "" ; echo ""
-    printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text^^}" "${padr}" '' "${V}" | tee -a "${LOG_FILE}"
-    echo ""
+# _SECTION() { # CYAN
+#     local text fg cols w len padl padr V
+#     text="$*" fg=36 cols=50 w=$((cols - 2)) len=${#text} V="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#     (( w < 1 )) && return
+#     (( len > w )) && text=${text:0:w} && len=w
+#     padl=$(( (w - len) / 2 ))
+#     padr=$(( w - len - padl ))
+#     echo "" ; echo ""
+#     printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text^^}" "${padr}" '' "${V}" | tee -a "${LOG_FILE}"
+#     echo ""
+#     return 0
+# }
+
+_SECTION() {
+    local msg="${1^^}"
+    local fillertype="${2}"
+    local color="${3}"
+    [[ $# == 0 ]] && return 1
+
+    declare -i term_cols # Terminal width
+    term_cols="${COLUMNS}" || return 1
+    echo -e -n "${color}"
+
+    declare -i str_len="${#msg}" # Length of $msg
+    [[ ${str_len} -ge ${term_cols} ]] && {
+        echo "${msg}"
+        return 0
+    }
+
+    declare -i filler_len="$(((term_cols - str_len) / 2))"
+    local ch="${fillertype:0:1}"
+    local filler=""
+    for ((i = 0; i < filler_len; i++)); do
+        filler="${filler}${ch}"
+    done
+
+    printf "%s%s%s" "${filler}" "${msg}" "${filler}"
+    [[ $(((term_cols - str_len) % 2)) -ne 0 ]] && printf "%s" "${ch}"
+    printf "\n"
+    echo -ne "${C_RESET}"
     return 0
 }
+
 
 _HEURE() {
     local date heure
@@ -299,12 +329,12 @@ INITIALIZE() {
 
     #
     clear
-    _BANNER "yellow" "${SCRIPTNAME} (${VER})"
+    _BANNER "blue" "${SCRIPTNAME} (${VER})"
 }
 
 ########################################################################################################################
 CHECK_ENV() {
-    _SECTION "Vérification environnement"
+    _SECTION "Vérification environnement" "*" "${C_GREEN}"
 
     [[ -n "${BASH_VERSION:-}" ]]       || _DIE "Ce script requiert bash."
     [[ "${BASH_VERSINFO[0]}" -ge 5 ]]  || _DIE "Bash >= 5 requis (actuel : ${BASH_VERSION})."
@@ -326,7 +356,7 @@ CHECK_ENV() {
 
 ########################################################################################################################
 REMOVE_RPM_PACKAGES() {
-    _SECTION "Suppression paquets indésirables"
+    _SECTION "Suppression paquets indésirables" "*" "${C_GREEN}"
 
     local pkg wants_systemd_networkd_removal
     wants_systemd_networkd_removal=0
@@ -358,7 +388,7 @@ REMOVE_RPM_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_REPOS() {
-    _SECTION "Dépôts RPM"
+    _SECTION "Dépôts RPM" "*" "${C_GREEN}"
 
     local fedora_ver cache=0
     fedora_ver=$(rpm -E '%fedora')
@@ -414,7 +444,7 @@ INSTALL_REPOS() {
 
 ########################################################################################################################
 INSTALL_FONTS() {
-    _SECTION "Nerd Fonts"
+    _SECTION "Nerd Fonts" "*" "${C_GREEN}"
 
     local font
     for font in "${FONTS[@]}"; do
@@ -428,7 +458,7 @@ INSTALL_FONTS() {
 
 ########################################################################################################################
 INSTALL_CODECS() {
-    _SECTION "Codecs multimédia"
+    _SECTION "Codecs multimédia" "*" "${C_GREEN}"
 
     # codecs
     if ! rpm -q ffmpeg &>/dev/null; then
@@ -468,7 +498,7 @@ INSTALL_CODECS() {
 
 ########################################################################################################################
 INSTALL_RPM_PACKAGES() {
-    _SECTION "Paquets RPM"
+    _SECTION "Paquets RPM" "*" "${C_GREEN}"
     local pkg arch download_dir
     local -a missing_packages
     arch=$(uname -m)
@@ -496,7 +526,7 @@ INSTALL_RPM_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_FLATPAK_PACKAGES() {
-    _SECTION "Paquets Flatpak"
+    _SECTION "Paquets Flatpak" "*" "${C_GREEN}"
 
     # 1. Vérification et installation de Flatpak
     if ! command -v flatpak >/dev/null 2>&1; then
@@ -541,7 +571,7 @@ INSTALL_FLATPAK_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_CARGO_PACKAGES() {
-    _SECTION "Paquets Cargo"
+    _SECTION "Paquets Cargo" "*" "${C_GREEN}"
 
     # 0. toolchain rust
     if command -v rustup &>/dev/null; then
@@ -603,7 +633,7 @@ INSTALL_CARGO_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_GO_PACKAGES() {
-    _SECTION "Paquets GO"
+    _SECTION "Paquets GO" "*" "${C_GREEN}"
     local pkg current="" latest="" arch="" os="" gofile
     export PATH="/usr/local/go/bin:${PATH}"
     if command -v go &>/dev/null; then
@@ -640,7 +670,7 @@ INSTALL_GO_PACKAGES() {
 
 ########################################################################################################################
 CLONE_GIT() {
-    _SECTION "dépôts Git personnels"
+    _SECTION "dépôts Git personnels" "*" "${C_GREEN}"
 
     local repo_entry repo_url dest_dir repo_name backup_dir
 
@@ -673,7 +703,7 @@ CLONE_GIT() {
 
 ########################################################################################################################
 SETUP_SHELL() {
-    _SECTION "Shell"
+    _SECTION "Shell" "*" "${C_GREEN}"
 
     # 1- zsh
     local zsh_bin
@@ -746,7 +776,7 @@ SETUP_SHELL() {
 
 ########################################################################################################################
 SETUP_DOTFILES() {
-    _SECTION "Dotfiles"
+    _SECTION "Dotfiles" "*" "${C_GREEN}"
     if [[ ! -d "${DOTFILES_DIR}" ]]; then
         _ERR "Le dossier ${DOTFILES_DIR} est introuvable. Stow ignoré."
         return
@@ -773,7 +803,14 @@ SETUP_DOTFILES() {
 
 ########################################################################################################################
 SETUP_ETC() {
-    _SECTION "Configuration Système (/etc)"
+    _SECTION "Configuration Système" "*" "${C_GREEN}"
+
+    # --- Hostname ---
+    local currenthost
+    currenthost=$(hostnamectl hostname)
+    if [[ -n "${HOSTNAME}" ]] && [[ "${currenthost}" != "${HOSTNAME}" ]]; then
+        _RUNSILENT "Changement du nom de la machine => ${HOSTNAME}" sudo hostnamectl set-hostname "${HOSTNAME}"
+    fi
 
     # --- NetworkManager & systemd-resolved ---
     local nm_dns_conf resolved_10_conf restart=0
@@ -783,7 +820,7 @@ SETUP_ETC() {
 
     if ! grep -rq "dns=systemd-resolved" /etc/NetworkManager/conf.d; then
         _RUN "Configuration de NetworkManager pour systemd-resolved" sudo bash -c "
-        echo '${nm_dns_conf}' | install -m 644 -o root -g root /dev/stdin /etc/NetworkManager/conf.d/99-global-dns.conf
+        echo '${nm_dns_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/NetworkManager/conf.d/99-global-dns.conf
         "
         restart=1
     else
@@ -793,7 +830,7 @@ SETUP_ETC() {
     _RUNSILENT "" sudo ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf # pas sécurité on force
 
     if [[ ! -f /etc/systemd/resolved.conf.d/dns_servers.conf ]] || [[ ! -f /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ]]; then
-        _RUN "Déploiement de la configuration DNS (systemd-resolved)" sudo bash -c "echo '${RESOLVED_DNS_SERVERS}' | install -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf ; echo '${resolved_10_conf}' | install -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
+        _RUN "Déploiement de la configuration DNS (systemd-resolved)" sudo bash -c "echo '${RESOLVED_DNS_SERVERS}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf ; echo '${resolved_10_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
         restart=1
     else
         _OK "Configuration DNS (systemd-resolved) déjà présente."
@@ -820,7 +857,7 @@ SETUP_ETC() {
     if [[ -f "${sysctlfile}" ]] && echo "${full_sysctl_content}" | sudo cmp -s - "${sysctlfile}"; then
         _OK "Configuration noyau déjà à jour (${sysctlfile})."
     else
-        _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
+        _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -v -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
         _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
     fi
 
@@ -833,7 +870,7 @@ SETUP_ETC() {
     if [[ -f "${brave_policy_file}" ]] && echo "${full_brave_policies}" | sudo cmp -s - "${brave_policy_file}"; then
         _OK "Configuration policies debloat Brave déjà à jour (${brave_policy_file})."
     else
-        _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
+        _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
     fi
 
     # IO scheduler
@@ -852,14 +889,27 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 '
 
     if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
-        _OK "IO scheduler déjà à jour."
+        _OK "Règle IO scheduler déjà à jour"
     else
-        printf '%s\n' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
+        #printf '%s\n' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
+        _RUN "Règle IO scheduler créée" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_content}" <<< "${rules_file}"
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
-        _OK "IO scheduler mis à jour (udev rule)."
     fi
 
+    # --- udev static custom rule
+    rules_file="/etc/udev/rules.d/${UDEVFILE}" ; sudo touch "${rules_file}"
+    rules_content="${UDEVRULE}"
+    current=$(cat "${rules_file}" 2>/dev/null || true)
+
+    if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
+        _OK "Règle udev persistante (${UDEVDESCR}) à jour"
+    else
+        _RUN "Règle udev persistante (${UDEVDESCR}) créée" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_content}" <<< "${rules_file}"
+        _RUNSILENT "" sudo udevadm control --reload-rules
+        _RUNSILENT "" sudo udevadm trigger
+
+    fi
 
     # --- Configuration Chrony (IPv4 only si IPv6 désactivé) ---
     if echo "${CMDLINE}" | grep -q 'ipv6.disable=1'; then
@@ -870,7 +920,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         if [[ -f "${chrony_file}" ]] && echo "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
             _OK "Configuration chronyd déjà à jour."
         else
-            _RUN "Configuration de chronyd" sudo install -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
+            _RUN "Configuration de chronyd" sudo install -v -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
            _RUNSILENT "" sudo systemctl try-restart chronyd
         fi
     fi
@@ -909,7 +959,7 @@ SETUP_GRUB(){
     is_grub=$(_DETECT_GRUB)
     zswap="zswap.enabled=1 zswap.compressor=lz4" # on force l'usage d'un zswap, plus efficace que zram car s'appuie sur un backend physique en plus (file ou part)
 
-    _SECTION "Configuration de GRUB"
+    _SECTION "Configuration de GRUB" "*" "${C_GREEN}"
 
     if [[ "${is_grub}" == "true" ]]; then
         local luks_param="" target_cmdline="" current_cmdline="" current_default=""
@@ -984,7 +1034,7 @@ SETUP_FIREWALL() {
 
 ########################################################################################################################
 SETUP_FSTAB(){
-    _SECTION "Configuration FSTAB"
+    _SECTION "Configuration FSTAB" "*" "${C_GREEN}"
     # SWAPFILE
     local swapdir="/var/swap"
     if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
@@ -1143,7 +1193,7 @@ SETUP_SWAP(){
 
 ########################################################################################################################
 SETUP_SUDO_RS() {
-    _SECTION "Configuration sudo-rs"
+    _SECTION "Configuration sudo-rs" "*" "${C_GREEN}"
     # 1. On installe sudo-rs
     if ! command -v sudo-rs &>/dev/null; then
         _RUN "Installation de sudo-rs" sudo dnf install -y sudo-rs
@@ -1262,7 +1312,7 @@ SETUP_SUDO_RS() {
 SETUP_KDE_PLASMA() {
 # on check KDE est lancé
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
-        _SECTION "Personnalisation de KDE Plasma 6"
+        _SECTION "Personnalisation de KDE Plasma 6" "*" "${C_GREEN}"
 
         # 1. Base Dark
         _RUN "Passage en mode Dark global" plasma-apply-lookandfeel -a org.kde.breezedark.desktop
@@ -1295,8 +1345,8 @@ SETUP_KDE_PLASMA() {
         local temp_tela
         if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela-dracula*" -print -quit | grep -q . >/dev/null; then
             temp_tela=$(mktemp -d)
-            _RUN "Téléchargement des icônes Tela-dracula" git clone --quiet https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
-            _RUN "Installation des icônes Tela-dracula" bash "${temp_tela}/tela/install.sh -c dracula" -d "${HOME}/.local/share/icons"
+            _RUN "Téléchargement des icônes Tela-dracula" git clone https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
+            _RUN "Installation des icônes Tela-dracula" bash -c "   \"${temp_tela}\"/tela/install.sh -a -d \"${HOME}\"/.local/share/icons   "
             _RUNSILENT "" rm -rvf "${temp_tela}"
         else
             _OK "Le pack d'icônes Tela-dracula est déjà installé."

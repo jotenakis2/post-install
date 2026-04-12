@@ -3,6 +3,11 @@
 #   Paramètres utilisateur de post-install-fedora.sh   #
 ########################################################
 
+# nom de la machine (si vide on ne change pas le nom de l'installer) #--------------------------------------------------------
+HOSTNAME="MyFedoraBTW"
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
 # paquets RPM à installer #---------------------------------------------------------------------------------------------------
 DNF_PACKAGES=(
     zsh fastfetch util-linux-script foot ghostty kitty eza fzf neovim bat bat-extras grc axel rclone procs
@@ -175,6 +180,7 @@ net.ipv4.conf.default.rp_filter = 1
 
 
 # configuration pour débloater brave browser #--------------------------------------------------------------------------------
+# shellcheck disable=SC2089
 BRAVE_POLICIES='{
     "BraveRewardsDisabled": true,
     "BraveWalletDisabled": true,
@@ -224,6 +230,16 @@ NFS_MP="/media/NAS"
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
+# règle udev persistante #----------------------------------------------------------------------------------------------------
+UDEVDESCR="Clé NVME"
+UDEVFILE="99-nvme-key.rules"
+# shellcheck disable=SC2089,SC2016
+UDEVRULE='# clé nvme
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="b6fed99c-7c1a-4146-a445-f2660c01146e", ENV{UDISKS_IGNORE}="1", RUN{program}+="/usr/bin/systemd-mount --no-block --automount=yes --collect $devnode /media/cleNVME", RUN{program}+="/bin/chown -R 1000:1000 /media/cleNVME"
+'
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
 
 ###############################################################################################################################
 ###############################################################################################################################
@@ -242,6 +258,7 @@ export GIT_REPOS
 export FIREWALL_SERVICES
 export SERVICES_TO_DISABLE
 export SYSCTL_CONF
+# shellcheck disable=SC2090
 export BRAVE_POLICIES
 export RESOLVED_DNS_SERVERS
 export SWAP_SIZE
@@ -250,4 +267,9 @@ export CMDLINE
 export KDEPANEL
 export NFS_SHARE
 export NFS_MP
+export UDEVFILE
+# shellcheck disable=SC2090
+export UDEVRULE
+export UDEVDESCR
+export HOSTNAME
 ###############################################################################################################################
