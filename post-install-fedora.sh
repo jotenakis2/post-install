@@ -79,6 +79,8 @@ INITIALIZE() {
         C_YELLOW='\e[1;33m'
         C_MAGENTA='\e[1;35m'
     fi
+    SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+
     export C_RESET C_RED C_GREEN C_YELLOW C_MAGENTA C_BOLD
     _PASS
     LOG_DIR="${HOME}/.local/log"
