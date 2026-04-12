@@ -129,7 +129,7 @@ INITIALIZE() {
 
 ########################################################################################################################
 CHECK_ENV() {
-    _SECTION " Vérification environnement " "*" "${C_GREEN}"
+    _SECTION " Vérification environnement " "—" "${C_GREEN}"
 
     [[ -n "${BASH_VERSION:-}" ]]       || _DIE "Ce script requiert bash."
     [[ "${BASH_VERSINFO[0]}" -ge 5 ]]  || _DIE "Bash >= 5 requis (actuel : ${BASH_VERSION})."
