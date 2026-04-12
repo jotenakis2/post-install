@@ -1,18 +1,4 @@
 #!/usr/bin/env bash
-# C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_MAGENTA='' C_BOLD=''
-# if [[ -t 1 ]]; then
-#     C_RESET='\e[0m'
-#     C_BOLD='\e[1m'
-#     C_RED='\e[1;31m'
-#     C_GREEN='\e[1;32m'
-#     C_YELLOW='\e[1;33m'
-#     C_MAGENTA='\e[1;35m'
-# fi
-# SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-# LOG_DIR="${HOME}/.local/log"
-# LOG_FILE="${LOG_DIR}/post-install-fedora-${logsuffix}.log"
-# INSTALL_DIR="${HOME}/.local/bin"
-# export LOG_DIR LOG_FILE INSTALL_DIR SPIN_FRAMES C_RESET C_RED C_GREEN C_YELLOW C_MAGENTA C_BOLD
 
 ########################################################################################################################
 # FONCTIONS HELPERS                                                                                                    #

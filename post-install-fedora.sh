@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=8.0
+readonly VER=8.1
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        msmtp
@@ -80,11 +80,9 @@ INITIALIZE() {
         C_MAGENTA='\e[1;35m'
     fi
     SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-
-    export C_RESET C_RED C_GREEN C_YELLOW C_MAGENTA C_BOLD
     _PASS
     LOG_DIR="${HOME}/.local/log"
-    declare logsuffix
+    local logsuffix
     logsuffix="$(date +%Y%m%d-%H%M%S)"
     LOG_FILE="${LOG_DIR}/post-install-fedora-${logsuffix}.log"
     INSTALL_DIR="${HOME}/.local/bin"
@@ -143,8 +141,22 @@ CHECK_ENV() {
         _DIE "L'utilisateur ${USER} n'appartient pas au groupe 'wheel' (sudo). Abandon."
     fi
 
-    _RUN "Contrôle des dépendances obligatoires" sudo dnf install -y curl git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils
+    # dépendances
+    local deps
+    local -a missing=()
 
+    _OK "Contrôle des dépendances obligatoires"
+    for deps in curl git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils; do
+        if ! rpm -q --quiet "${deps}"; then
+            missing+=("${deps}")
+        fi
+    done
+
+    if ((${#missing[@]})); then
+        _RUN "Installation des dépendances obligatoires : ${missing[*]}" sudo dnf install -y "${missing[@]}"
+    fi
+
+    #
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
     _OK "Environnement valide — ${fedora_rel}, utilisateur ${USER} avec droits sudo"
@@ -1115,7 +1127,7 @@ SETUP_KDE_PLASMA() {
         # 1. Base Dark
         _RUN "Passage en mode Dark global" plasma-apply-lookandfeel -a org.kde.breezedark.desktop
 
-        # 2. Color Scheme : Tokyo Night (Mise à jour sécurisée systématique)
+        # 2. Color Scheme : Tokyo Night
         local color_dir="${HOME}/.local/share/color-schemes"
         local color_file="${color_dir}/TokyoNight.colors"
         local tokyo_url="https://raw.githubusercontent.com/Jayy-Dev/Plasma-Tokyo-Night/plasma-6/colorscheme/TokyoNight.colors"
@@ -1131,11 +1143,20 @@ SETUP_KDE_PLASMA() {
             _ERR "Le fichier téléchargé est introuvable ou vide. Faudra appliquer le schéma de couleurs manuellement..."
         else
             # Détection du nom exact par Plasma (extraction propre du premier mot)
-            local scheme=""
+            local tokyoexist="" currentlist="" currentscheme=""
             if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
-                scheme="$(plasma-apply-colorscheme --list-schemes 2>/dev/null | grep -i 'tokyonight' | awk '{print $2}' | head -n1 || true)"
-                [[ -z "${scheme}" ]] && _ERR "Tokyo Night non détecté par KDE Plasma ! Faudra appliquer manuellement..."
-                _RUN "Application de la palette de couleurs ${scheme}" plasma-apply-colorscheme "${scheme}"
+                currentlist=$(LANG=C plasma-apply-colorscheme --list-schemes 2>/dev/null)
+                currentscheme=$(echo "${currentlist}" | grep -i 'current color scheme' | awk '{print $2}' || true)
+                tokyoexist=$(echo "${currentlist}" | grep -i 'tokyonight' | awk '{print $2}' | head -n1 || true)
+                if [[ -z "${tokyoexist}" ]]; then
+                    _ERR "Tokyo Night non détecté par KDE Plasma ! Faudra appliquer manuellement..."
+                else
+                    if [[ "${tokyoexist}" = "${currentscheme}" ]]; then
+                        _OK "La palette de couleurs est déjà ${tokyoexist}"
+                    else
+                        _RUN "Application de la palette de couleurs ${tokyoexist}" plasma-apply-colorscheme "${tokyoexist}"
+                    fi
+                fi
             fi
         fi
 
@@ -1147,7 +1168,7 @@ SETUP_KDE_PLASMA() {
             _RUN "Installation des icônes Tela" bash -c "   \"${temp_tela}\"/tela/install.sh -a -d \"${HOME}\"/.local/share/icons   "
             _RUNSILENT "" rm -rf "${temp_tela}"
         else
-            _OK "Le pack d'icônes Tela-dracula est déjà installé."
+            _OK "Le pack d'icônes Tela est déjà installé."
         fi
 
         # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
@@ -1161,7 +1182,7 @@ SETUP_KDE_PLASMA() {
         fi
 
         # Pointeur par défaut pour compatibilité GTK
-        if [[ -f "${HOME}/.local/share/icons/default/index.theme" ]] && ! grep -q "catppuccin-mocha-lavender-cursors" "${HOME}/.local/share/icons/default/index.theme"; then
+        if [[ ! -f "${HOME}/.local/share/icons/default/index.theme" ]] || ! grep -q "catppuccin-mocha-lavender-cursors" "${HOME}/.local/share/icons/default/index.theme"; then
             echo -e "[Icon Theme]\nInherits=catppuccin-mocha-lavender-cursors" > "${HOME}/.local/share/icons/default/index.theme"
         fi
 
@@ -1176,21 +1197,10 @@ SETUP_KDE_PLASMA() {
             _INFO "L'outil balooctl n'est pas installé. Aucune action requise."
         fi
 
-        # Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
-        _RUNSILENT "Application du thème (Tokyo Night, Tela, Bibata) aux Flatpaks" sudo flatpak override \
-            --filesystem="${HOME}/.local/share/icons:ro" \
-            --filesystem="${HOME}/.local/share/themes:ro" \
-            --filesystem="${HOME}/.icons:ro" \
-            --filesystem="xdg-config/gtk-3.0:ro" \
-            --filesystem="xdg-config/gtk-4.0:ro" \
-            --env="GTK_THEME=TokyoNight" \
-            --env="ICON_THEME=Tela-dracula-dark" \
-            --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
-
         # déplacement du panneau principal
         local target_pos="${KDEPANEL:-bottom}" # fallback en bas
         if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
-            _INFO "plasmashell ne tourne pas. Configuration du panneau reportée."
+            _INFO "plasmashell n'est pas lancée. Configuration du panneau reportée."
         else
             _RUN "Déplacement du panneau en position ${target_pos}" _PLASMA_EVAL "
                 var allPanels = panels();
@@ -1198,16 +1208,30 @@ SETUP_KDE_PLASMA() {
                     allPanels[i].location = \"${target_pos}\";
                     }
             "
+            sleep 1
         fi
         if pgrep plasmashell > /dev/null 2>&1; then
             _RUN "Redémarrage de l'interface de KDE Plasma 6..." bash -c "\
-            kwriteconfig6 --file kdeglobals --group Icons --key Theme \"Tela-dracula-dark\" ;\
-            kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme \"catppuccin-mocha-lavender-cursors\" ;\
-            [[ -n \"${scheme}\" ]] && plasma-apply-colorscheme \"${scheme}\" ;\
-            plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ;\
+            kwriteconfig6 --file kdeglobals --group Icons --key Theme Tela-dracula-dark ;\
+            kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme catppuccin-mocha-lavender-cursors ;\
+            [[ -n \"${tokyoexist}\" ]] && plasma-apply-colorscheme \"${tokyoexist}\" ;\
+            [[ -f \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ]] && plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ;\
             kwriteconfig6 --file ksplashrc --group KSplash --key Theme Colourful-Ring-Splashscreen-Plasma6 ;\
+            sleep 1 ;\
             systemctl --user restart plasma-plasmashell.service"
         fi
+
+        # Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
+        _RUNSILENT "" sudo flatpak override \
+            --filesystem="${HOME}/.local/share/icons:ro" \
+            --filesystem="${HOME}/.local/share/themes:ro" \
+            --filesystem="${HOME}/.icons:ro" \
+            --filesystem="${HOME}/.themes:ro" \
+            --filesystem="xdg-config/gtk-3.0:ro" \
+            --filesystem="xdg-config/gtk-4.0:ro" \
+            --env="GTK_THEME=TokyoNight" \
+            --env="ICON_THEME=Tela-dracula-dark" \
+            --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
     else
         echo
         _INFO "KDE n'a pas été détecté... Je ne touche pas à la customization de KDE."
