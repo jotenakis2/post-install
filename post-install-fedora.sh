@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=8.6
+readonly VER=8.7
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        msmtp
@@ -1129,7 +1129,7 @@ SETUP_KDE_PLASMA() {
         _SECTION " Personnalisation de KDE Plasma 6 " "━" "${C_GREEN}"
 
         # 1. Base Dark
-        _RUN "Passage en mode Dark global" plasma-apply-lookandfeel -a org.kde.breezedark.desktop
+        #_RUN "Passage en mode Dark global" plasma-apply-lookandfeel -a org.kde.breezedark.desktop
 
         # 2. Color Scheme : Tokyo Night
         local color_dir="${HOME}/.local/share/color-schemes"
@@ -1152,16 +1152,17 @@ SETUP_KDE_PLASMA() {
                 currentlist=$(LANG=C plasma-apply-colorscheme --list-schemes 2>/dev/null)
                 currentscheme=$(echo "${currentlist}" | grep -i 'current color scheme' | awk '{print $2}' || true)
                 tokyoexist=$(echo "${currentlist}" | grep -i 'tokyonight' | awk '{print $2}' | head -n1 || true)
-                echo "${tokyoexist} et ${currentscheme}"
+
                 if [[ -z "${tokyoexist}" ]]; then
                     _ERR "Tokyo Night non détecté par KDE Plasma ! Faudra appliquer manuellement..."
                 else
                     if [[ "${tokyoexist}" = "${currentscheme}" ]]; then
-                        _OK "La palette de couleurs est déjà ${tokyoexist}"
+                        _OK "La palette de couleurs active est déjà ${tokyoexist}"
                     else
                         _RUN "Application de la palette de couleurs ${tokyoexist}" plasma-apply-colorscheme "${tokyoexist}"
                     fi
                 fi
+
             fi
         fi
 
