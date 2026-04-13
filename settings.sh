@@ -240,6 +240,26 @@ ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="b6fed99c-7c1a-4146-a445-f26
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
+# Données privées à restaurer #-----------------------------------------------------------------------------------------------
+SOURCE="/media/NAS/backup/data2restore"
+PROFILES=(
+   "FIREFOX"
+   "BRAVE"
+   "SSH"
+   "IPTVNATOR"
+   "SSHMANAGER"
+       # Ajoute tes profils sauvegardés avec "private-data_backup.sh" à restaurer ici
+)
+declare -A COMMANDS=(
+   ["FIREFOX"]="firefox"
+   ["BRAVE"]="brave"
+   ["SSH"]=""
+   ["IPTVNATOR"]="iptvnator.bin"
+   ["SSHMANAGER"]=""
+        # Ajoute les liens binaires à tuer avant de restaurer <=> PROFIL (important pour les navigateurs)
+)
+#-----------------------------------------------------------------------------------------------------------------------------
+
 
 ###############################################################################################################################
 ###############################################################################################################################
@@ -272,4 +292,7 @@ export UDEVFILE
 export UDEVRULE
 export UDEVDESCR
 export HOSTNAME
+export PROFILES
+export SOURCE
+export COMMANDS
 ###############################################################################################################################

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=8.8
+readonly VER=9.0
 # paramètres customisables définies dans settings.sh. ##############################
 source settings.sh                                                                 #
 ####################################################################################
@@ -45,6 +45,7 @@ MAIN() {
     SETUP_GRUB
     SETUP_KDE_PLASMA
       SETUP_PLM
+    SETUP_DATA
     SETUP_SUDO_RS
 
     # Fin
@@ -1256,6 +1257,35 @@ SETUP_KDE_PLASMA() {
     fi
 }
 
+########################################################################################################################
+SETUP_DATA() {
+    if [[ -n "${PROFILES}" ]]; then
+        _SECTION " Restauration des données privées " "━" "${C_GREEN}"
+        local profil file cmd
+        for profil in "${PROFILES[@]}"; do
+            cmd=${COMMANDS["${profil}"]}
+            if [[ -d "${SOURCE}" ]]; then
+                # on récupère la sauvegarde la plus récente dans le dossier SOURCE pour le profil ${profil}
+                file=$(find "${SOURCE}" -maxdepth 1 -name "${profil}_*.tar.gz" -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2- || true)
+                if [[ -n "${cmd}" ]] && pgrep -x "${cmd}" >/dev/null; then
+                    _ERR "Ferme ${cmd} d'abord."
+                else
+                    if [[ -n "${file}" ]]; then
+                        _RUN "Restauration du profil ${profil} (${file} vers ${HOME}) en cours..." tar -xzf "${file}" -C "${HOME}"
+                    else
+                        _OK "Aucun fichier de sauvegarde trouvé pour le profil ${profil}"
+                    fi
+                fi
+            else
+                _ERR "Le dossier de restauration (${SOURCE}) n'existe pas"
+            fi
+        done
+    else
+        echo ""
+        _INFO "Aucune données privées à restaurer."
+    fi
+
+}
 ########################################################################################################################
 SETUP_PLM() {
 # on teste si KDE tourne
