@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=9.0
+readonly VER=9.1
 # paramètres customisables définies dans settings.sh. ##############################
 source settings.sh                                                                 #
 ####################################################################################
@@ -1271,7 +1271,12 @@ SETUP_DATA() {
                     _ERR "Ferme ${cmd} d'abord."
                 else
                     if [[ -n "${file}" ]]; then
-                        _RUN "Restauration du profil ${profil} (${file} vers ${HOME}) en cours..." tar -xzf "${file}" -C "${HOME}"
+                        # shellcheck disable=SC2310
+                        if _DIR_IS_SAFE_TO_RESTORE "${DESTINATIONS[${profil}]}"; then
+                            _RUN "Restauration de ${profil} (${file} vers ${HOME}) en cours..." tar -xzf "${file}" -C "${HOME}"
+                        else
+                            _ERR "Le dossier de restauration de ${profil} contient déjà des données, on ne fait rien."
+                        fi
                     else
                         _OK "Aucun fichier de sauvegarde trouvé pour le profil ${profil}"
                     fi

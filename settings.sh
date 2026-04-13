@@ -12,7 +12,7 @@ HOSTNAME="MyFedoraBTW"
 DNF_PACKAGES=(
     zsh fastfetch util-linux-script foot ghostty kitty eza fzf neovim bat bat-extras grc axel rclone procs
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
-    nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird
+    nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
     vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng
     libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro konversation
     # Ajoute tes autres paquets ici
@@ -41,8 +41,8 @@ FONTS=(
 # paquets flatpak à installer #-----------------------------------------------------------------------------------------------
 FLATPAK_PKGS=(
     "com.ktechpit.whatsie"
-    #"io.github.giantpinkrobots.flatsweep"
-    # "com.github.tchx84.Flatseal"
+    "io.github.giantpinkrobots.flatsweep"
+    "com.github.tchx84.Flatseal"
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -74,7 +74,7 @@ declare -A GO_PACKAGES=(
     ["golazo"]="github.com/0xjuanma/golazo@latest"
     ["radiogogo"]="github.com/zi0p4tch0/radiogogo@latest"
     ["xytz"]="github.com/xdagiz/xytz@latest"
-    #["matcha"]="github.com/floatpane/matcha@latest"
+    ["matcha"]="github.com/floatpane/matcha@latest"
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -256,7 +256,14 @@ declare -A COMMANDS=(
    ["SSH"]=""
    ["IPTVNATOR"]="iptvnator.bin"
    ["SSHMANAGER"]=""
-        # Ajoute les liens binaires à tuer avant de restaurer <=> PROFIL (important pour les navigateurs)
+        # Ajoute les liens binaires à tuer avant de restaurer pour chaque PROFIL (important pour les navigateurs)
+)
+declare -A DESTINATIONS=(
+   ["FIREFOX"]=".mozilla/firefox/"
+   ["BRAVE"]=".config/BraveSoftware/Brave-Browser/"
+   ["SSH"]=".ssh/"
+   ["IPTVNATOR"]=".config/iptvnator/"
+   ["SSHMANAGER"]=".local/share/sshmanager"
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 
@@ -295,4 +302,5 @@ export HOSTNAME
 export PROFILES
 export SOURCE
 export COMMANDS
+export DESTINATIONS
 ###############################################################################################################################

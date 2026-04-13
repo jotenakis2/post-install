@@ -219,3 +219,15 @@ _DETECT_GRUB() {
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+_DIR_IS_SAFE_TO_RESTORE() {
+    # renvoie 0 si le dossier testé n'existe pas ou s'il existe mais ne contient aucun fichier non vide
+    local dir=$1
+    [[ -d "${dir}" ]] || return 0
+
+    local found
+    found=$(find "${dir}" -type f ! -empty -print -quit)
+    [[ -z "${found}" ]]
+}
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
