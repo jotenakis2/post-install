@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2154
 
 ########################################################################################################################
 # FONCTIONS HELPERS                                                                                                    #
@@ -32,6 +33,7 @@ _BANNER() {
 
     return 0
 }
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _SECTION() {
     local msg="${1^^}"
@@ -62,7 +64,7 @@ _SECTION() {
     echo -e "${C_RESET}"
     return 0
 }
-
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _HEURE() {
     local date heure
@@ -70,11 +72,13 @@ _HEURE() {
     heure=$(date '+%A %d %B %Y')
     echo "${date}, le ${heure}" | tee -a "${LOG_FILE}"
 }
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _OK()       { printf " %b✓%b %s\n" "${C_GREEN}"  "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
 _ERR()      { printf " %b✗%b %s\n" "${C_RED}"    "${C_RESET}" "$*" | tee -a "${LOG_FILE}" >&2; }
 _INFO()     { printf " %b→%b %s\n" "${C_YELLOW}"   "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
 _DIE()      { _ERR "$*"; exit 1; }
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _SYMLINK() {
     local src="$1"
@@ -99,11 +103,13 @@ _SYMLINK() {
         fi
     fi
 }
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _PLASMA_EVAL() {
     local script="$1"
     busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s "${script}"
 }
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _PASS() {
     # On vérifie silencieusement si l'autorisation est requise, si oui on gère un joli prompt
@@ -112,6 +118,8 @@ _PASS() {
         sudo -v -p ""
     fi
 }
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
 _RUNSILENT() {
     local msg="$1"; shift
     [[ -n "${msg}" ]] && _OK "${msg}"
@@ -119,7 +127,7 @@ _RUNSILENT() {
     # Log tout,mais affiche juste les premières lignes si erreur
     local tmperr
     tmperr=$(mktemp)
-
+    # shellcheck disable=SC2312
     "$@" 2>&1 | tee -a "${LOG_FILE}" > "${tmperr}"
     local rc="${PIPESTATUS[0]}"
 
@@ -132,11 +140,13 @@ _RUNSILENT() {
     rm -f "${tmperr}"
     return "${rc}"
 }
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _RUN() {
     local msg="$1"; shift
 
     _SPIN() {
+        local SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
         local pid="$1" msg="$2" i=0
         while kill -0 "${pid}" 2>/dev/null; do
             printf "\r %b%s%b %s" "${C_RED}" "${SPIN_FRAMES[$((i % 10))]}" "${C_RESET}" "${msg}"
@@ -156,6 +166,15 @@ _RUN() {
         _DIE "Échec — détails : ${LOG_FILE}"
     fi
 }
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_EXIST(){
+    local cmd
+    cmd=$1
+    command -v "${cmd}" &>/dev/null && return 0
+    return 1
+}
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _DETECT_GRUB() {
     # 1. BIOS/Legacy = forcément GRUB
@@ -182,11 +201,12 @@ _DETECT_GRUB() {
     # 3. Analyse binaire
     local efi_payload="/boot/efi/EFI/fedora/grubx64.efi"
     if [[ -f "${efi_payload}" ]] && command -v strings >/dev/null 2>&1; then
+        # shellcheck disable=SC2312
         if sudo strings "${efi_payload}" | grep -qi "systemd-boot"; then
             echo "false"
             return 0
         fi
-
+        # shellcheck disable=SC2312
         if sudo strings "${efi_payload}" | grep -qw "GRUB"; then
             echo "true"
             return 0
@@ -197,4 +217,5 @@ _DETECT_GRUB() {
     echo "false"
     return 0
 }
-########################################################################################################################
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+

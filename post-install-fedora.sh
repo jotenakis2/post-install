@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=8.7
+readonly VER=8.8
+# paramètres customisables définies dans settings.sh. ##############################
+source settings.sh                                                                 #
+####################################################################################
+
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        msmtp
 
-# variables globales en MAJ, locales en min
-# fonctions globales en MAJ, locales en min
-# fonctions helpers commencent par _  (_RUN, _SECTION, ...)
-
-# paramètres customisables définies dans settings.sh.
-source settings.sh
-
-#
+# je source ma bibliothèque de fonctions d'aide (_BANNER, _SECTION, _PASS, ...)
 source helpers.sh
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -79,7 +76,6 @@ INITIALIZE() {
         C_YELLOW='\e[1;33m'
         C_MAGENTA='\e[1;35m'
     fi
-    SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
     _PASS
     LOG_DIR="${HOME}/.local/log"
     local logsuffix
@@ -113,7 +109,8 @@ INITIALIZE() {
     if ! rpm -q crudini >/dev/null 2>&1; then
         _RUN "Préparation" sudo dnf install -y crudini
     fi
-    if command -v crudini &>/dev/null; then
+    # shellcheck disable=SC2310
+    if _EXIST crudini; then
         _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main defaultyes true
         _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main max_parallel_downloads 10
     fi
@@ -338,7 +335,8 @@ INSTALL_FLATPAK_PACKAGES() {
     _SECTION " Paquets Flatpak " "━" "${C_GREEN}"
 
     # 1. Vérification et installation de Flatpak
-    if ! command -v flatpak >/dev/null 2>&1; then
+    # shellcheck disable=SC2310
+    if ! _EXIST flatpak; then
         _RUN "Installation de Flatpak" sudo dnf install -y flatpak
     else
         _OK "Flatpak est déjà installé."
@@ -383,14 +381,16 @@ INSTALL_CARGO_PACKAGES() {
     _SECTION " Paquets Cargo " "━" "${C_GREEN}"
 
     # 0. toolchain rust
-    if command -v rustup &>/dev/null; then
+    # shellcheck disable=SC2310
+    if _EXIST rustup; then
         _RUN "Mise à jour de la toolchain rust" rustup update stable
     else
         _RUN "Installation de la toolchain rust" bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
     fi
 
     # 1. Installation de cargo-binstall sans compilation
-    if ! command -v cargo-binstall &>/dev/null; then
+    # shellcheck disable=SC2310
+    if ! _EXIST cargo-binstall; then
         _RUN "Installation de cargo-binstall" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
     else
         _OK "cargo-binstall est déjà installé."
@@ -448,7 +448,8 @@ INSTALL_GO_PACKAGES() {
     if [[ ! "${PATH}" =~ "/usr/local/go/bin" ]]; then
         export PATH="/usr/local/go/bin:${PATH}"
     fi
-    if command -v go &>/dev/null; then
+    # shellcheck disable=SC2310
+    if _EXIST go; then
          current="$(go version | grep -oP 'go\K\d+\.\d+\.\d+' || true)"
     fi
 
@@ -458,7 +459,8 @@ INSTALL_GO_PACKAGES() {
     os=$(uname | tr '[:upper:]' '[:lower:]' || true)
     gofile="go${latest}.${os}-${arch}.tar.gz"
 
-    if [[ "${current}" == "${latest}" ]] && command -v go &>/dev/null; then
+    # shellcheck disable=SC2310
+    if [[ "${current}" == "${latest}" ]] && _EXIST go; then
         _OK "Toolchain GO à jour"
     else
         _RUN "Téléchargement de la toolchain Go" wget "https://go.dev/dl/${gofile}"
@@ -468,11 +470,12 @@ INSTALL_GO_PACKAGES() {
         _RUNSILENT "" rm -vf "${gofile}"
     fi
 
-    if command -v go &>/dev/null; then
+    # shellcheck disable=SC2310
+    if _EXIST go; then
         for pkg in "${!GO_PACKAGES[@]}"; do # on parcourt les clés du tableau associatif
             local url
             url="${GO_PACKAGES[${pkg}]}"
-            if ! command -v "${pkg}" &>/dev/null; then
+            if ! _EXIST "${pkg}"; then
                 _RUN "Installation de ${pkg}" go install "${url}"
             else
                 _RUN "Mise à jour de ${pkg}" go install "${url}"
@@ -561,7 +564,8 @@ SETUP_SHELL() {
 
     local omp_url="https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/${omp_target}"
     local omp_bin="${INSTALL_DIR}/oh-my-posh"
-    if command -v oh-my-posh >/dev/null 2>&1; then
+    # shellcheck disable=SC2310
+    if _EXIST oh-my-posh; then
         _RUN "Mise à jour de Oh-My-Posh" oh-my-posh upgrade
     else
         _RUN "Téléchargement du binaire Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
@@ -1009,7 +1013,8 @@ SETUP_SWAP(){
 SETUP_SUDO_RS() {
     _SECTION " Configuration sudo-rs " "━" "${C_GREEN}"
     # 1. On installe sudo-rs
-    if ! command -v sudo-rs &>/dev/null; then
+    # shellcheck disable=SC2310
+    if ! _EXIST sudo-rs; then
         _RUN "Installation de sudo-rs" sudo dnf install -y sudo-rs
     else
         _OK "sudo-rs est déjà installé."
@@ -1148,7 +1153,8 @@ SETUP_KDE_PLASMA() {
         else
             # Détection du nom exact par Plasma (extraction propre du premier mot)
             local tokyoexist="" currentlist="" currentscheme=""
-            if command -v plasma-apply-colorscheme >/dev/null 2>&1; then
+            # shellcheck disable=SC2310
+            if _EXIST plasma-apply-colorscheme; then
                 currentlist=$(LANG=C plasma-apply-colorscheme --list-schemes 2>/dev/null)
                 currentscheme=$(echo "${currentlist}" | grep -i 'current color scheme' | awk '{print $2}' || true)
                 tokyoexist=$(echo "${currentlist}" | grep -i 'tokyonight' | awk '{print $2}' | head -n1 || true)
@@ -1166,7 +1172,7 @@ SETUP_KDE_PLASMA() {
             fi
         fi
 
-        # 3. Icônes : Tela-dracula
+        # 3. Icônes : Tela
         local temp_tela
         if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela*" -print -quit | grep -q . >/dev/null; then
             temp_tela=$(mktemp -d)
@@ -1193,7 +1199,8 @@ SETUP_KDE_PLASMA() {
         fi
 
         # Baloo
-        if command -v balooctl6 >/dev/null 2>&1; then
+        # shellcheck disable=SC2310
+        if _EXIST balooctl6; then
             if balooctl6 status > /dev/null 2>&1; then
                 _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
             else
@@ -1216,6 +1223,8 @@ SETUP_KDE_PLASMA() {
             "
             sleep 1
         fi
+
+        # on redémarre l'interface pour appliquer de suite.
         if pgrep plasmashell > /dev/null 2>&1; then
             _RUN "Redémarrage de l'interface de KDE Plasma 6..." bash -c "\
             kwriteconfig6 --file kdeglobals --group Icons --key Theme Tela-dracula-dark ;\
@@ -1228,7 +1237,8 @@ SETUP_KDE_PLASMA() {
         fi
 
         # Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
-        if command -v flatpak &>/dev/null; then
+        # shellcheck disable=SC2310
+        if _EXIST flatpak; then
             _RUNSILENT "" sudo flatpak override \
                 --filesystem="${HOME}/.local/share/icons:ro" \
                 --filesystem="${HOME}/.local/share/themes:ro" \
