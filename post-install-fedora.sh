@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=9.6
+readonly VER=9.7
 # paramètres customisables définies dans settings.sh. ##############################
 source settings.sh                                                                 #
 ####################################################################################
@@ -55,7 +55,7 @@ MAIN() {
     printf "\n%b%b  ✓ Terminé — REDÉMARREZ pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
-    echo -e "${C_YELLOW}${SCRIPTNAME}${C_RESET} v${C_MAGENTA}${VER}${C_RESET} a terminé avec succès en ${C_MAGENTA}${duration}${C_RESET}s."
+    echo -e "${C_YELLOW}${SCRIPTNAME}${C_RESET} v${C_MAGENTA}${VER}${C_RESET} a terminé avec succès en ${C_MAGENTA}${duration}${C_RESET}."
 
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
