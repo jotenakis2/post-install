@@ -297,7 +297,6 @@ export UDEVFILE
 export UDEVRULE
 export UDEVDESCR
 export HOSTNAME
-export PROFILES
 export SOURCE
 export COMMANDS
 export DESTINATIONS

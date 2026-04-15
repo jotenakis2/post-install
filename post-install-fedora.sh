@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=9.5
+readonly VER=9.6
 # paramètres customisables définies dans settings.sh. ##############################
 source settings.sh                                                                 #
 ####################################################################################
@@ -36,6 +36,7 @@ MAIN() {
     INSTALL_FLATPAK_PACKAGES
 
     # tâches config
+    SETUP_SUDO_RS
     CLONE_GIT
     SETUP_SHELL
     SETUP_DOTFILES
@@ -48,7 +49,6 @@ MAIN() {
     SETUP_KDE_PLASMA
       SETUP_PLM
     SETUP_DATA
-    SETUP_SUDO_RS
 
     # Fin
     _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
@@ -1287,7 +1287,7 @@ SETUP_KDE_PLASMA() {
 
 ########################################################################################################################
 SETUP_DATA() {
-    if [[ -n "${DESTINATIONS}" ]]; then
+    if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
         _SECTION " Restauration des données privées " "━" "${C_GREEN}"
         local profil file cmd
         for profil in "${!DESTINATIONS[@]}"; do
