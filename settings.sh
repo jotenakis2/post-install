@@ -10,7 +10,7 @@ HOSTNAME="MyFedoraBTW"
 
 # paquets RPM à installer #---------------------------------------------------------------------------------------------------
 DNF_PACKAGES=(
-    zsh fastfetch util-linux-script foot ghostty kitty eza fzf neovim bat bat-extras grc axel rclone procs
+    zsh fastfetch util-linux-script foot ghostty fzf bat-extras grc axel rclone procs
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
     vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng
@@ -23,7 +23,7 @@ DNF_PACKAGES=(
 # paquets RPM à désinstaller #------------------------------------------------------------------------------------------------
 DNF_REMOVE=(
     zram-generator-defaults PackageKit-glib google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd
-    libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover rsyslog
+    libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover rsyslog konsole konsole-part
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -242,28 +242,22 @@ ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="b6fed99c-7c1a-4146-a445-f26
 
 # Données privées à restaurer #-----------------------------------------------------------------------------------------------
 SOURCE="/media/NAS/backup/data2restore"
-PROFILES=(
-   "FIREFOX"
-   "BRAVE"
-   "SSH"
-   "IPTVNATOR"
-   "SSHMANAGER"
-       # Ajoute tes profils sauvegardés avec "private-data_backup.sh" à restaurer ici
-)
 declare -A COMMANDS=(
    ["FIREFOX"]="firefox"
    ["BRAVE"]="brave"
    ["SSH"]=""
    ["IPTVNATOR"]="iptvnator.bin"
    ["SSHMANAGER"]=""
+   ["HELIUM"]="helium"
         # Ajoute les liens binaires à tuer avant de restaurer pour chaque PROFIL (important pour les navigateurs)
 )
 declare -A DESTINATIONS=(
-   ["FIREFOX"]=".mozilla/firefox/"
-   ["BRAVE"]=".config/BraveSoftware/Brave-Browser/"
-   ["SSH"]=".ssh/"
-   ["IPTVNATOR"]=".config/iptvnator/"
-   ["SSHMANAGER"]=".local/share/sshmanager"
+   ["FIREFOX"]="${HOME}/.mozilla/firefox/"
+   ["BRAVE"]="${HOME}/.config/BraveSoftware/Brave-Browser/"
+   ["SSH"]="${HOME}/.ssh/"
+   ["IPTVNATOR"]="${HOME}/.config/iptvnator/"
+   ["SSHMANAGER"]="${HOME}/.local/share/sshmanager/"
+   ["HELIUM"]="${HOME}/.config/net.imput.helium/"
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 

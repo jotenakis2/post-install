@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=9.1
+readonly VER=9.3
 # paramètres customisables définies dans settings.sh. ##############################
 source settings.sh                                                                 #
 ####################################################################################
@@ -52,7 +52,10 @@ MAIN() {
     printf "\n%b%b  ✓ Terminé — REDÉMARREZ pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
     _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
-    _HEURE >> "${LOG_FILE}"
+
+    local END_TIME
+    END_TIME=${SECONDS}
+    echo -e "\n󱠢  Au revoir... (${C_YELLOW}${SCRIPTNAME}${C_RESET} v${C_MAGENTA}${VER}${C_RESET} a fonctionné pendant ${C_MAGENTA}$((END_TIME - START))${C_RESET}s)"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -68,6 +71,7 @@ MAIN() {
 # FONCTIONS PRINCIPALES                                                                                                #
 ########################################################################################################################
 INITIALIZE() {
+    START=${SECONDS}
     C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_MAGENTA='' C_BOLD=''
     if [[ -t 1 ]]; then
         C_RESET='\e[0m'
@@ -201,48 +205,48 @@ INSTALL_REPOS() {
     fedora_ver=$(rpm -E '%fedora')
 
     if ! rpm -q rpmfusion-free-release &>/dev/null; then
-        _RUN "RPM Fusion free (f${fedora_ver})" sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-"${fedora_ver}".noarch.rpm
-        _RUN "RPM Fusion free tainted (f${fedora_ver})" sudo dnf install -y rpmfusion-free-release-tainted
+        _RUN "Ajout du dépôt RPM Fusion free (f${fedora_ver})" sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-"${fedora_ver}".noarch.rpm
+        _RUN "Ajout du dépôt RPM Fusion free tainted (f${fedora_ver})" sudo dnf install -y rpmfusion-free-release-tainted
         cache=1
     else
-        _OK "RPM Fusion free déjà présent."
+        _OK "Dépôt RPM Fusion free déjà présent"
     fi
 
     if ! rpm -q rpmfusion-nonfree-release &>/dev/null; then
-        _RUN "RPM Fusion nonfree (f${fedora_ver})" sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"${fedora_ver}".noarch.rpm
-        _RUN "RPM Fusion nonfree tainted (f${fedora_ver})" sudo dnf install -y rpmfusion-nonfree-release-tainted
+        _RUN "Ajout du dépôt RPM Fusion nonfree (f${fedora_ver})" sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"${fedora_ver}".noarch.rpm
+        _RUN "Ajout du dépôt RPM Fusion nonfree tainted (f${fedora_ver})" sudo dnf install -y rpmfusion-nonfree-release-tainted
         cache=1
     else
-        _OK "RPM Fusion nonfree déjà présent."
+        _OK "Dépôt RPM Fusion nonfree déjà présent"
     fi
 
     if rpm -q rpmfusion-free-appstream-data &>/dev/null; then
-        _RUN "suppression métadonnées appstream free" sudo dnf remove -y rpmfusion-free-appstream-data
+        _RUN "Suppression métadonnées appstream free" sudo dnf remove -y rpmfusion-free-appstream-data
     fi
     if rpm -q rpmfusion-nonfree-appstream-data &>/dev/null; then
-        _RUN "suppression métadonnées appstream nonfree" sudo dnf remove -y rpmfusion-nonfree-appstream-data
+        _RUN "Suppression métadonnées appstream nonfree" sudo dnf remove -y rpmfusion-nonfree-appstream-data
     fi
 
     if ! rpm -q terra-release &>/dev/null; then
         # shellcheck disable=SC2016
-        _RUN "Terra (f${fedora_ver})" sudo dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
+        _RUN "Ajout du dépôt Terra (f${fedora_ver})" sudo dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
         cache=1
     else
-        _OK "Terra déjà présent."
+        _OK "Dépôt Terra déjà présent"
     fi
 
     if ! dnf repolist 2>/dev/null | grep -q "bigmenpixel:profile-sync-daemon"; then
-        _RUN "COPR profile-sync-daemon" sudo dnf copr enable -y bigmenpixel/profile-sync-daemon
+        _RUN "Ajout du dépôt COPR profile-sync-daemon" sudo dnf copr enable -y bigmenpixel/profile-sync-daemon
         cache=1
     else
-        _OK "COPR profile-sync-daemon déjà présent."
+        _OK "Dépôt COPR profile-sync-daemon déjà présent"
     fi
 
     if ! dnf repolist 2>/dev/null | grep -q "brave-browser"; then
-        _RUN "Brave Browser Repo" sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+        _RUN "Ajout du dépôt Brave" sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
         cache=1
     else
-        _OK "Brave Browser Repo déjà présent."
+        _OK "Dépôt Brave déjà présent"
     fi
     if [[ "${cache}" -eq 1 ]]; then
         _RUN "Rafraîchissement des métadonnées" sudo dnf makecache
@@ -384,9 +388,9 @@ INSTALL_CARGO_PACKAGES() {
     # 0. toolchain rust
     # shellcheck disable=SC2310
     if _EXIST rustup; then
-        _RUN "Mise à jour de la toolchain rust" rustup update stable
+        _RUN "Mise à jour de la toolchain RUST" rustup update stable
     else
-        _RUN "Installation de la toolchain rust" bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
+        _RUN "Installation de la toolchain RUST" bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
     fi
 
     # 1. Installation de cargo-binstall sans compilation
@@ -464,10 +468,10 @@ INSTALL_GO_PACKAGES() {
     if [[ "${current}" == "${latest}" ]] && _EXIST go; then
         _OK "Toolchain GO à jour"
     else
-        _RUN "Téléchargement de la toolchain Go" wget "https://go.dev/dl/${gofile}"
+        _RUN "Téléchargement de la toolchain GO" wget "https://go.dev/dl/${gofile}"
         echo "Installation de la toolchain GO v${latest}" >> "${LOG_FILE}"
         _RUNSILENT "" sudo rm -rvf /usr/local/go
-        _RUN "Installation de la toolchain Go" sudo tar -C /usr/local -xvzf "${gofile}"
+        _RUN "Installation de la toolchain GO" sudo tar -C /usr/local -xvzf "${gofile}"
         _RUNSILENT "" rm -vf "${gofile}"
     fi
 
@@ -576,8 +580,8 @@ SETUP_SHELL() {
     # 3- symlinks
     _SYMLINK "${HOME}/.local/share/icons" "${HOME}/.icons"
     _SYMLINK "${HOME}/.local/share/themes" "${HOME}/.themes"
-    _SYMLINK "${HOME}/.config/mozilla/firefox" "${HOME}/.mozilla/firefox"
-    _SYMLINK "${HOME}/.config/thunderbird" "${HOME}/.thunderbird"
+    #_SYMLINK "${HOME}/.config/mozilla/firefox" "${HOME}/.mozilla/firefox"
+    #_SYMLINK "${HOME}/.config/thunderbird" "${HOME}/.thunderbird"
 
     # 4- installation de fedupdate
     # local here fedupdate
@@ -591,6 +595,11 @@ SETUP_SHELL() {
     #     _OK "fedupdate est déjà installé (${fedupdate})"
     # fi
 
+    # 4- Divers
+    # shellcheck disable=SC2310
+    if _EXIST bat; then
+        _RUN "Reconstruction du cache de bat" bat cache --build
+    fi
 }
 
 ########################################################################################################################
@@ -708,10 +717,10 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 '
 
     if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
-        _OK "Règle IO scheduler déjà à jour"
+        _OK "Règle IO scheduler déjà à jour (${rules_file})"
     else
         #printf '%s\n' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
-        _RUN "Règle IO scheduler créée" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
+        _RUN "Règle IO scheduler créée (${rules_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
     fi
@@ -722,9 +731,9 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
     current=$(cat "${rules_file}" 2>/dev/null || true)
 
     if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
-        _OK "Règle udev persistante (${UDEVDESCR}) à jour"
+        _OK "Règle udev persistante (${UDEVDESCR}) à jour (${rules_file})"
     else
-        _RUN "Règle udev persistante (${UDEVDESCR}) créée" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
+        _RUN "Règle udev persistante (${UDEVDESCR}) créée (${rules_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
 
@@ -1262,7 +1271,7 @@ SETUP_DATA() {
     if [[ -n "${PROFILES}" ]]; then
         _SECTION " Restauration des données privées " "━" "${C_GREEN}"
         local profil file cmd
-        for profil in "${PROFILES[@]}"; do
+        for profil in "${!DESTINATIONS[@]}"; do
             cmd=${COMMANDS["${profil}"]}
             if [[ -d "${SOURCE}" ]]; then
                 # on récupère la sauvegarde la plus récente dans le dossier SOURCE pour le profil ${profil}
