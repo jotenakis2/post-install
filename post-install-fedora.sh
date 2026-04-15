@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=9.3
+readonly VER=9.5
 # paramètres customisables définies dans settings.sh. ##############################
 source settings.sh                                                                 #
 ####################################################################################
@@ -9,12 +9,14 @@ source settings.sh                                                              
 # TODO : git privé (clé ssh, ...)
 #        psd
 #        msmtp
+#        service systemd à forcer
 
 # je source ma bibliothèque de fonctions d'aide (_BANNER, _SECTION, _PASS, ...)
 source helpers.sh
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
+    local duration
     # intercept errors
     trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR
 
@@ -22,7 +24,7 @@ MAIN() {
     INITIALIZE
     CHECK_ENV
 
-    # tâches paquets
+    # tâches remove/install
     _RUN "Mise à jour forcée du système" sudo dnf upgrade --refresh -y
     REMOVE_RPM_PACKAGES
     INSTALL_REPOS
@@ -49,13 +51,12 @@ MAIN() {
     SETUP_SUDO_RS
 
     # Fin
+    _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
     printf "\n%b%b  ✓ Terminé — REDÉMARREZ pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
-    _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
+    duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
+    echo -e "${C_YELLOW}${SCRIPTNAME}${C_RESET} v${C_MAGENTA}${VER}${C_RESET} a terminé avec succès en ${C_MAGENTA}${duration}${C_RESET}s."
 
-    local END_TIME
-    END_TIME=${SECONDS}
-    echo -e "\n󱠢  Au revoir... (${C_YELLOW}${SCRIPTNAME}${C_RESET} v${C_MAGENTA}${VER}${C_RESET} a fonctionné pendant ${C_MAGENTA}$((END_TIME - START))${C_RESET}s)"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -779,6 +780,14 @@ SETUP_SYSTEMD(){
             _OK "Le ${description} est déjà désactivé."
         fi
     done
+    for service in "${!USER_SERVICES_TO_ENABLE[@]}"; do
+        description="${USER_SERVICES_TO_ENABLE[${service}]}"
+        if ! systemctl --user is-enabled --quiet "${service}" 2>/dev/null; then
+            _RUN "Activation du ${description}" systemctl --user enable --now "${service}"
+        else
+            _OK "Le ${description} est déjà activé."
+        fi
+    done
 }
 
 ########################################################################################################################
@@ -942,9 +951,19 @@ SETUP_FSTAB(){
 
 ########################################################################################################################
 SETUP_SWAP(){
-    local target_size=$(( SWAP_SIZE * 1024 * 1024 * 1024))
+    local target_size ram_total_kib
     local recreate_swap=false
     local swapdir="/var/swap"
+
+    ram_total_kib=$(awk '/^MemTotal:/ { print $2; exit }' /proc/meminfo)
+    # SWAP = 2 x RAMtotal avec MAX 16Go
+    SWAP_SIZE=$(( ram_total_kib * 2 / 1024 / 1024 ))
+    SWAP_MAX=16
+    if [[ "${SWAP_SIZE}" -gt "${SWAP_MAX}" ]]; then
+        SWAP_SIZE=${SWAP_MAX}
+    fi
+    target_size=$(( SWAP_SIZE * 1024 * 1024 * 1024 ))
+
 
     if [[ -f "${swapdir}/swapfile" ]]; then
         local current_size
@@ -1268,7 +1287,7 @@ SETUP_KDE_PLASMA() {
 
 ########################################################################################################################
 SETUP_DATA() {
-    if [[ -n "${PROFILES}" ]]; then
+    if [[ -n "${DESTINATIONS}" ]]; then
         _SECTION " Restauration des données privées " "━" "${C_GREEN}"
         local profil file cmd
         for profil in "${!DESTINATIONS[@]}"; do

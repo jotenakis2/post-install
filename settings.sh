@@ -10,7 +10,7 @@ HOSTNAME="MyFedoraBTW"
 
 # paquets RPM à installer #---------------------------------------------------------------------------------------------------
 DNF_PACKAGES=(
-    zsh fastfetch util-linux-script foot ghostty fzf bat-extras grc axel rclone procs
+    zsh fastfetch util-linux-script foot ghostty fzf bat-extras grc axel rclone procs msmtp s-nail
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
     vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng
@@ -22,7 +22,7 @@ DNF_PACKAGES=(
 
 # paquets RPM à désinstaller #------------------------------------------------------------------------------------------------
 DNF_REMOVE=(
-    zram-generator-defaults PackageKit-glib google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd
+    zram-generator-defaults PackageKit-glib google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd nano
     libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover rsyslog konsole konsole-part
     # Ajoute tes autres paquets ici
 )
@@ -74,7 +74,6 @@ declare -A GO_PACKAGES=(
     ["golazo"]="github.com/0xjuanma/golazo@latest"
     ["radiogogo"]="github.com/zi0p4tch0/radiogogo@latest"
     ["xytz"]="github.com/xdagiz/xytz@latest"
-    ["matcha"]="github.com/floatpane/matcha@latest"
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -108,6 +107,14 @@ FIREWALL_SERVICES=(
 declare -A SERVICES_TO_DISABLE=(
     ["ModemManager.service"]="service ModemManager"
     ["switcheroo-control.service"]="service switcheroo"
+    # ajoute tes autres services systemd à désactiver ici
+)
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
+# services systemd à activer #---------------------------------------------------------------------------------------------
+declare -A USER_SERVICES_TO_ENABLE=(
+    ["psd.service"]="service profile-sync-daemon"
     # ajoute tes autres services systemd à désactiver ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -204,11 +211,6 @@ DNSSEC=yes
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# taille du fichier swap en GiB (/var/swap/swapfile) #------------------------------------------------------------------------
-SWAP_SIZE=8
-#-----------------------------------------------------------------------------------------------------------------------------
-
-
 # Couleur du TTY (console virtuelle non graphique) #--------------------------------------------------------------------------
 TTY_COLOR="vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200" #catppuccin mocha
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -249,6 +251,7 @@ declare -A COMMANDS=(
    ["IPTVNATOR"]="iptvnator.bin"
    ["SSHMANAGER"]=""
    ["HELIUM"]="helium"
+   ["MSMTP"]=""
         # Ajoute les liens binaires à tuer avant de restaurer pour chaque PROFIL (important pour les navigateurs)
 )
 declare -A DESTINATIONS=(
@@ -258,6 +261,7 @@ declare -A DESTINATIONS=(
    ["IPTVNATOR"]="${HOME}/.config/iptvnator/"
    ["SSHMANAGER"]="${HOME}/.local/share/sshmanager/"
    ["HELIUM"]="${HOME}/.config/net.imput.helium/"
+   ["MSMTP"]="${HOME}/.config/msmtp"
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 
@@ -278,11 +282,11 @@ export DOTFILES_DIR
 export GIT_REPOS
 export FIREWALL_SERVICES
 export SERVICES_TO_DISABLE
+export USER_SERVICES_TO_ENABLE
 export SYSCTL_CONF
 # shellcheck disable=SC2090
 export BRAVE_POLICIES
 export RESOLVED_DNS_SERVERS
-export SWAP_SIZE
 export TTY_COLOR
 export CMDLINE
 export KDEPANEL

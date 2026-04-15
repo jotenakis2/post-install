@@ -230,4 +230,24 @@ _DIR_IS_SAFE_TO_RESTORE() {
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+_CONVERT_SECONDS() {
+    local total=${1:-0}
+    local days hours mins secs
 
+    (( total < 0 )) && total=0
+
+    days=$(( total / 86400 ))
+    hours=$(( (total % 86400) / 3600 ))
+    mins=$(( (total % 3600) / 60 ))
+    secs=$(( total % 60 ))
+
+    if (( days > 0 )); then
+        printf '%sj %sh %sm %ss\n' "${days}" "${hours}" "${mins}" "${secs}"
+    elif (( hours > 0 )); then
+        printf '%sh %sm %ss\n' "${hours}" "${mins}" "${secs}"
+    elif (( mins > 0 )); then
+        printf '%sm %ss\n' "${mins}" "${secs}"
+    else
+        printf '%ss\n' "${secs}"
+    fi
+}
