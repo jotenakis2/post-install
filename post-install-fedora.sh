@@ -1350,18 +1350,19 @@ SETUP_PLM() {
 
 ########################################################################################################################
 END() {
-    local duration
+    local duration uplog
     _SECTION " Fin " "━" "${C_GREEN}"
     _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
-    printf "\n%b%b  ✓ Terminé — REDÉMARREZ pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
-    printf "%b  Log complet : %s%b\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
+    _OK "REDÉMARREZ pour appliquer les modifications"
+    _OK "Log complet : ${LOG_FILE}"
+
     # shellcheck disable=SC2310
-    if _EXIST curl; then
-        echo -n "  Log téléversé vers "
-        curl -fsS --upload-file "${LOG_FILE}" https://paste.c-net.org/
-    fi
+    _EXIST curl || _RUNSILENT "" dnf install -y curl
+    uplog=$(curl -fsS --upload-file "${LOG_FILE}" https://paste.c-net.org/ 2>/dev/null)
+    [[ -n "${uplog}" ]] && _OK "Log téléversé : ${uplog}"
+
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
-    echo -e "  ${C_YELLOW}${SCRIPTNAME}${C_RESET} v${C_MAGENTA}${VER}${C_RESET} a terminé avec succès en ${C_MAGENTA}${duration}${C_RESET}."
+    _OK "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
 }
 
 ########################################################################################################################
