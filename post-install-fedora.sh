@@ -18,10 +18,10 @@ MAIN() {
     # Start
     INITIALIZE
     CHECK_ENV
-    SETUP_SUDO_RS
 
     # tâches remove/install
     _RUN "Mise à jour forcée du système" sudo dnf upgrade --refresh -y
+    SETUP_SUDO_RS
     REMOVE_RPM_PACKAGES
     INSTALL_REPOS
     INSTALL_RPM_PACKAGES
