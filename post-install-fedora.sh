@@ -2,15 +2,14 @@
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
 readonly VER=10.0
-# paramètres customisables définies dans settings.sh. ##############################
+# paramètres customisables définis dans settings.sh. ##############################
 source settings.sh                                                                 #
 ####################################################################################
 
-# je source ma bibliothèque de fonctions d'aide (_BANNER, _SECTION, _PASS, ...)
-source helpers.sh
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
+    source helpers.sh # bibliothèque de fonctions d'aide
     trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR # gestion des erreurs
 
     # Préparation
