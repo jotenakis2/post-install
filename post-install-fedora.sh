@@ -1,15 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=9.8
+readonly VER=9.9
 # paramètres customisables définies dans settings.sh. ##############################
 source settings.sh                                                                 #
 ####################################################################################
-
-# TODO : git privé (clé ssh, ...)
-#        psd
-#        msmtp
-#        service systemd à forcer
 
 # je source ma bibliothèque de fonctions d'aide (_BANNER, _SECTION, _PASS, ...)
 source helpers.sh
@@ -55,8 +50,13 @@ MAIN() {
     _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
     printf "\n%b%b  ✓ Terminé — REDÉMARREZ pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
+    if _EXISTS curl; then
+        echo -n "Log téléversé vers "
+        curl -fsS --upload-file "${LOG_FILE}" https://paste.c-net.org/
+    fi
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
     echo -e "  ${C_YELLOW}${SCRIPTNAME}${C_RESET} v${C_MAGENTA}${VER}${C_RESET} a terminé avec succès en ${C_MAGENTA}${duration}${C_RESET}."
+
 
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -195,7 +195,7 @@ REMOVE_RPM_PACKAGES() {
             if rpm -q systemd-networkd &>/dev/null; then
                 _RUN "Suppression systemd-networkd (NetworkManager actif)" sudo dnf remove -y systemd-networkd
             else
-                _OK "systemd-networkd absent — ignoré."
+                _OK "systemd-networkd absent — ignoré"
             fi
         else
             _INFO "NetworkManager inactif — systemd-networkd conservé."
@@ -268,7 +268,7 @@ INSTALL_FONTS() {
         if ! rpm -q "${font}" &>/dev/null; then
             _RUN "Installation ${font}" sudo dnf install -y "${font}"
         else
-            _OK "${font} déjà présente."
+            _OK "${font} déjà présente"
         fi
     done
 }
@@ -282,13 +282,13 @@ INSTALL_CODECS() {
         _RUN "Swap ffmpeg-free →  ffmpeg" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
         _RUNSILENT "Mise à jour groupe multimedia." sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
     else
-        _OK "ffmpeg (rpmfusion) déjà présent."
-        _OK "Groupe multimedia déjà à jour."
+        _OK "ffmpeg (rpmfusion) déjà présent"
+        _OK "Groupe multimedia déjà à jour"
     fi
     if ! dnf repolist --enabled | grep -q '^fedora-cisco-openh264'; then
         _RUNSILENT "Activation Cisco h264." sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1 -y
     else
-        _OK "Cisco h264 déjà activé."
+        _OK "Cisco h264 déjà activé"
     fi
 
     # mesa swap
@@ -300,13 +300,13 @@ INSTALL_CODECS() {
         if ! rpm -q mesa-va-drivers-freeworld &>/dev/null; then
             _RUN "Swap mesa-va-drivers → freeworld (AMD)" sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld
         else
-            _OK "Mesa freeworld déjà présent."
+            _OK "Mesa freeworld déjà présent"
         fi
     elif echo "${gpu_vendor}" | grep -q "intel"; then
         if ! rpm -q intel-media-driver &>/dev/null; then
             _RUN "intel-media-driver" sudo dnf install -y intel-media-driver
         else
-            _OK "intel-media-driver déjà présent."
+            _OK "intel-media-driver déjà présent"
         fi
     else
         _INFO "GPU ni AMD ni Intel => Pas de swap mesa à faire."
@@ -325,14 +325,12 @@ INSTALL_RPM_PACKAGES() {
     for pkg in "${DNF_PACKAGES[@]}"; do
         if ! rpm -q "${pkg}" &>/dev/null; then
             missing_packages+=("${pkg}")
-        else
-            _OK "${pkg} est déjà installé — ignoré."
         fi
     done
 
     if ((${#missing_packages[@]})); then
         _RUNSILENT "" mkdir -pv "${download_dir}"
-        _OK "Paquets manquants : ${missing_packages[*]}."
+        _OK "Paquets manquants : ${missing_packages[*]}"
         _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf download --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
         _RUN "Installation des paquets manquants depuis le cache de téléchargement" sudo dnf install -y "${download_dir}"/*.rpm
         _RUNSILENT "" rm -rvf "${download_dir}"
@@ -350,7 +348,7 @@ INSTALL_FLATPAK_PACKAGES() {
     if ! _EXIST flatpak; then
         _RUN "Installation de Flatpak" sudo dnf install -y flatpak
     else
-        _OK "Flatpak est déjà installé."
+        _OK "Flatpak est déjà installé"
     fi
 
     # 2. Ajout de Flathub s'il n'existe pas
@@ -404,7 +402,7 @@ INSTALL_CARGO_PACKAGES() {
     if ! _EXIST cargo-binstall; then
         _RUN "Installation de cargo-binstall" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
     else
-        _OK "cargo-binstall est déjà installé."
+        _OK "cargo-binstall est déjà installé"
     fi
     _RUNSILENT "" sudo ln -svf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
 
@@ -413,7 +411,7 @@ INSTALL_CARGO_PACKAGES() {
 
         # 1. Installation du paquet via Cargo (binstall)
         if cargo install --list | grep -q "^${cmd} "; then
-            _OK "${cmd} déjà installé."
+            _OK "${cmd} déjà installé"
         else
             _RUN "Installation de ${cmd}" cargo binstall --no-confirm "${cmd}"
         fi
@@ -526,7 +524,7 @@ CLONE_GIT() {
         fi
     done
 
-    _OK "Tous les dépôts Git sont à jour."
+    _OK "Tous les dépôts Git sont à jour"
 }
 
 ########################################################################################################################
@@ -548,7 +546,7 @@ SETUP_SHELL() {
             if [[ "${current_shell}" != "${zsh_bin}" ]]; then
                 _RUN "chsh ${user} → zsh" sudo chsh -s "${zsh_bin}" "${user}"
             else
-                _OK "${user} utilise déjà zsh."
+                _OK "${user} utilise déjà zsh"
             fi
         fi
     done < /etc/passwd
@@ -658,7 +656,7 @@ SETUP_ETC() {
         "
         restart=1
     else
-        _OK "NetworkManager déjà configuré pour utiliser systemd-resolved"
+        _OK "NetworkManager déjà configuré pour utiliser systemd-resolved (/etc/NetworkManager/conf.d/99-global-dns.conf)"
     fi
 
     _RUNSILENT "" sudo ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf # pas sécurité on force
@@ -667,7 +665,7 @@ SETUP_ETC() {
         _RUN "Déploiement de la configuration DNS (dans /etc/systemd/resolved.conf.d/)" sudo bash -c "echo '${RESOLVED_DNS_SERVERS}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf ; echo '${resolved_10_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
         restart=1
     else
-        _OK "Configuration DNS (systemd-resolved) déjà présente"
+        _OK "Configuration DNS (systemd-resolved) déjà présente (dans /etc/systemd/resolved.conf.d/)"
     fi
     if [[ ${restart} -eq 1 ]]; then
         _RUN "Redémarrage des services NetworkManager et systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
@@ -689,7 +687,7 @@ SETUP_ETC() {
     ${SYSCTL_CONF}"
 
     if [[ -f "${sysctlfile}" ]] && echo "${full_sysctl_content}" | sudo cmp -s - "${sysctlfile}"; then
-        _OK "Configuration noyau déjà à jour (${sysctlfile})."
+        _OK "Configuration noyau déjà à jour (${sysctlfile})"
     else
         _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -v -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
         _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
@@ -702,7 +700,7 @@ SETUP_ETC() {
     readonly brave_policy_file full_brave_policies
 
     if [[ -f "${brave_policy_file}" ]] && echo "${full_brave_policies}" | sudo cmp -s - "${brave_policy_file}"; then
-        _OK "Configuration policies debloat Brave déjà à jour (${brave_policy_file})."
+        _OK "Configuration policies debloat Brave déjà à jour (${brave_policy_file})"
     else
         _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
     fi
@@ -752,7 +750,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
         readonly chrony_file chrony_content
         if [[ -f "${chrony_file}" ]] && echo "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
-            _OK "Configuration chronyd déjà à jour."
+            _OK "Configuration chronyd déjà à jour (${chrony_file})"
         else
             _RUN "Configuration de chronyd (${chrony_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
            _RUNSILENT "" sudo systemctl try-restart chronyd
@@ -765,7 +763,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 
     if getent group libvirt >/dev/null 2>&1; then
         if id -nG "${main_user}" | grep -qw "libvirt"; then
-            _OK "L'utilisateur ${main_user} est déjà dans le groupe libvirt."
+            _OK "L'utilisateur ${main_user} est déjà dans le groupe libvirt"
         else
             _RUN "Ajout de l'utilisateur ${main_user} au groupe libvirt" sudo usermod -aG libvirt "${main_user}"
         fi
@@ -782,7 +780,7 @@ SETUP_SYSTEMD(){
         if systemctl is-enabled --quiet "${service}" 2>/dev/null; then
             _RUN "Désactivation du ${description}" sudo systemctl disable --now "${service}"
         else
-            _OK "Le ${description} est déjà désactivé."
+            _OK "Le ${description} est déjà désactivé"
         fi
     done
     for service in "${!USER_SERVICES_TO_ENABLE[@]}"; do
@@ -790,7 +788,7 @@ SETUP_SYSTEMD(){
         if ! systemctl --user is-enabled --quiet "${service}" 2>/dev/null; then
             _RUN "Activation du ${description}" systemctl --user enable --now "${service}"
         else
-            _OK "Le ${description} est déjà activé."
+            _OK "Le ${description} est déjà activé"
         fi
     done
 }
@@ -834,7 +832,7 @@ SETUP_GRUB(){
 
             _RUN "Regénération de la configuration de GRUB pour inclure les nouveaux paramètres (grub2-mkconfig)" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
         else
-            _OK "GRUB est déjà correctement configuré."
+            _OK "GRUB est déjà correctement configuré"
         fi
     else
         _ERR "GRUB n'a pas été détecté, je ne change rien au bootloader."
@@ -853,7 +851,7 @@ SETUP_FIREWALL() {
     if ! systemctl is-active --quiet firewalld; then
         _RUN "Démarrage et activation du service firewalld" sudo systemctl enable --now firewalld.service
     else
-        _OK "Le service firewalld est déjà actif."
+        _OK "Le service firewalld est déjà actif"
     fi
 
     # 3. Configuration des services essentiels
@@ -861,7 +859,7 @@ SETUP_FIREWALL() {
     local service
     for service in "${FIREWALL_SERVICES[@]}"; do
         if sudo firewall-cmd --permanent --query-service="${service}" >/dev/null 2>&1; then
-            _OK "Le service '${service}' est déjà autorisé."
+            _OK "Le service '${service}' est déjà autorisé"
         else
             _RUN "Autorisation du service '${service}'" sudo firewall-cmd --permanent --add-service="${service}"
             firewall_changed=true
@@ -886,7 +884,7 @@ SETUP_FSTAB(){
         _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.swap
         _RUN "Ajout du swap" sudo bash -c "echo ${swapdir}/swapfile none swap defaults,nofail 0 0 >> /etc/fstab"
     else
-        _OK "Swap déjà présent dans /etc/fstab."
+        _OK "Swap déjà présent dans /etc/fstab"
     fi
 
     # --- Optimisations Fstab (noatime, lazytime) ---
@@ -930,7 +928,7 @@ SETUP_FSTAB(){
         _RUN "Optimisations des systèmes de fichier" sudo cp -av "${tmp_dir}/fstab.new" /etc/fstab
         _RUNSILENT "" sudo systemctl daemon-reload
     else
-        _OK "Les options d'optimisations sont déjà présentes dans /etc/fstab."
+        _OK "Les options d'optimisations sont déjà présentes dans /etc/fstab"
     fi
 
     # NFS
@@ -980,7 +978,7 @@ SETUP_SWAP(){
             _RUNSILENT "" sudo rm -fv "${swapdir}/swapfile"
             recreate_swap=true
         else
-            _OK "${swapdir}/swapfile est déjà correctement installé."
+            _OK "${swapdir}/swapfile est déjà correctement installé"
         fi
     else
         recreate_swap=true
@@ -993,7 +991,7 @@ SETUP_SWAP(){
         if [[ "${fs_type}" == "btrfs" ]]; then
             if [[ -e "${swapdir}" ]]; then
                 if btrfs subvolume show "${swapdir}" >/dev/null 2>&1; then
-                    _OK "Sous-volume BTRFS ${swapdir} existe déjà."
+                    _OK "Sous-volume BTRFS ${swapdir} existe déjà"
                 else
                     _RUNSILENT "" sudo rm -rvf "${swapdir}"
                     _RUN "Création du sous-volume BTRFS ${swapdir}" sudo btrfs subvolume create "${swapdir}"
@@ -1013,7 +1011,7 @@ SETUP_SWAP(){
     if ! swapon --show | grep -q "${swapdir}/swapfile"; then
         _RUN "Activation du swap" sudo swapon "${swapdir}/swapfile"
     else
-        _OK "Swap déjà actif."
+        _OK "Swap déjà actif"
     fi
 
 
@@ -1039,7 +1037,7 @@ SETUP_SWAP(){
 
         _RUNSILENT "" rm -fv "${selinux_tmp}.*"
     else
-        _OK "Le module SELinux systemd_swap_search est déjà actif."
+        _OK "Le module SELinux systemd_swap_search est déjà actif"
     fi
 }
 
@@ -1051,7 +1049,7 @@ SETUP_SUDO_RS() {
     if ! _EXIST sudo-rs; then
         _RUN "Installation de sudo-rs" sudo dnf install -y sudo-rs
     else
-        _OK "sudo-rs est déjà installé."
+        _OK "sudo-rs est déjà installé"
     fi
 
     # 2. Copie (sans suppression) des fichiers vers le monde sudo-rs
@@ -1094,7 +1092,7 @@ SETUP_SUDO_RS() {
      fi
 
      if [[ "${current_link}" == "${sudo_rs_bin}" ]]; then
-         _OK "Le lien symbolique sudo -> sudo-rs est déjà en place."
+         _OK "Le lien symbolique sudo -> sudo-rs est déjà en place"
      else
          # CORRECTION : On regroupe le 'mv' et le 'ln' dans le même appel sudo pour ne pas bloquer le système !
          _RUN "Remplacement radical du binaire sudo" sudo bash -c "
@@ -1118,7 +1116,7 @@ SETUP_SUDO_RS() {
         if ! sudo grep -q "${pattern}" "${file}" > /dev/null; then
             _RUN "Mise à jour de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
         else
-            _OK "Règle \"profile-sync-daemon\" déjà existante (${file})."
+            _OK "Règle \"profile-sync-daemon\" déjà existante (${file})"
         fi
     else
         _RUN "Création de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
@@ -1130,7 +1128,7 @@ SETUP_SUDO_RS() {
         if ! sudo grep -q "${pattern}" "${file2}" > /dev/null; then
             _RUN "Mise à jour de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
         else
-            _OK "Règle \"timeout\" déjà existante (${file2})."
+            _OK "Règle \"timeout\" déjà existante (${file2})"
         fi
     else
         _RUN "Création de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
@@ -1158,7 +1156,7 @@ SETUP_SUDO_RS() {
     if ! sudo grep -q sudo /etc/dnf/dnf.conf; then
         _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
     fi
-    _OK "sudo-rs est en place et remplace définitivement sudo."
+    _OK "sudo-rs est en place et remplace définitivement sudo"
 }
 
 ########################################################################################################################
@@ -1211,20 +1209,20 @@ SETUP_KDE_PLASMA() {
         if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela*" -print -quit | grep -q . >/dev/null; then
             temp_tela=$(mktemp -d)
             _RUN "Téléchargement des icônes Tela" git clone https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
-            _RUN "Installation des icônes Tela" bash -c "   \"${temp_tela}\"/tela/install.sh -a -d \"${HOME}\"/.local/share/icons   "
+            _RUN "Installation des icônes Tela (dans ${HOME}/.local/share/icons/)" bash -c "   \"${temp_tela}\"/tela/install.sh -a -d \"${HOME}\"/.local/share/icons   "
             _RUNSILENT "" rm -rf "${temp_tela}"
         else
-            _OK "Le pack d'icônes Tela est déjà installé."
+            _OK "Le pack d'icônes Tela est déjà installé (dans ${HOME}/.local/share/icons/)"
         fi
 
         # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
         local temp_cursor
         temp_cursor=$(mktemp -d)
         if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*catppuccin-mocha-lavender-cursors*" -print -quit | grep -q . >/dev/null; then
-            _RUN "Installation du curseur Bibata Lavender" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
+            _RUN "Installation du curseur catppuccin-mocha-lavender (dans ${HOME}/.local/share/icons/)" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
             _RUNSILENT "" unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
         else
-            _OK "Le pack de curseurs Bibata Lavender est déjà installé."
+            _OK "Le pack de curseurs catppuccin-mocha-lavender est déjà installé (dans ${HOME}/.local/share/icons/)"
         fi
 
         # Pointeur par défaut pour compatibilité GTK
@@ -1241,13 +1239,13 @@ SETUP_KDE_PLASMA() {
                 _OK "Service d'indexation déjà désactivé"
             fi
         else
-            _INFO "L'outil balooctl n'est pas installé. Aucune action requise."
+            _INFO "L'outil balooctl n'est pas installé. Aucune action requise"
         fi
 
         # déplacement du panneau principal
         local target_pos="${KDEPANEL:-bottom}" # fallback en bas
         if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
-            _INFO "plasmashell n'est pas lancée. Configuration du panneau reportée."
+            _INFO "plasmashell n'est pas lancée, déplacement du panneau annulé"
         else
             _RUN "Déplacement du panneau en position ${target_pos}" _PLASMA_EVAL "
                 var allPanels = panels();
@@ -1286,7 +1284,7 @@ SETUP_KDE_PLASMA() {
         fi
     else
         echo
-        _INFO "KDE n'a pas été détecté... Je ne touche pas à la customization de KDE."
+        _INFO "KDE n'a pas été détecté... Je ne touche pas à la customization de KDE"
     fi
 }
 
@@ -1301,14 +1299,14 @@ SETUP_DATA() {
                 # on récupère la sauvegarde la plus récente dans le dossier SOURCE pour le profil ${profil}
                 file=$(find "${SOURCE}" -maxdepth 1 -name "${profil}_*.tar.gz" -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2- || true)
                 if [[ -n "${cmd}" ]] && pgrep -x "${cmd}" >/dev/null; then
-                    _ERR "Ferme ${cmd} d'abord."
+                    _ERR "Ferme ${cmd} d'abord !"
                 else
                     if [[ -n "${file}" ]]; then
                         # shellcheck disable=SC2310
                         if _DIR_IS_SAFE_TO_RESTORE "${DESTINATIONS[${profil}]}"; then
                             _RUN "Restauration de ${profil} (${file} vers ${HOME}) en cours..." tar -xzf "${file}" -C "${HOME}"
                         else
-                            _ERR "Le dossier de restauration de ${profil} contient déjà des données, on ne fait rien."
+                            _ERR "Le dossier de restauration de ${profil} contient déjà des données, on ne fait rien"
                         fi
                     else
                         _OK "Aucun fichier de sauvegarde trouvé pour le profil ${profil}"
@@ -1320,7 +1318,7 @@ SETUP_DATA() {
         done
     else
         echo ""
-        _INFO "Aucune données privées à restaurer."
+        _INFO "Aucune données privées à restaurer"
     fi
 
 }
@@ -1348,7 +1346,7 @@ SETUP_PLM() {
         fi
     else
         echo
-        _INFO "KDE n'a pas été détecté... Je ne touche pas au display-manager."
+        _INFO "KDE n'a pas été détecté, on ne touche pas au display-manager"
     fi
 }
 
