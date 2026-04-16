@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=9.7
+readonly VER=9.8
 # paramètres customisables définies dans settings.sh. ##############################
 source settings.sh                                                                 #
 ####################################################################################
@@ -23,6 +23,7 @@ MAIN() {
     # Start
     INITIALIZE
     CHECK_ENV
+    SETUP_SUDO_RS
 
     # tâches remove/install
     _RUN "Mise à jour forcée du système" sudo dnf upgrade --refresh -y
@@ -36,7 +37,6 @@ MAIN() {
     INSTALL_FLATPAK_PACKAGES
 
     # tâches config
-    SETUP_SUDO_RS
     CLONE_GIT
     SETUP_SHELL
     SETUP_DOTFILES
@@ -51,11 +51,12 @@ MAIN() {
     SETUP_DATA
 
     # Fin
+    _SECTION " Fin " "━" "${C_GREEN}"
     _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
     printf "\n%b%b  ✓ Terminé — REDÉMARREZ pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
     printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
-    echo -e "${C_YELLOW}${SCRIPTNAME}${C_RESET} v${C_MAGENTA}${VER}${C_RESET} a terminé avec succès en ${C_MAGENTA}${duration}${C_RESET}."
+    echo -e "  ${C_YELLOW}${SCRIPTNAME}${C_RESET} v${C_MAGENTA}${VER}${C_RESET} a terminé avec succès en ${C_MAGENTA}${duration}${C_RESET}."
 
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -164,6 +165,10 @@ CHECK_ENV() {
     fedora_rel=$(cat /etc/fedora-release)
     _OK "Environnement valide — ${fedora_rel}, utilisateur ${USER} avec droits sudo"
 
+    local heure
+    heure=$(date '+%T')
+    _OK "Heure de démarrage de la post-installation : ${heure}"
+    _OK "Fichier log de la post-installation : ${LOG_FILE}"
 }
 
 ########################################################################################################################
@@ -638,7 +643,7 @@ SETUP_ETC() {
     local currenthost
     currenthost=$(hostnamectl hostname)
     if [[ -n "${HOSTNAME}" ]] && [[ "${currenthost}" != "${HOSTNAME}" ]]; then
-        _RUNSILENT "Changement du nom de la machine => ${HOSTNAME}" sudo hostnamectl set-hostname "${HOSTNAME}"
+        _RUNSILENT "Changement du nom de la machine (${HOSTNAME})" sudo hostnamectl set-hostname "${HOSTNAME}"
     fi
 
     # --- NetworkManager & systemd-resolved ---
@@ -648,24 +653,24 @@ SETUP_ETC() {
     readonly nm_dns_conf resolved_10_conf
 
     if ! grep -rq "dns=systemd-resolved" /etc/NetworkManager/conf.d; then
-        _RUN "Configuration de NetworkManager pour systemd-resolved" sudo bash -c "
+        _RUN "Configuration de NetworkManager pour systemd-resolved (/etc/NetworkManager/conf.d/99-global-dns.conf)" sudo bash -c "
         echo '${nm_dns_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/NetworkManager/conf.d/99-global-dns.conf
         "
         restart=1
     else
-        _OK "NetworkManager déjà configuré pour utiliser systemd-resolved."
+        _OK "NetworkManager déjà configuré pour utiliser systemd-resolved"
     fi
 
     _RUNSILENT "" sudo ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf # pas sécurité on force
 
     if [[ ! -f /etc/systemd/resolved.conf.d/dns_servers.conf ]] || [[ ! -f /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ]]; then
-        _RUN "Déploiement de la configuration DNS (systemd-resolved)" sudo bash -c "echo '${RESOLVED_DNS_SERVERS}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf ; echo '${resolved_10_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
+        _RUN "Déploiement de la configuration DNS (dans /etc/systemd/resolved.conf.d/)" sudo bash -c "echo '${RESOLVED_DNS_SERVERS}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf ; echo '${resolved_10_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
         restart=1
     else
-        _OK "Configuration DNS (systemd-resolved) déjà présente."
+        _OK "Configuration DNS (systemd-resolved) déjà présente"
     fi
     if [[ ${restart} -eq 1 ]]; then
-        _RUN "Redémarrage de NetworkManager & systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
+        _RUN "Redémarrage des services NetworkManager et systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
     fi
 
     # --- Optimisations Kernel (Sysctl) ---
@@ -749,7 +754,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         if [[ -f "${chrony_file}" ]] && echo "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
             _OK "Configuration chronyd déjà à jour."
         else
-            _RUN "Configuration de chronyd" sudo install -v -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
+            _RUN "Configuration de chronyd (${chrony_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
            _RUNSILENT "" sudo systemctl try-restart chronyd
         fi
     fi
@@ -819,15 +824,15 @@ SETUP_GRUB(){
             _RUNSILENT "" sudo cp -av /etc/default/grub /etc/default/grub.bak
 
             # Application des modifications (avec gestion de l'absence)
-            _RUN "Mise à jour des paramètres de GRUB (zswap, menu affiché, ...)" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
+            _RUN "Mise à jour des paramètres de GRUB (/etc/default/grub)" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
 
             if grep -q '^GRUB_TIMEOUT=' /etc/default/grub; then
-                _RUN "Mise à jour du délai de GRUB (2 sec)" sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
+                _RUN "Délai GRUB 2 sec (/etc/default/grub)" sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
             else
-                _RUN "Ajout d'un délai GRUB de 2 sec" sudo bash -c "echo 'GRUB_TIMEOUT=2' >> /etc/default/grub"
+                _RUN "Délai GRUB 2 sec (/etc/default/grub)" sudo bash -c "echo 'GRUB_TIMEOUT=2' >> /etc/default/grub"
             fi
 
-            _RUN "Regénération de la configuration de GRUB pour inclure les nouveaux paramètres" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+            _RUN "Regénération de la configuration de GRUB pour inclure les nouveaux paramètres (grub2-mkconfig)" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
         else
             _OK "GRUB est déjà correctement configuré."
         fi
@@ -1327,17 +1332,17 @@ SETUP_PLM() {
         if ! rpm -q plasma-login-manager >/dev/null 2>&1; then
             _RUN "Installation de plasma-login-manager" sudo dnf install -y plasma-login-manager kcm-plasmalogin
         else
-            _OK "plasma-login-manager déjà installé."
+            _OK "plasma-login-manager déjà installé"
         fi
 
         if systemctl is-enabled --quiet sddm.service 2>/dev/null; then
             _RUN "Désactivation de SDDM à partir du prochain boot" sudo systemctl disable sddm.service
         else
-            _OK "SDDM déjà désactivé."
+            _OK "SDDM déjà désactivé"
         fi
 
         if systemctl is-enabled --quiet plasmalogin.service 2>/dev/null; then
-            _OK "plasmalogin.service déjà activé."
+            _OK "plasmalogin.service déjà activé"
         else
             _RUN "Activation de Plasma Login Manager à partir du prochain boot" sudo systemctl enable --force plasmalogin.service
         fi
