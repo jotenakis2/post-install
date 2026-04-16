@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=10.1
+readonly VER=10.2
 # paramètres customisables définis dans settings.sh. ##############################
 source settings.sh                                                                 #
 ####################################################################################
@@ -112,7 +112,7 @@ INITIALIZE() {
 
 ########################################################################################################################
 CHECK_ENV() {
-    _SECTION " Vérification environnement " "━" "${C_GREEN}"
+    _SECTION " Préparation " "━" "${C_GREEN}"
 
     [[ -n "${BASH_VERSION:-}" ]]       || _DIE "Ce script requiert bash."
     [[ "${BASH_VERSINFO[0]}" -ge 5 ]]  || _DIE "Bash >= 5 requis (actuel : ${BASH_VERSION})."
@@ -310,8 +310,8 @@ INSTALL_RPM_PACKAGES() {
     if ((${#missing_packages[@]})); then
         _RUNSILENT "" mkdir -pv "${download_dir}"
         _OK "Paquets manquants : ${missing_packages[*]}"
-        _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf download --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
-        _RUN "Installation des paquets manquants depuis le cache de téléchargement" sudo dnf install -y "${download_dir}"/*.rpm
+        _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf download --skip-unavailable --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
+        _RUN "Installation des paquets manquants depuis le cache de téléchargement" sudo dnf install --skip-unavailable -y "${download_dir}"/*.rpm
         _RUNSILENT "" rm -rvf "${download_dir}"
     else
         _OK "Tous les paquets RPM demandés sont déjà installés"
