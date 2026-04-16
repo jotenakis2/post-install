@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=10.0
+readonly VER=10.1
 # paramètres customisables définis dans settings.sh. ##############################
 source settings.sh                                                                 #
 ####################################################################################
@@ -54,14 +54,13 @@ MAIN() {
 ########################################################################################################################
 INITIALIZE() {
     START=${SECONDS}
-    C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_MAGENTA='' C_BOLD=''
+    C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_BOLD=''
     if [[ -t 1 ]]; then
         C_RESET='\e[0m'
         C_BOLD='\e[1m'
         C_RED='\e[1;31m'
         C_GREEN='\e[1;32m'
         C_YELLOW='\e[1;33m'
-        C_MAGENTA='\e[1;35m'
     fi
     _PASS
     LOG_DIR="${HOME}/.local/log"
@@ -1354,7 +1353,7 @@ END() {
     _SECTION " Fin " "━" "${C_GREEN}"
     _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
     _OK "REDÉMARREZ pour appliquer les modifications"
-    _OK "Log complet : ${LOG_FILE}"
+    _OK "Fichier log de la post-installation : ${LOG_FILE}"
 
     # shellcheck disable=SC2310
     _EXIST curl || _RUNSILENT "" dnf install -y curl
@@ -1363,6 +1362,7 @@ END() {
 
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
     _OK "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
+    echo ""
 }
 
 ########################################################################################################################
