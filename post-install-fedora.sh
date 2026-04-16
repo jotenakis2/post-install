@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=9.9
+readonly VER=10.0
 # paramètres customisables définies dans settings.sh. ##############################
 source settings.sh                                                                 #
 ####################################################################################
@@ -11,17 +11,15 @@ source helpers.sh
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
-    local duration
-    # intercept errors
-    trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR
+    trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR # gestion des erreurs
 
-    # Start
+    # Préparation
     INITIALIZE
     CHECK_ENV
-
-    # tâches remove/install
     _RUN "Mise à jour forcée du système" sudo dnf upgrade --refresh -y
     SETUP_SUDO_RS
+
+    # remove/install
     REMOVE_RPM_PACKAGES
     INSTALL_REPOS
     INSTALL_RPM_PACKAGES
@@ -31,7 +29,7 @@ MAIN() {
     INSTALL_GO_PACKAGES
     INSTALL_FLATPAK_PACKAGES
 
-    # tâches config
+    # config
     CLONE_GIT
     SETUP_SHELL
     SETUP_DOTFILES
@@ -45,27 +43,10 @@ MAIN() {
       SETUP_PLM
     SETUP_DATA
 
-    # Fin
-    _SECTION " Fin " "━" "${C_GREEN}"
-    _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
-    printf "\n%b%b  ✓ Terminé — REDÉMARREZ pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
-    printf "%b  Log complet : %s%b\n\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
-    if _EXISTS curl; then
-        echo -n "Log téléversé vers "
-        curl -fsS --upload-file "${LOG_FILE}" https://paste.c-net.org/
-    fi
-    duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
-    echo -e "  ${C_YELLOW}${SCRIPTNAME}${C_RESET} v${C_MAGENTA}${VER}${C_RESET} a terminé avec succès en ${C_MAGENTA}${duration}${C_RESET}."
-
-
+    # Finalisation
+    END
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-
-
-
-
-
 
 
 
@@ -186,7 +167,7 @@ REMOVE_RPM_PACKAGES() {
         if rpm -q "${pkg}" &>/dev/null; then
             _RUN "Suppression ${pkg}" sudo dnf remove -y "${pkg}"
         else
-            _OK "${pkg} absent — ignoré."
+            _OK "${pkg} absent — ignoré"
         fi
     done
 
@@ -198,7 +179,7 @@ REMOVE_RPM_PACKAGES() {
                 _OK "systemd-networkd absent — ignoré"
             fi
         else
-            _INFO "NetworkManager inactif — systemd-networkd conservé."
+            _INFO "NetworkManager inactif — systemd-networkd conservé"
         fi
     fi
 }
@@ -335,7 +316,7 @@ INSTALL_RPM_PACKAGES() {
         _RUN "Installation des paquets manquants depuis le cache de téléchargement" sudo dnf install -y "${download_dir}"/*.rpm
         _RUNSILENT "" rm -rvf "${download_dir}"
     else
-        _INFO "Tous les paquets RPM sont déjà installés."
+        _OK "Tous les paquets RPM demandés sont déjà installés"
     fi
 }
 
@@ -665,7 +646,7 @@ SETUP_ETC() {
         _RUN "Déploiement de la configuration DNS (dans /etc/systemd/resolved.conf.d/)" sudo bash -c "echo '${RESOLVED_DNS_SERVERS}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf ; echo '${resolved_10_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
         restart=1
     else
-        _OK "Configuration DNS (systemd-resolved) déjà présente (dans /etc/systemd/resolved.conf.d/)"
+        _OK "Configuration DNS déjà présente (dans /etc/systemd/resolved.conf.d/)"
     fi
     if [[ ${restart} -eq 1 ]]; then
         _RUN "Redémarrage des services NetworkManager et systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
@@ -1164,11 +1145,9 @@ SETUP_KDE_PLASMA() {
 # on check KDE est lancé
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
         _SECTION " Personnalisation de KDE Plasma 6 " "━" "${C_GREEN}"
+        local change=0
 
-        # 1. Base Dark
-        #_RUN "Passage en mode Dark global" plasma-apply-lookandfeel -a org.kde.breezedark.desktop
-
-        # 2. Color Scheme : Tokyo Night
+        # Color Scheme : Tokyo Night
         local color_dir="${HOME}/.local/share/color-schemes"
         local color_file="${color_dir}/TokyoNight.colors"
         local tokyo_url="https://raw.githubusercontent.com/Jayy-Dev/Plasma-Tokyo-Night/plasma-6/colorscheme/TokyoNight.colors"
@@ -1198,6 +1177,7 @@ SETUP_KDE_PLASMA() {
                         _OK "La palette de couleurs active est déjà ${tokyoexist}"
                     else
                         _RUN "Application de la palette de couleurs ${tokyoexist}" plasma-apply-colorscheme "${tokyoexist}"
+                        change=1
                     fi
                 fi
 
@@ -1211,6 +1191,7 @@ SETUP_KDE_PLASMA() {
             _RUN "Téléchargement des icônes Tela" git clone https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
             _RUN "Installation des icônes Tela (dans ${HOME}/.local/share/icons/)" bash -c "   \"${temp_tela}\"/tela/install.sh -a -d \"${HOME}\"/.local/share/icons   "
             _RUNSILENT "" rm -rf "${temp_tela}"
+            change=1
         else
             _OK "Le pack d'icônes Tela est déjà installé (dans ${HOME}/.local/share/icons/)"
         fi
@@ -1221,6 +1202,7 @@ SETUP_KDE_PLASMA() {
         if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*catppuccin-mocha-lavender-cursors*" -print -quit | grep -q . >/dev/null; then
             _RUN "Installation du curseur catppuccin-mocha-lavender (dans ${HOME}/.local/share/icons/)" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
             _RUNSILENT "" unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
+            change=1
         else
             _OK "Le pack de curseurs catppuccin-mocha-lavender est déjà installé (dans ${HOME}/.local/share/icons/)"
         fi
@@ -1247,25 +1229,41 @@ SETUP_KDE_PLASMA() {
         if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
             _INFO "plasmashell n'est pas lancée, déplacement du panneau annulé"
         else
-            _RUN "Déplacement du panneau en position ${target_pos}" _PLASMA_EVAL "
+            local current_positions
+            current_positions=$(_PLASMA_EVAL '
                 var allPanels = panels();
                 for (var i = 0; i < allPanels.length; i++) {
-                    allPanels[i].location = \"${target_pos}\";
-                    }
-            "
-            sleep 1
+                    print(allPanels[i].location);
+                }
+            ')
+            if [[ -z "${current_positions}" ]]; then
+                _INFO "Aucun panneau détecté"
+            elif grep -vxF "${target_pos}" <<< "${current_positions}" > /dev/null; then
+                _RUN "Déplacement du panneau en position ${target_pos}" _PLASMA_EVAL "
+                    var allPanels = panels();
+                    for (var i = 0; i < allPanels.length; i++) {
+                        allPanels[i].location = \"${target_pos}\";
+                        }
+                "
+                change=1
+                sleep 1
+            fi
         fi
 
         # on redémarre l'interface pour appliquer de suite.
         if pgrep plasmashell > /dev/null 2>&1; then
-            _RUN "Redémarrage de l'interface de KDE Plasma 6..." bash -c "\
-            kwriteconfig6 --file kdeglobals --group Icons --key Theme Tela-dracula-dark ;\
-            kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme catppuccin-mocha-lavender-cursors ;\
-            [[ -n \"${tokyoexist}\" ]] && plasma-apply-colorscheme \"${tokyoexist}\" ;\
-            [[ -f \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ]] && plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ;\
-            kwriteconfig6 --file ksplashrc --group KSplash --key Theme Colourful-Ring-Splashscreen-Plasma6 ;\
-            sleep 1 ;\
-            systemctl --user restart plasma-plasmashell.service"
+            if [[ "${change}" -eq 1 ]]; then
+                _RUN "Redémarrage de l'interface de KDE Plasma 6..." bash -c "\
+                kwriteconfig6 --file kdeglobals --group Icons --key Theme Tela-dracula-dark ;\
+                kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme catppuccin-mocha-lavender-cursors ;\
+                [[ -n \"${tokyoexist}\" ]] && plasma-apply-colorscheme \"${tokyoexist}\" ;\
+                [[ -f \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ]] && plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ;\
+                kwriteconfig6 --file ksplashrc --group KSplash --key Theme Colourful-Ring-Splashscreen-Plasma6 ;\
+                sleep 1 ;\
+                systemctl --user restart plasma-plasmashell.service"
+            else
+                _OK "Aucune modification de configuration, je ne redémarre pas l'interface de KDE Plasma 6"
+            fi
         fi
 
         # Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
@@ -1284,7 +1282,7 @@ SETUP_KDE_PLASMA() {
         fi
     else
         echo
-        _INFO "KDE n'a pas été détecté... Je ne touche pas à la customization de KDE"
+        _INFO "KDE n'a pas été détecté, je ne touche pas à la customization de KDE"
     fi
 }
 
@@ -1322,6 +1320,7 @@ SETUP_DATA() {
     fi
 
 }
+
 ########################################################################################################################
 SETUP_PLM() {
 # on teste si KDE tourne
@@ -1351,4 +1350,21 @@ SETUP_PLM() {
 }
 
 ########################################################################################################################
+END() {
+    local duration
+    _SECTION " Fin " "━" "${C_GREEN}"
+    _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
+    printf "\n%b%b  ✓ Terminé — REDÉMARREZ pour appliquer les modifications.%b\n" "${C_GREEN}" "${C_BOLD}" "${C_RESET}"
+    printf "%b  Log complet : %s%b\n" "${C_MAGENTA}" "${LOG_FILE}" "${C_RESET}"
+    # shellcheck disable=SC2310
+    if _EXIST curl; then
+        echo -n "  Log téléversé vers "
+        curl -fsS --upload-file "${LOG_FILE}" https://paste.c-net.org/
+    fi
+    duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
+    echo -e "  ${C_YELLOW}${SCRIPTNAME}${C_RESET} v${C_MAGENTA}${VER}${C_RESET} a terminé avec succès en ${C_MAGENTA}${duration}${C_RESET}."
+}
+
+########################################################################################################################
+
 MAIN "$@"
