@@ -1,8 +1,62 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=20.0
-source settings.sh
+readonly VER=20.1
+# paramètres customisables définis dans settings.sh. ###############################
+source ./settings.sh                                                               #
+####################################################################################
+
+# ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
+MAIN() {
+    args=${1:-}
+    source helpers.sh # bibliothèque de fonctions d'aide
+    trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR # gestion des erreurs
+
+    # Préparation
+    INITIALIZE
+    CHECK_ENV
+
+    if [[ "${args}" = "--shellonly" ]]; then
+        INSTALL_CARGO_PACKAGES
+        INSTALL_GO_PACKAGES
+        CLONE_GIT
+        SETUP_SHELL
+        SETUP_DOTFILES
+        SETUP_DATA
+    else
+        _RUN "Mise à jour forcée du système" sudo dnf upgrade --refresh -y
+        SETUP_SUDO_RS
+
+        # remove/install
+        REMOVE_RPM_PACKAGES
+        INSTALL_REPOS
+        INSTALL_RPM_PACKAGES
+        INSTALL_FONTS
+        INSTALL_CODECS
+        INSTALL_CARGO_PACKAGES
+        INSTALL_GO_PACKAGES
+        INSTALL_FLATPAK_PACKAGES
+
+        # config
+        CLONE_GIT
+        SETUP_SHELL
+        SETUP_DOTFILES
+        SETUP_ETC
+        SETUP_CHRONY
+        SETUP_SYSTEMD
+        SETUP_FIREWALL
+        SETUP_SWAP
+        SETUP_FSTAB
+        SETUP_GRUB
+        SETUP_KDE_PLASMA
+        SETUP_PLM
+        SETUP_DATA
+    fi
+
+    # Finalisation
+    END
+}
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 ########################################################################################################################
 # FONCTIONS DISTRO-AGNOSTIQUE                                                                                          #
@@ -564,7 +618,7 @@ SETUP_KDE_PLASMA() {
         # on redémarre l'interface pour appliquer de suite.
         if pgrep plasmashell > /dev/null 2>&1; then
             if [[ "${change}" -eq 1 ]]; then
-                _RUN "Redémarrage de l'interface de KDE Plasma 6..." bash -c "\
+                _RUN "Redémarrage de l'interface de KDE Plasma 6" bash -c "\
                 kwriteconfig6 --file kdeglobals --group Icons --key Theme Tela-dracula-dark ;\
                 kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme catppuccin-mocha-lavender-cursors ;\
                 [[ -n \"${tokyoexist}\" ]] && plasma-apply-colorscheme \"${tokyoexist}\" ;\

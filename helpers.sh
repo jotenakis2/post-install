@@ -1,5 +1,22 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2154
+#_BANNER
+#_SECTION
+#_HEURE
+#_OK
+#_ERR
+#_INFO
+#_DIE
+#_SYMLINK
+#_PLASMA_EVAL
+#_PASS
+#_RUNSILENT
+#_RUN
+#_EXIST
+#_DETECT_GRUB !!!!!!!!!!!!!!!!!!
+#_DIR_IS_SAFE_TO_RESTORE
+#_CONVERT_SECONDS
+
 
 ########################################################################################################################
 # FONCTIONS HELPERS                                                                                                    #
@@ -250,4 +267,21 @@ _CONVERT_SECONDS() {
     else
         printf '%ss\n' "${secs}"
     fi
+}
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_FORMAT_LIST() {
+    local -a items=("$@")
+    local count=${#items[@]}
+
+    case ${count} in
+        0) echo "" ;;
+        1) echo "${items[0]}" ;;
+        2) echo "${items[0]} et ${items[1]}" ;;
+        *)
+            local all_but_last
+            all_but_last=$(IFS=', '; echo "${items[*]::count-1}")
+            echo "${all_but_last} et ${items[-1]}"
+            ;;
+    esac
 }

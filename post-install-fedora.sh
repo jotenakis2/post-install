@@ -1,67 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# paramètres customisables définis dans settings.sh. ##############################
-source settings.sh                                                                 #
-####################################################################################
-
-
-# ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
-MAIN() {
-    args=$1
-    source post-install-common.sh   # fonctions distro-agnostique
-    source helpers.sh               # bibliothèque de fonctions d'aide
-    trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR # gestion des erreurs
-
-    # Préparation
-    INITIALIZE
-    CHECK_ENV
-
-    if [[ "${args}" = "--shellonly" ]]; then
-        INSTALL_CARGO_PACKAGES
-        INSTALL_GO_PACKAGES
-        CLONE_GIT
-        SETUP_SHELL
-        SETUP_DOTFILES
-        SETUP_DATA
-    else
-        _RUN "Mise à jour forcée du système" sudo dnf upgrade --refresh -y
-        SETUP_SUDO_RS
-
-        # remove/install
-        REMOVE_RPM_PACKAGES
-        INSTALL_REPOS
-        INSTALL_RPM_PACKAGES
-        INSTALL_FONTS
-        INSTALL_CODECS
-        INSTALL_CARGO_PACKAGES
-        INSTALL_GO_PACKAGES
-        INSTALL_FLATPAK_PACKAGES
-
-        # config
-        CLONE_GIT
-        SETUP_SHELL
-        SETUP_DOTFILES
-        SETUP_ETC
-        SETUP_CHRONY
-        SETUP_SYSTEMD
-        SETUP_FIREWALL
-        SETUP_SWAP
-        SETUP_FSTAB
-        SETUP_GRUB
-        SETUP_KDE_PLASMA
-        SETUP_PLM
-        SETUP_DATA
-    fi
-
-    # Finalisation
-    END
-}
-# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
+source post-install-common.sh   # fonctions distro-agnostique
 
 
 ########################################################################################################################
-# FONCTIONS PRINCIPALES                                                                                                #
+# FONCTIONS SPECIFIQUES FEDORA                                                                                         #
 ########################################################################################################################
 
 ########################################################################################################################
@@ -249,7 +192,7 @@ INSTALL_CODECS() {
 ########################################################################################################################
 INSTALL_RPM_PACKAGES() {
     _SECTION " Paquets RPM " "━" "${C_GREEN}"
-    local pkg arch download_dir
+    local pkg arch download_dir miss
     local -a missing_packages
     arch=$(uname -m)
     download_dir="./dnf-packages$$"
@@ -262,8 +205,9 @@ INSTALL_RPM_PACKAGES() {
     done
 
     if ((${#missing_packages[@]})); then
+        miss=$(_FORMAT_LIST "${missing_packages[@]}")
         _RUNSILENT "" mkdir -pv "${download_dir}"
-        _OK "Paquets manquants : ${missing_packages[*]}"
+        _OK "Paquets manquants : ${miss}"
         _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf download --skip-unavailable --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
         _RUN "Installation des paquets manquants depuis le cache de téléchargement" sudo dnf install --skip-unavailable -y "${download_dir}"/*.rpm
         _RUNSILENT "" rm -rvf "${download_dir}"
