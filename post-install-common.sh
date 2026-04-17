@@ -336,9 +336,6 @@ SETUP_SHELL() {
 
     # 4- Divers
     # shellcheck disable=SC2310
-    if _EXIST bat; then
-        _RUN "Reconstruction du cache de bat" bat cache --build
-    fi
 }
 
 ########################################################################################################################
@@ -364,6 +361,10 @@ SETUP_DOTFILES() {
         name=$(basename "${pkg}")
         _RUN "stow : ${name}" stow --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}"
     done
+
+    if _EXIST bat; then
+        _RUN "Reconstruction du cache de bat" bat cache --build
+    fi
     _INFO "Les dotfiles ne sont déployés que pour l'utilisateur qui lance le script (ici : ${USER})"
 
 }
