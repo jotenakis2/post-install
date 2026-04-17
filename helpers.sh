@@ -16,7 +16,7 @@
 #_DETECT_GRUB !!!!!!!!!!!!!!!!!!
 #_DIR_IS_SAFE_TO_RESTORE
 #_CONVERT_SECONDS
-
+#_FORMAT_LIST
 
 ########################################################################################################################
 # FONCTIONS HELPERS                                                                                                    #
@@ -272,16 +272,19 @@ _CONVERT_SECONDS() {
 
 _FORMAT_LIST() {
     local -a items=("$@")
-    local count=${#items[@]}
+    local count result i
 
+    count=${#items[@]}
+    result=""
     case ${count} in
         0) echo "" ;;
         1) echo "${items[0]}" ;;
         2) echo "${items[0]} et ${items[1]}" ;;
-        *)
-            local all_but_last
-            all_but_last=$(IFS=', '; echo "${items[*]::count-1}")
-            echo "${all_but_last} et ${items[-1]}"
+        *)  for (( i=0; i<count-1; i++ )); do
+                [[ -n "${result}" ]] && result+=", "
+                result+="${items[${i}]}"
+            done
+            echo "${result} et ${items[-1]}"
             ;;
     esac
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=20.1
+readonly VER=20.2
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -205,12 +205,12 @@ INSTALL_GO_PACKAGES() {
 
     # shellcheck disable=SC2310
     if [[ "${current}" == "${latest}" ]] && _EXIST go; then
-        _OK "Toolchain GO à jour"
+        _OK "Toolchain GO à jour (${latest})"
     else
         _RUN "Téléchargement de la toolchain GO" wget "https://go.dev/dl/${gofile}"
         echo "Installation de la toolchain GO v${latest}" >> "${LOG_FILE}"
         _RUNSILENT "" sudo rm -rvf /usr/local/go
-        _RUN "Installation de la toolchain GO" sudo tar -C /usr/local -xvzf "${gofile}"
+        _RUN "Installation de la toolchain GO (${latest})" sudo tar -C /usr/local -xvzf "${gofile}"
         _RUNSILENT "" rm -vf "${gofile}"
     fi
 
@@ -335,7 +335,6 @@ SETUP_SHELL() {
     # fi
 
     # 4- Divers
-    # shellcheck disable=SC2310
 }
 
 ########################################################################################################################
@@ -362,6 +361,7 @@ SETUP_DOTFILES() {
         _RUN "stow : ${name}" stow --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}"
     done
 
+    # shellcheck disable=SC2310
     if _EXIST bat; then
         _RUN "Reconstruction du cache de bat" bat cache --build
     fi
