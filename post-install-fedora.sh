@@ -516,7 +516,6 @@ SETUP_SUDO_RS() {
     _PASS
     #_RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
     _SYMLINK "${sudo_rs_bin}" "${local_bin_sudo}"
-    #shellcheck disable=SC2181
     [[ "${STATUSSYMLINK}" -eq 0 ]] && change=1 # le lien a bien été crée
     _RUNSILENT "" sudo chmod -v 4111 "${sudo_rs_bin}"
     _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
