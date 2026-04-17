@@ -107,6 +107,7 @@ _SYMLINK() {
 
         if [[ "${current_target}" = "${src}" ]]; then
             _OK "Lien déjà présent : ${dst} → ${src} (pas de changement)"
+            return 2
         else
             _ERR "Lien ${dst} existe déjà mais pointe vers '${current_target}', pas vers '${src}'. Je ne change rien."
             return 1
@@ -115,8 +116,10 @@ _SYMLINK() {
         mkdir -p "$(dirname "${dst}")"
         if sudo ln -s "${src}" "${dst}"; then
             _OK "Lien créé : ${dst} → ${src}"
+            return 0
         else
             _ERR "Échec de création du lien : ${dst} → ${src}"
+            return 1
         fi
     fi
 }

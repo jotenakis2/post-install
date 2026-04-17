@@ -62,16 +62,16 @@ REMOVE_RPM_PACKAGES() {
         if rpm -q "${pkg}" &>/dev/null; then
             _RUN "Suppression ${pkg}" sudo dnf remove -y "${pkg}"
         else
-            _OK "${pkg} absent — ignoré"
+            _OK "${pkg} déjà supprimé"
         fi
     done
 
     if (( wants_systemd_networkd_removal )); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
         if systemctl is-active --quiet NetworkManager; then
             if rpm -q systemd-networkd &>/dev/null; then
-                _RUN "Suppression systemd-networkd (NetworkManager actif)" sudo dnf remove -y systemd-networkd
+                _RUN "Suppression systemd-networkd (NetworkManager est bien actif)" sudo dnf remove -y systemd-networkd
             else
-                _OK "systemd-networkd absent — ignoré"
+                _OK "systemd-networkd déjà supprimé"
             fi
         else
             _INFO "NetworkManager inactif — systemd-networkd conservé"
@@ -452,12 +452,12 @@ SETUP_SWAP(){
 ########################################################################################################################
 SETUP_SUDO_RS() {
     _SECTION " Configuration sudo-rs " "━" "${C_GREEN}"
+    local change=0
     # 1. On installe sudo-rs
     # shellcheck disable=SC2310
     if ! _EXIST sudo-rs; then
         _RUN "Installation de sudo-rs" sudo dnf install -y sudo-rs
-    else
-        _OK "sudo-rs est déjà installé"
+        change=1
     fi
 
     # 2. Copie (sans suppression) des fichiers vers le monde sudo-rs
@@ -466,10 +466,12 @@ SETUP_SUDO_RS() {
 
     if [[ -f "/etc/sudoers" && ! -f "${f_sudoers_rs}" ]]; then
         _RUN "Création de ${f_sudoers_rs} depuis l'original" sudo cp -a /etc/sudoers "${f_sudoers_rs}"
+        change=1
     fi
 
     if [[ -d "/etc/sudoers.d" && ! -d "${d_sudoers_rs_d}" ]]; then
         _RUN "Création de ${d_sudoers_rs_d} depuis l'original" sudo cp -a /etc/sudoers.d "${d_sudoers_rs_d}"
+        change=1
     fi
 
     # 3. Assurer la présence stricte des inclusions dans le nouveau fichier
@@ -486,6 +488,7 @@ SETUP_SUDO_RS() {
                 echo -e '# Fallback pour les paquets Fedora\n@includedir /etc/sudoers.d' >> '${f_sudoers_rs}'
             fi
         "
+        change=1
     fi
 
     # 4. Remplacement du binaire sudo (La BASCULE CRITIQUE)
@@ -499,9 +502,7 @@ SETUP_SUDO_RS() {
          current_link=$(readlink "${sys_sudo}" || true)
      fi
 
-     if [[ "${current_link}" == "${sudo_rs_bin}" ]]; then
-         _OK "Le lien symbolique sudo -> sudo-rs est déjà en place"
-     else
+     if [[ "${current_link}" != "${sudo_rs_bin}" ]]; then
          # CORRECTION : On regroupe le 'mv' et le 'ln' dans le même appel sudo pour ne pas bloquer le système !
          _RUN "Remplacement radical du binaire sudo" sudo bash -c "
              if [[ -f '${sys_sudo}' && ! -L '${sys_sudo}' ]]; then
@@ -509,11 +510,14 @@ SETUP_SUDO_RS() {
              fi
              ln -sf '${sudo_rs_bin}' '${sys_sudo}'
          "
+         change=1
     fi
 
     _PASS
     #_RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
     _SYMLINK "${sudo_rs_bin}" "${local_bin_sudo}"
+    #shellcheck disable=SC2181
+    [[ "$?" -eq 0 ]] && change=1 # le lien a bien été crée
     _RUNSILENT "" sudo chmod -v 4111 "${sudo_rs_bin}"
     _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
 
@@ -523,11 +527,11 @@ SETUP_SUDO_RS() {
     if sudo test -f "${file}"; then
         if ! sudo grep -q "${pattern}" "${file}" > /dev/null; then
             _RUN "Mise à jour de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
-        else
-            _OK "Règle \"profile-sync-daemon\" déjà existante (${file})"
+            change=1
         fi
     else
         _RUN "Création de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
+        change=1
     fi
 
     local pattern="Defaults pwfeedback,timestamp_timeout=60"
@@ -535,11 +539,11 @@ SETUP_SUDO_RS() {
     if sudo test -f "${file2}"; then
         if ! sudo grep -q "${pattern}" "${file2}" > /dev/null; then
             _RUN "Mise à jour de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
-        else
-            _OK "Règle \"timeout\" déjà existante (${file2})"
+            change=1
         fi
     else
         _RUN "Création de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
+        change=1
     fi
 
     _RUNSILENT "" sudo chmod -v 0440 "${f_sudoers_rs}"
@@ -549,6 +553,7 @@ SETUP_SUDO_RS() {
     # 6. Nettoyage radical des anciens fichiers
     if [[ -f "/etc/sudoers" && ! -L "/etc/sudoers" ]]; then
         _RUNSILENT "" sudo mv -vf /etc/sudoers /etc/sudoers.bak
+        change=1
     fi
 
     if [[ -d "/etc/sudoers.d" ]]; then
@@ -560,11 +565,17 @@ SETUP_SUDO_RS() {
     # 7. Blocage propre des futures mises à jour du vieux sudo par DNF
     if ! sudo dnf versionlock list | grep -q sudo; then
         _RUNSILENT "" sudo dnf versionlock add sudo
+        change=1
     fi
     if ! sudo grep -q sudo /etc/dnf/dnf.conf; then
         _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
+        change=1
     fi
-    _OK "sudo-rs est en place et remplace définitivement sudo"
+    if [[ "${change}" -eq 1 ]]; then
+        _OK "sudo-rs est en place et remplace définitivement sudo"
+    else
+        _OK "sudo-rs est déjà correctement configuré"
+    fi
 }
 
 
