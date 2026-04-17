@@ -107,7 +107,6 @@ _SYMLINK() {
         current_target=$(readlink "${dst}")
 
         if [[ "${current_target}" = "${src}" ]]; then
-            _OK "Lien déjà présent : ${dst} → ${src} (pas de changement)"
             STATUSSYMLINK=2
         else
             _ERR "Lien ${dst} existe déjà mais pointe vers '${current_target}', pas vers '${src}'. Je ne change rien."
@@ -132,6 +131,12 @@ _PLASMA_EVAL() {
     busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s "${script}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_PLASMA_GET_PANEL_LOCATION() {
+    busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s 'var allPanels = panels(); for (var i = 0; i < allPanels.length; i++) {print(allPanels[i].location);}' | awk '{print $2}' | tr -d '"' || true
+}
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
 
 _PASS() {
     # On vérifie silencieusement si l'autorisation est requise, si oui on gère un joli prompt

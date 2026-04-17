@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=20.3
+readonly VER=20.4
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -258,8 +258,6 @@ CLONE_GIT() {
             _RUN "Téléchargement de ${repo_name}" git clone "${repo_url}" "${dest_dir}"
         fi
     done
-
-    _OK "Tous les dépôts Git sont à jour"
 }
 
 ########################################################################################################################
@@ -363,7 +361,7 @@ SETUP_DOTFILES() {
 
     # shellcheck disable=SC2310
     if _EXIST bat; then
-        _RUN "Reconstruction du cache de bat" bat cache --build
+        _RUN "Reconstruction du cache de bat" bash -c "bat cache --clear; bat cache --build"
     fi
     _INFO "Les dotfiles ne sont déployés que pour l'utilisateur qui lance le script (ici : ${USER})"
 
@@ -467,6 +465,20 @@ SETUP_FSTAB(){
     else
         _RUN "Montage NFS déjà installé."
     fi
+
+    # fast_commit pour ext4
+    local mounts
+    mounts=$(findmnt -rn -t ext4 -o SOURCE,TARGET,FSTYPE)
+    while read -r dev mp fs _; do
+        [[ "${fs}" != "ext4" ]] && continue
+        [[ "${mp}" == "/boot" ]] && continue
+        if tune2fs -l "${dev}" 2>/dev/null | grep -q "fast_commit"; then
+            _OK "fast_commit déjà actif sur ${dev} (montée en ${mp})"
+        else
+            _RUN "Activation flag fast_commit sur ${dev} (montée en ${mp})" sudo tune2fs -O fast_commit "${dev}"
+        fi
+    done <<< "${mounts}"
+
     # Nettoyage
     rm -rf "${tmp_dir}"
 }
@@ -520,9 +532,10 @@ SETUP_KDE_PLASMA() {
 
         # -fsL garantit qu'on ne crée pas de fichier corrompu en cas de 404
         if [[ ! -f "${color_file}" ]]; then
-            _RUN "Téléchargement de TokyoNight.colors" curl -fsL "${tokyo_url}" -o "${color_file}"
+            _RUN "Téléchargement de TokyoNight.colors (dans ${color_dir})" curl -fsL "${tokyo_url}" -o "${color_file}"
+            change=1
         else
-            _OK "TokyoNight déjà présent"
+            _OK "TokyoNight déjà présent (dans ${color_dir})"
         fi
 
         if [[ ! -s "${color_file}" ]]; then
@@ -592,27 +605,24 @@ SETUP_KDE_PLASMA() {
 
         # déplacement du panneau principal
         local target_pos="${KDEPANEL:-bottom}" # fallback en bas
-        if ! pgrep plasmashell > /dev/null 2>&1; then # pas de session KDE en cours
+        if ! pgrep plasmashell > /dev/null 2>&1; then
             _INFO "plasmashell n'est pas lancée, déplacement du panneau annulé"
         else
             local current_positions
-            current_positions=$(_PLASMA_EVAL '
-                var allPanels = panels();
-                for (var i = 0; i < allPanels.length; i++) {
-                    print(allPanels[i].location);
-                }
-            ')
+            current_positions=$(_PLASMA_GET_PANEL_LOCATION)
+
             if [[ -z "${current_positions}" ]]; then
                 _INFO "Aucun panneau détecté"
-            elif grep -vxF "${target_pos}" <<< "${current_positions}" > /dev/null; then
+            elif [[ "${current_positions}" == "${target_pos}" ]]; then
+                _OK "Panneau déjà en position ${target_pos}"
+            else
                 _RUN "Déplacement du panneau en position ${target_pos}" _PLASMA_EVAL "
                     var allPanels = panels();
                     for (var i = 0; i < allPanels.length; i++) {
                         allPanels[i].location = \"${target_pos}\";
-                        }
+                    }
                 "
                 change=1
-                sleep 1
             fi
         fi
 
@@ -684,6 +694,9 @@ SETUP_PLM() {
 ########################################################################################################################
 SETUP_ETC() {
     _SECTION " Configuration Système " "━" "${C_GREEN}"
+
+    # par défaut msmtp ne crée pas le log system
+    _RUNSILENT "" sudo bash -c "touch /var/log/msmtp.log && chmod 600 /var/log/msmtp.log"
 
     # --- Hostname ---
     local currenthost

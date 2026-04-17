@@ -573,7 +573,7 @@ SETUP_SUDO_RS() {
     if [[ "${change}" -eq 1 ]]; then
         _OK "sudo-rs est en place et remplace définitivement sudo"
     else
-        _OK "sudo-rs est déjà correctement configuré"
+        _OK "sudo-rs est déjà correctement configuré pour remplacer sudo"
     fi
 }
 
