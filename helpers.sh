@@ -100,7 +100,7 @@ _DIE()      { _ERR "$*"; exit 1; }
 _SYMLINK() {
     local src="$1"
     local dst="$2"
-    declare -g STATUS-SYMLINK
+    declare -g STATUSSYMLINK
 
     if [[ -L "${dst}" ]]; then
         local current_target
