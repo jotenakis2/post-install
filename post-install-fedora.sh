@@ -294,18 +294,33 @@ INSTALL_FLATPAK_PACKAGES() {
     fi
 
     # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
-    if [[ ${#FLATPAK_PKGS[@]} -gt 0 ]]; then
-        local name
-        for pkg in "${FLATPAK_PKGS[@]}"; do
-            name="${pkg##*.}"
-            if flatpak info "${pkg}" >/dev/null 2>&1; then
-                _OK "Flatpak '${name}' déjà installé"
-            else
-                _RUN "Installation de ${name}" sudo flatpak --verbose install -y flathub "${pkg}"
-            fi
-        done
+    # if [[ ${#FLATPAK_PKGS[@]} -gt 0 ]]; then
+    #     local name
+    #     for pkg in "${FLATPAK_PKGS[@]}"; do
+    #         name="${pkg##*.}"
+    #         if flatpak info "${pkg}" >/dev/null 2>&1; then
+    #             _OK "Flatpak '${name}' déjà installé"
+    #         else
+    #             _RUN "Installation de ${name}" sudo flatpak --verbose install -y flathub "${pkg}"
+    #         fi
+    #     done
+    # else
+    #     _INFO "Pas Flatpak à installer"
+    # fi
+
+    local -a missing=()
+    local list
+    for pkg in "${FLATPAK_PKGS[@]}"; do
+        if ! flatpak info "${pkg}" &>/dev/null; then
+            missing+=("${pkg}")
+        fi
+    done
+
+    if [[ ${#missing[@]} -eq 0 ]]; then
+        _OK "Tous les Flatpak demandés sont déjà installés"
     else
-        _INFO "Pas Flatpak à installer"
+        list=$(_FORMAT_LIST "${missing[@]##*.}")
+        _RUN "Installation de ${list}" sudo flatpak install -y flathub "${missing[@]}"
     fi
 
     # 7. Petit nettoyage des runtimes inutilisés
