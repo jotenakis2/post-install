@@ -153,7 +153,7 @@ INSTALL_FONTS() {
     if ((${#missing_packages[@]})); then
         miss=$(_FORMAT_LIST "${missing_packages[@]}")
         _OK "Polices manquantes : ${miss}"
-        _RUN "Installation des polices manquantes" _PKG_INSTALL_SKIP "${miss}"
+        _RUN "Installation des polices manquantes" _PKG_INSTALL_SKIP "${missing_packages[@]}"
     else
         _OK "Toutes les police demandées sont déjà installées"
     fi
