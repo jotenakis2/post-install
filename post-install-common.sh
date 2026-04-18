@@ -80,6 +80,7 @@ INITIALIZE() {
     LOG_FILE="${LOG_DIR}/post-install-fedora-${logsuffix}.log"
     INSTALL_DIR="${HOME}/.local/bin"
     export LOG_DIR LOG_FILE INSTALL_DIR logsuffix
+    mkdir -p "${LOG_DIR}"
     touch "${LOG_FILE}"
 
     _LOG "*** INITIALIZE ***"
@@ -92,7 +93,7 @@ INITIALIZE() {
     export GOBIN="${XDG_BIN_HOME:-${HOME}/.local/bin}"
 
     # Dossiers utilisateur requis
-    _RUNSILENT "" mkdir -pv "${LOG_DIR}" "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
+    _RUNSILENT "" mkdir -pv "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
     # Dossiers système requis
     _RUNSILENT "" sudo mkdir -pv /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
 
