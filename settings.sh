@@ -36,6 +36,7 @@ FONTS=(
     terminus-fonts-console
     # Ajoute tes autres paquets ici
 )
+VCONSOLE_FONT="ter-v24b" # font console
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
@@ -365,4 +366,5 @@ export SSHD_CONFIG
 export ACTIVATE_SSHD
 # shellcheck disable=SC2090
 export BANNER
+export VCONSOLE_FONT
 ###############################################################################################################################

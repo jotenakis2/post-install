@@ -148,6 +148,35 @@ INSTALL_FONTS() {
             _OK "${font} déjà présente"
         fi
     done
+    _SETUP_VCONSOLE_FONT
+}
+
+########################################################################################################################
+_SETUP_VCONSOLE_FONT() {
+    local font="${VCONSOLE_FONT:-ter-v24b}"
+    local vconsole="/etc/vconsole.conf"
+    local font_dirs=( "/usr/lib/kbd/consolefonts" "/usr/share/kbd/consolefonts" )
+    local found=0
+
+    for dir in "${font_dirs[@]}"; do
+        if ls "${dir}/${font}".* &>/dev/null 2>&1; then
+            found=1
+            break
+        fi
+    done
+
+    if (( found == 0 )); then
+        _LOG "Police console '${font}' introuvable — vérifier le paquet terminus-fonts"
+        return 1
+    fi
+
+    if grep -q "^FONT=" "${vconsole}" 2>/dev/null; then
+        _RUNSILENT "" sudo sed -i "s/^FONT=.*/FONT=${font}/" "${vconsole}"
+    else
+        _RUNSILENT "" echo "FONT=${font}" | sudo tee -a "${vconsole}" > /dev/null
+    fi
+    _LOG "Police console définie :"
+    grep "${font}" "${vconsole}" 2>/dev/null >> "${LOG_FILE}"
 }
 
 ########################################################################################################################
