@@ -141,13 +141,31 @@ INSTALL_FONTS() {
     _SECTION " Polices d'affichage " "━" "${C_GREEN}"
     _LOG "*** Polices d'affichage ***"
     local font
+    local -a missing_packages
+    missing_packages=()
+
     for font in "${FONTS[@]}"; do
         if ! rpm -q "${font}" &>/dev/null; then
-            _RUN "Installation ${font}" _PKG_INSTALL "${font}"
-        else
-            _OK "${font} déjà présente"
+            missing_packages+=("${font}")
         fi
     done
+
+    if ((${#missing_packages[@]})); then
+        miss=$(_FORMAT_LIST "${missing_packages[@]}")
+        _OK "Polices manquantes : ${miss}"
+        _RUN "Installation des polices manquantes" _PKG_INSTALL_SKIP "${miss}"
+    else
+        _OK "Toutes les police demandées sont déjà installées"
+    fi
+
+#
+#     for font in "${FONTS[@]}"; do
+#         if ! rpm -q "${font}" &>/dev/null; then
+#             _RUN "Installation ${font}" _PKG_INSTALL "${font}"
+#         else
+#             _OK "${font} déjà présente"
+#         fi
+#     done
     _SETUP_VCONSOLE_FONT
 }
 
@@ -263,7 +281,7 @@ INSTALL_FLATPAK_PACKAGES() {
     if ! flatpak --columns=name remotes | grep -q "^flathub$"; then
         _RUN "Ajout du dépôt Flathub" sudo flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
     else
-        _OK "Dépot flathub déjà présent"
+        _LOG "Dépot flathub déjà présent"
     fi
 
     # 3. Activation de Flathub sans filtre
@@ -273,7 +291,7 @@ INSTALL_FLATPAK_PACKAGES() {
     if flatpak remotes --columns=name | grep -q "^fedora$"; then
         _RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak --verbose remote-delete --force fedora
     else
-        _OK "Le dépôt Fedora Flatpak a déjà été supprimé"
+        _LOG "Le dépôt Fedora Flatpak a déjà été supprimé"
     fi
 
     # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
@@ -282,17 +300,18 @@ INSTALL_FLATPAK_PACKAGES() {
         for pkg in "${FLATPAK_PKGS[@]}"; do
             name="${pkg##*.}"
             if flatpak info "${pkg}" >/dev/null 2>&1; then
-                _OK "Flatpak '${name}' est déjà installé"
+                _OK "Flatpak '${name}' déjà installé"
             else
                 _RUN "Installation de ${name}" sudo flatpak --verbose install -y flathub "${pkg}"
             fi
         done
     else
-        _INFO "Aucun paquet Flatpak à installer."
+        _INFO "Pas Flatpak à installer"
     fi
 
     # 7. Petit nettoyage des runtimes inutilisés
-    _RUN "Nettoyage des runtimes Flatpak orphelins" sudo flatpak --verbose uninstall --unused -y
+    _LOG "Nettoyage des runtimes Flatpak orphelins"
+    _RUNSILENT "" sudo flatpak --verbose uninstall --unused -y
 }
 
 
