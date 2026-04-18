@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=20.7
+readonly VER=20.8
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -144,10 +144,10 @@ INSTALL_CARGO_PACKAGES() {
     if ! _EXIST cargo-binstall; then
         _RUN "Installation de cargo-binstall" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
     else
-        _OK "cargo-binstall est déjà installé"
+        _LOG "cargo-binstall est déjà installé"
     fi
     #_RUNSILENT "" sudo ln -svf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
-    _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
+    _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/cargo-binstall"
     local cmd
     for cmd in "${CARGO_PACKAGES[@]}"; do
 
@@ -234,7 +234,7 @@ INSTALL_GO_PACKAGES() {
                 _RUN "Mise à jour de ${pkg}" go install "${url}"
             fi
             #_RUNSILENT "" sudo ln -svf "${GOBIN}/${pkg}" "/usr/local/bin"
-            _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin"
+            _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin/${pkg}"
         done
     fi
 }
@@ -712,6 +712,7 @@ SETUP_ETC() {
     # par défaut msmtp ne crée pas le log system
     # shellcheck disable=SC2310
     if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
+        _LOG "config log msmtp"
         _RUNSILENT "" sudo bash -c "touch /var/log/msmtp.log && chmod 600 /var/log/msmtp.log"
     fi
 
