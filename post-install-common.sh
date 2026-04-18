@@ -323,7 +323,9 @@ SETUP_SHELL() {
     local omp_bin="${INSTALL_DIR}/oh-my-posh"
     # shellcheck disable=SC2310
     if _EXIST oh-my-posh; then
-        _RUN "Mise à jour de Oh-My-Posh" oh-my-posh upgrade
+        local check
+        check=$(oh-my-posh notice)
+        [[ -z "${check}" ]] && _LOG "aucune mise à jour de oh-my-posh dispo" || _RUN "Mise à jour de Oh-My-Posh" oh-my-posh upgrade
     else
         _RUN "Téléchargement du binaire Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
         _RUNSILENT "" chmod 777 -v "${omp_bin}"
