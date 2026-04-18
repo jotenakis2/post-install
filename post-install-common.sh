@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=21.8
+readonly VER=21.9
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -500,7 +500,7 @@ SETUP_FSTAB(){
         [[ "${fs}" != "ext4" ]] && continue
         [[ "${mp}" == "/boot" ]] && continue
         if sudo tune2fs -l "${dev}" 2>/dev/null | grep -q "fast_commit"; then
-            _OK "fast_commit déjà actif sur ${dev} (montée en ${mp})"
+            _LOG "fast_commit déjà actif sur ${dev} (montée en ${mp})"
         else
             _RUN "Activation flag fast_commit sur ${dev} (montée en ${mp})" sudo tune2fs -O fast_commit "${dev}"
         fi

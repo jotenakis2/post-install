@@ -184,7 +184,7 @@ INSTALL_FONTS() {
         _OK "Polices manquantes : ${miss}"
         _RUN "Installation des polices manquantes" _PKG_INSTALL_SKIP "${missing_packages[@]}"
     else
-        _OK "Toutes les police demandées sont déjà installées"
+        _OK "Toutes les polices demandées sont déjà installées"
     fi
 
     _SETUP_VCONSOLE_FONT
