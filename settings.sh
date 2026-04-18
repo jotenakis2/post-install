@@ -33,6 +33,9 @@ DNF_REMOVE=(
 FONTS=(
     jetbrainsmono-nerd-fonts
     iosevka-nerd-fonts
+    terminus-fonts
+    terminus-fonts-console
+    terminus-fonts-grub2
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -211,6 +214,67 @@ DNSSEC=yes
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
+# conf SSH #------------------------------------------------------------------------------------------------------------------
+ACTIVATE_SSHD="yes" # no ou "" pour ne pas activer.
+SSHD_CONFIG='Protocol 2
+Port 22
+LogLevel VERBOSE
+UseDNS  no
+#ipv4 only
+AddressFamily inet
+ListenAddress 0.0.0.0
+#
+# Identity & disconnect
+AuthorizedKeysFile      .ssh/authorized_keys
+ClientAliveInterval 300
+LoginGraceTime 2m
+PermitEmptyPasswords no
+PasswordAuthentication yes
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+#AuthenticationMethods publickey,keyboard-interactive
+UsePAM no
+PermitRootLogin no
+MaxAuthTries 3
+MaxSessions 3
+MaxStartups 5:10:30
+AllowUsers olivier
+#
+# Banner & welcomes
+#
+Banner /etc/issue.net
+PrintMotd no
+PrintLastLog no
+#
+# options
+#Subsystem       sftp    /usr/lib/ssh/sftp-server
+Subsystem sftp internal-sftp
+AcceptEnv LANG LC_* COLORTERM
+'
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
+# Banner /etc/issue.net #-----------------------------------------------------------------------------------------------------
+# shellcheck disable=SC2089
+BANNER='#################################################################
+#                   _    _           _   _                      #
+#                  / \  | | ___ _ __| |_| |                     #
+#                 / _ \ | |/ _ \ |__| __| |                     #
+#                / ___ \| |  __/ |  | |_|_|                     #
+#               /_/   \_\_|\___|_|   \__(_)                     #
+#                                                               #
+#  You are entering into a secured area! Your IP, Login Time,   #
+#   Username has been noted and has been sent to the server     #
+#                       administrator!                          #
+#   This service is restricted to authorized users only. All    #
+#            activities on this system are logged.              #
+#  Unauthorized access will be fully investigated and reported  #
+#        to the appropriate law enforcement agencies.           #
+#################################################################
+'
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
 # Couleur du TTY (console virtuelle non graphique) #--------------------------------------------------------------------------
 TTY_COLOR="vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200" #catppuccin mocha
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -300,4 +364,8 @@ export HOSTNAME
 export SOURCE
 export COMMANDS
 export DESTINATIONS
+export SSHD_CONFIG
+export ACTIVATE_SSHD
+# shellcheck disable=SC2090
+export BANNER
 ###############################################################################################################################

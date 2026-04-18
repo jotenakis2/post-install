@@ -33,7 +33,7 @@ CHECK_ENV() {
     done
 
     if ((${#missing[@]})); then
-        _RUN "Installation des dépendances obligatoires : ${missing[*]}" sudo dnf install -y "${missing[@]}"
+        _RUN "Installation des dépendances obligatoires : ${missing[*]}" _PKG_INSTALL "${missing[@]}"
     fi
 
     #
@@ -87,16 +87,16 @@ INSTALL_REPOS() {
     fedora_ver=$(rpm -E '%fedora')
 
     if ! rpm -q rpmfusion-free-release &>/dev/null; then
-        _RUN "Ajout du dépôt RPM Fusion free (f${fedora_ver})" sudo dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-"${fedora_ver}".noarch.rpm
-        _RUN "Ajout du dépôt RPM Fusion free tainted (f${fedora_ver})" sudo dnf install -y rpmfusion-free-release-tainted
+        _RUN "Ajout du dépôt RPM Fusion free (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-"${fedora_ver}".noarch.rpm
+        _RUN "Ajout du dépôt RPM Fusion free tainted (f${fedora_ver})" _PKG_INSTALL rpmfusion-free-release-tainted
         cache=1
     else
         _OK "Dépôt RPM Fusion free déjà présent"
     fi
 
     if ! rpm -q rpmfusion-nonfree-release &>/dev/null; then
-        _RUN "Ajout du dépôt RPM Fusion nonfree (f${fedora_ver})" sudo dnf install -y https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"${fedora_ver}".noarch.rpm
-        _RUN "Ajout du dépôt RPM Fusion nonfree tainted (f${fedora_ver})" sudo dnf install -y rpmfusion-nonfree-release-tainted
+        _RUN "Ajout du dépôt RPM Fusion nonfree (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"${fedora_ver}".noarch.rpm
+        _RUN "Ajout du dépôt RPM Fusion nonfree tainted (f${fedora_ver})" _PKG_INSTALL rpmfusion-nonfree-release-tainted
         cache=1
     else
         _OK "Dépôt RPM Fusion nonfree déjà présent"
@@ -142,7 +142,7 @@ INSTALL_FONTS() {
     local font
     for font in "${FONTS[@]}"; do
         if ! rpm -q "${font}" &>/dev/null; then
-            _RUN "Installation ${font}" sudo dnf install -y "${font}"
+            _RUN "Installation ${font}" _PKG_INSTALL "${font}"
         else
             _OK "${font} déjà présente"
         fi
@@ -180,7 +180,7 @@ INSTALL_CODECS() {
         fi
     elif echo "${gpu_vendor}" | grep -q "intel"; then
         if ! rpm -q intel-media-driver &>/dev/null; then
-            _RUN "intel-media-driver" sudo dnf install -y intel-media-driver
+            _RUN "intel-media-driver" _PKG_INSTALL intel-media-driver
         else
             _OK "intel-media-driver déjà présent"
         fi
@@ -209,7 +209,7 @@ INSTALL_RPM_PACKAGES() {
         _RUNSILENT "" mkdir -pv "${download_dir}"
         _OK "Paquets manquants : ${miss}"
         _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf download --skip-unavailable --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
-        _RUN "Installation des paquets manquants depuis le cache de téléchargement" sudo dnf install --skip-unavailable -y "${download_dir}"/*.rpm
+        _RUN "Installation des paquets manquants depuis le cache de téléchargement" _PKG_INSTALL_SKIP "${download_dir}"/*.rpm
         _RUNSILENT "" rm -rvf "${download_dir}"
     else
         _OK "Tous les paquets RPM demandés sont déjà installés"
@@ -223,7 +223,7 @@ INSTALL_FLATPAK_PACKAGES() {
     # 1. Vérification et installation de Flatpak
     # shellcheck disable=SC2310
     if ! _EXIST flatpak; then
-        _RUN "Installation de Flatpak" sudo dnf install -y flatpak
+        _RUN "Installation de Flatpak" _PKG_INSTALL flatpak
     else
         _OK "Flatpak est déjà installé"
     fi
@@ -331,7 +331,7 @@ SETUP_FIREWALL() {
 
     # 1. Vérification de l'installation du paquet
     if ! rpm -q firewalld >/dev/null 2>&1; then
-        _RUN "Installation de firewalld" sudo dnf install -y firewalld
+        _RUN "Installation de firewalld" _PKG_INSTALL firewalld
     fi
 
     # 2. Vérification et activation du service
@@ -456,7 +456,7 @@ SETUP_SUDO_RS() {
     # 1. On installe sudo-rs
     # shellcheck disable=SC2310
     if ! _EXIST sudo-rs; then
-        _RUN "Installation de sudo-rs" sudo dnf install -y sudo-rs
+        _RUN "Installation de sudo-rs" _PKG_INSTALL sudo-rs
         change=1
     fi
 
@@ -576,6 +576,23 @@ SETUP_SUDO_RS() {
         _OK "sudo-rs est déjà correctement configuré pour remplacer sudo"
     fi
 }
+
+
+########################################################################################################################
+_PKG_CONFIG() {
+    _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main defaultyes true
+    _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main max_parallel_downloads 10
+}
+_PKG_INSTALL_SKIP() {
+    sudo dnf install --skip-unavailable -y "$@"
+}
+_PKG_INSTALL() {
+    sudo dnf install -y "$@"
+}
+_SYS_UPDATE() {
+    sudo dnf upgrade --refresh -y
+}
+########################################################################################################################
 
 
 

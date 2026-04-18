@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=20.4
+readonly VER=20.6
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -24,7 +24,7 @@ MAIN() {
         SETUP_DOTFILES
         SETUP_DATA
     else
-        _RUN "Mise à jour forcée du système" sudo dnf upgrade --refresh -y
+        _RUN "Mise à jour forcée du système" _SYS_UPDATE
         SETUP_SUDO_RS
 
         # remove/install
@@ -101,15 +101,13 @@ INITIALIZE() {
 
     _HEURE >> "${LOG_FILE}"
 
-    # aussitôt je conf dnf si besoin pour accélérer les download de paquets
-    if ! rpm -q crudini >/dev/null 2>&1; then
-        _RUN "Préparation" sudo dnf install -y crudini
+    # aussitôt je conf le package manager si besoin pour accélérer les download de paquets
+    if EXIST crudini; then
+        _PKG_CONFIG
+    else
+        _RUN "Préparation" _PKG_INSTALL crudini
     fi
-    # shellcheck disable=SC2310
-    if _EXIST crudini; then
-        _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main defaultyes true
-        _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main max_parallel_downloads 10
-    fi
+    ## shellcheck disable=SC2310
 
     # PATH
     export PATH="${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
@@ -125,9 +123,14 @@ INSTALL_CARGO_PACKAGES() {
     _SECTION " Paquets Cargo " "━" "${C_GREEN}"
 
     # 0. toolchain rust
+    local check
     # shellcheck disable=SC2310
     if _EXIST rustup; then
-        _RUN "Mise à jour de la toolchain RUST" rustup update stable
+        check=$(rustup check 2>/dev/null)
+        if echo "${check}" | grep -q "update available"; then
+            version=$(echo "${check}"| awk -F ":" '{print $2}' | xargs)
+            _RUN "Mise à jour de la toolchain RUST (${version})" rustup update stable
+        fi
     else
         _RUN "Installation de la toolchain RUST" bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
     fi
@@ -139,8 +142,8 @@ INSTALL_CARGO_PACKAGES() {
     else
         _OK "cargo-binstall est déjà installé"
     fi
-    _RUNSILENT "" sudo ln -svf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
-
+    #_RUNSILENT "" sudo ln -svf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
+    _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
     local cmd
     for cmd in "${CARGO_PACKAGES[@]}"; do
 
@@ -165,18 +168,18 @@ INSTALL_CARGO_PACKAGES() {
         for bin_name in ${bins_to_link}; do
             src_bin="${CARGO_HOME}/bin/${bin_name}"
             dest_link="/usr/local/bin/${bin_name}"
-
-            if [[ -x "${src_bin}" ]]; then
-                current_target=""
-                if [[ -L "${dest_link}" ]]; then
-                    current_target=$(readlink -f "${dest_link}" || true)
-                fi
-                if [[ "${current_target}" != "${src_bin}" ]]; then
-                    _RUNSILENT "" sudo ln -svf "${src_bin}" "${dest_link}"
-                fi
-            else
-                _ERR " Binaire introuvable : ${src_bin}"
-            fi
+            _RUNSILENT "" _SYMLINK "${src_bin}" "${dest_link}"
+            # if [[ -x "${src_bin}" ]]; then
+            #     current_target=""
+            #     if [[ -L "${dest_link}" ]]; then
+            #         current_target=$(readlink -f "${dest_link}" || true)
+            #     fi
+            #     if [[ "${current_target}" != "${src_bin}" ]]; then
+            #         _RUNSILENT "" sudo ln -svf "${src_bin}" "${dest_link}"
+            #     fi
+            # else
+            #     _ERR " Binaire introuvable : ${src_bin}"
+            # fi
         done
     done
 
@@ -202,6 +205,7 @@ INSTALL_GO_PACKAGES() {
     arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
     os=$(uname | tr '[:upper:]' '[:lower:]' || true)
     gofile="go${latest}.${os}-${arch}.tar.gz"
+    rm -f /tmp/gover
 
     # shellcheck disable=SC2310
     if [[ "${current}" == "${latest}" ]] && _EXIST go; then
@@ -224,7 +228,8 @@ INSTALL_GO_PACKAGES() {
             else
                 _RUN "Mise à jour de ${pkg}" go install "${url}"
             fi
-            _RUNSILENT "" sudo ln -svf "${GOBIN}/${pkg}" "/usr/local/bin"
+            #_RUNSILENT "" sudo ln -svf "${GOBIN}/${pkg}" "/usr/local/bin"
+            _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin"
         done
     fi
 }
@@ -534,8 +539,6 @@ SETUP_KDE_PLASMA() {
         if [[ ! -f "${color_file}" ]]; then
             _RUN "Téléchargement de TokyoNight.colors (dans ${color_dir})" curl -fsL "${tokyo_url}" -o "${color_file}"
             change=1
-        else
-            _OK "TokyoNight déjà présent (dans ${color_dir})"
         fi
 
         if [[ ! -s "${color_file}" ]]; then
@@ -552,9 +555,7 @@ SETUP_KDE_PLASMA() {
                 if [[ -z "${tokyoexist}" ]]; then
                     _ERR "Tokyo Night non détecté par KDE Plasma ! Faudra appliquer manuellement..."
                 else
-                    if [[ "${tokyoexist}" = "${currentscheme}" ]]; then
-                        _OK "La palette de couleurs active est déjà ${tokyoexist}"
-                    else
+                    if [[ "${tokyoexist}" != "${currentscheme}" ]]; then
                         _RUN "Application de la palette de couleurs ${tokyoexist}" plasma-apply-colorscheme "${tokyoexist}"
                         change=1
                     fi
@@ -571,8 +572,6 @@ SETUP_KDE_PLASMA() {
             _RUN "Installation des icônes Tela (dans ${HOME}/.local/share/icons/)" bash -c "   \"${temp_tela}\"/tela/install.sh -a -d \"${HOME}\"/.local/share/icons   "
             _RUNSILENT "" rm -rf "${temp_tela}"
             change=1
-        else
-            _OK "Le pack d'icônes Tela est déjà installé (dans ${HOME}/.local/share/icons/)"
         fi
 
         # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
@@ -582,8 +581,6 @@ SETUP_KDE_PLASMA() {
             _RUN "Installation du curseur catppuccin-mocha-lavender (dans ${HOME}/.local/share/icons/)" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
             _RUNSILENT "" unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
             change=1
-        else
-            _OK "Le pack de curseurs catppuccin-mocha-lavender est déjà installé (dans ${HOME}/.local/share/icons/)"
         fi
 
         # Pointeur par défaut pour compatibilité GTK
@@ -614,7 +611,7 @@ SETUP_KDE_PLASMA() {
             if [[ -z "${current_positions}" ]]; then
                 _INFO "Aucun panneau détecté"
             elif [[ "${current_positions}" == "${target_pos}" ]]; then
-                _OK "Panneau déjà en position ${target_pos}"
+                _OK "Panneau déjà à la bonne position (${target_pos})"
             else
                 _RUN "Déplacement du panneau en position ${target_pos}" _PLASMA_EVAL "
                     var allPanels = panels();
@@ -638,7 +635,7 @@ SETUP_KDE_PLASMA() {
                 sleep 1 ;\
                 systemctl --user restart plasma-plasmashell.service"
             else
-                _OK "Aucune modification de configuration, je ne redémarre pas l'interface de KDE Plasma 6"
+                _OK "Aucune modification de configuration effectuée, je ne redémarre pas l'interface de KDE Plasma 6"
             fi
         fi
 
@@ -665,25 +662,28 @@ SETUP_KDE_PLASMA() {
 ########################################################################################################################
 SETUP_PLM() {
 # on teste si KDE tourne
+    local change=0
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
-
-        if ! rpm -q plasma-login-manager >/dev/null 2>&1; then
-            _RUN "Installation de plasma-login-manager" sudo dnf install -y plasma-login-manager kcm-plasmalogin
-        else
-            _OK "plasma-login-manager déjà installé"
+        # shellcheck disable=SC2310
+        if ! _EXIST plasmalogin; then
+            _RUN "Installation de plasma-login-manager" _PKG_INSTALL plasma-login-manager kcm-plasmalogin
+            change=1
         fi
 
         if systemctl is-enabled --quiet sddm.service 2>/dev/null; then
             _RUN "Désactivation de SDDM à partir du prochain boot" sudo systemctl disable sddm.service
-        else
-            _OK "SDDM déjà désactivé"
+            change=1
         fi
 
-        if systemctl is-enabled --quiet plasmalogin.service 2>/dev/null; then
-            _OK "plasmalogin.service déjà activé"
-        else
+        if ! systemctl is-enabled --quiet plasmalogin.service 2>/dev/null; then
             _RUN "Activation de Plasma Login Manager à partir du prochain boot" sudo systemctl enable --force plasmalogin.service
+            change=1
         fi
+
+        if [[ "${change}" = 0 ]]; then
+            _OK "Plasma Login Manager est déjà correctement configuré pour remplacé SDDM"
+        fi
+
     else
         echo
         _INFO "KDE n'a pas été détecté, on ne touche pas au display-manager"
@@ -720,7 +720,8 @@ SETUP_ETC() {
         _OK "NetworkManager déjà configuré pour utiliser systemd-resolved (/etc/NetworkManager/conf.d/99-global-dns.conf)"
     fi
 
-    _RUNSILENT "" sudo ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf # pas sécurité on force
+    #_RUNSILENT "" sudo ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf # pas sécurité on force
+    _RUNSILENT "" _SYMLINK /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
     if [[ ! -f /etc/systemd/resolved.conf.d/dns_servers.conf ]] || [[ ! -f /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ]]; then
         _RUN "Déploiement de la configuration DNS (dans /etc/systemd/resolved.conf.d/)" sudo bash -c "echo '${RESOLVED_DNS_SERVERS}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf ; echo '${resolved_10_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
@@ -828,7 +829,7 @@ END() {
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
 
     # shellcheck disable=SC2310
-    _EXIST curl || _RUNSILENT "" dnf install -y curl
+    _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
     uplog=$(curl -fsS --upload-file "${LOG_FILE}" https://paste.c-net.org/ 2>/dev/null)
     [[ -n "${uplog}" ]] && _OK "Log téléversé : ${uplog}"
 
