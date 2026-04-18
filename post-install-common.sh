@@ -901,7 +901,7 @@ ${SSHD_CONFIG}"
 
         # gestion service
         if systemctl is-enabled sshd >/dev/null 2>&1; then
-            if systemctl is-started sshd >/dev/null 2>&1; then
+            if systemctl is-active sshd >/dev/null 2>&1; then
                 _LOG "Le service sshd est bien activé et démarré"
             else
                 _LOG "Le service sshd est bien activé mais n'est pas démarré, on le démarre maintenant"
