@@ -138,7 +138,7 @@ INSTALL_REPOS() {
 
 ########################################################################################################################
 INSTALL_FONTS() {
-    _SECTION " Polices d'affichage" "━" "${C_GREEN}"
+    _SECTION " Polices d'affichage " "━" "${C_GREEN}"
     _LOG "*** Polices d'affichage ***"
     local font
     for font in "${FONTS[@]}"; do
@@ -227,7 +227,7 @@ INSTALL_FLATPAK_PACKAGES() {
     if ! _EXIST flatpak; then
         _RUN "Installation de Flatpak" _PKG_INSTALL flatpak
     else
-        _OK "Flatpak est déjà installé"
+        _LOG "Flatpak est déjà installé"
     fi
 
     # 2. Ajout de Flathub s'il n'existe pas

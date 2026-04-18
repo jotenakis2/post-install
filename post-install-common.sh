@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=21.0
+readonly VER=21.1
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -42,11 +42,11 @@ MAIN() {
         SETUP_SHELL
         SETUP_DOTFILES
         SETUP_ETC
-        SETUP_SSHD
         SETUP_CHRONY
         SETUP_SYSTEMD
         SETUP_FIREWALL
         SETUP_SWAP
+        SETUP_SSHD
         SETUP_FSTAB
         SETUP_GRUB
         SETUP_KDE_PLASMA
@@ -522,7 +522,7 @@ SETUP_DATA() {
                     if [[ -n "${file}" ]]; then
                         # shellcheck disable=SC2310
                         if _DIR_IS_SAFE_TO_RESTORE "${DESTINATIONS[${profil}]}"; then
-                            _RUN "Restauration de ${profil} (${file} vers ${HOME}) en cours..." tar -xzf "${file}" -C "${HOME}"
+                            _RUN "Restauration de ${profil} (${file} vers ${HOME})" tar -xzf "${file}" -C "${HOME}"
                         else
                             _ERR "Le dossier de restauration de ${profil} contient déjà des données, on ne fait rien"
                         fi
@@ -719,15 +719,17 @@ SETUP_ETC() {
     # par défaut msmtp ne crée pas le log system
     # shellcheck disable=SC2310
     if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
-        _LOG "config log msmtp"
-        _RUNSILENT "" sudo bash -c "touch /var/log/msmtp.log && chmod 600 /var/log/msmtp.log"
+        _LOG "config log msmtp car paquet présent"
+        _RUNSILENT "" sudo bash -c "touch /var/log/msmtp.log && chmod -v 600 /var/log/msmtp.log"
     fi
 
     # --- Hostname ---
-    local currenthost
+    local currenthost newhost
     currenthost=$(hostnamectl hostname)
-    if [[ -n "${HOSTNAME}" ]] && [[ "${currenthost}" != "${HOSTNAME}" ]]; then
-        _RUNSILENT "Changement du nom de la machine (${HOSTNAME})" sudo hostnamectl set-hostname "${HOSTNAME}"
+    if [[ -n "${MYHOSTNAME}" ]] && [[ "${currenthost}" != "${MYHOSTNAME}" ]]; then
+        _RUN "Changement du nom de la machine (${currenthost} vers ${MYHOSTNAME})" sudo hostnamectl set-hostname "${MYHOSTNAME}"
+        newhost=$(hostnamectl hostname)
+        _LOG "nouveau hostname : ${newhost}"
     fi
 
     # --- NetworkManager & systemd-resolved ---
@@ -746,7 +748,6 @@ SETUP_ETC() {
         _OK "NetworkManager déjà configuré pour utiliser systemd-resolved (/etc/NetworkManager/conf.d/99-global-dns.conf)"
     fi
 
-    #_RUNSILENT "" sudo ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf # pas sécurité on force
     _RUNSILENT "" _SYMLINK /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
     if [[ ! -f /etc/systemd/resolved.conf.d/dns_servers.conf ]] || [[ ! -f /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ]]; then
@@ -856,16 +857,38 @@ SETUP_SSHD(){
         _LOG "*** service sshd ***"
         _RUNSILENT "" sudo mkdir -pv /etc/ssh/sshd_config.d
 
-        local config_ssh_file banner_file
+        local config_ssh_file banner_file full_ssh_content ssh_header
         config_ssh_file="/etc/ssh/sshd_config.d/90-jotenakis.conf"
+        config_ssh_allow="/etc/ssh/sshd_config.d/92-AllowUsers.conf"
         banner_file="/etc/issue.net"
-        sudo touch "${config_ssh_file}" "${banner_file}"
+        sudo touch "${config_ssh_file}" "${banner_file}" "${config_ssh_allow}"
+
+        content_ssh_allow="AllowUsers ${USER}" # on autorise l'utilisateur qui a lancé le script à se connecter en ssh et c'est tout
+        ssh_header="# =======================================================================
+# WARNING: Do not modify this file!
+# It is automatically generated and managed by ${SCRIPTNAME}.
+#
+# To override these settings, create a new drop-in file with a
+# higher priority number (e.g., /etc/ssh/sshd_config.d/99-custom.conf).
+# ======================================================================="
+        readonly ssh_header content_ssh_allow
+
+        # on concatène le header et la variable globale SSHD_CONFIG
+        full_ssh_content="${ssh_header}
+${SSHD_CONFIG}"
 
         # config sshd custo
-        if [[ -f "${config_ssh_file}" ]] && echo "${SSHD_CONFIG}" | sudo cmp -s - "${config_ssh_file}"; then
+        if [[ -f "${config_ssh_file}" ]] && echo "${full_ssh_content}" | sudo cmp -s - "${config_ssh_file}"; then
             _OK "Configuration sshd déjà à jour (${config_ssh_file})"
         else
-            _RUN "Configuration sshd créée (${config_ssh_file})" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_file}" <<< "${SSHD_CONFIG}"
+            _RUN "Configuration sshd créée (${config_ssh_file})" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_file}" <<< "${full_ssh_content}"
+        fi
+
+        # config sshd AllowUsers
+        if [[ -f "${config_ssh_allow}" ]]; then
+            _OK "Fichier ${config_ssh_allow} déjà présent"
+        else
+            _RUN "Configuration ${config_ssh_allow} crée" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_allow}" <<< "${content_ssh_allow}"
         fi
 
         # banière /etc/issue.net
@@ -878,8 +901,8 @@ SETUP_SSHD(){
         fi
 
         # gestion service
-        if systemctl is-enabled sshd 2>/dev/null; then
-            if systemctl is-started sshd 2>/dev/null; then
+        if systemctl is-enabled sshd >/dev/null 2>&1; then
+            if systemctl is-started sshd >/dev/null 2>&1; then
                 _LOG "Le service sshd est bien activé et démarré"
             else
                 _LOG "Le service sshd est bien activé mais n'est pas démarré, on le démarre maintenant"
@@ -890,7 +913,7 @@ SETUP_SSHD(){
         fi
 
     else
-        if systemctl is-enabled sshd 2>/dev/null; then
+        if systemctl is-enabled sshd >/dev/null 2>&1; then
             _SECTION " SERVICE SSHD " "━" "${C_GREEN}"
             _LOG "pas de service sshd demandé"
             _RUN "Désactivation du service sshd" sudo systemctl --now disable sshd.service

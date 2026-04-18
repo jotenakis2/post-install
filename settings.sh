@@ -4,7 +4,7 @@
 ########################################################
 
 # nom de la machine (si vide on ne change pas le nom de l'installer) #--------------------------------------------------------
-HOSTNAME="MyFedoraBTW"
+MYHOSTNAME="MyFedoraBTW"
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
@@ -236,7 +236,6 @@ PermitRootLogin no
 MaxAuthTries 3
 MaxSessions 3
 MaxStartups 5:10:30
-AllowUsers olivier
 #
 # Banner & welcomes
 #
@@ -247,7 +246,7 @@ PrintLastLog no
 # options
 #Subsystem       sftp    /usr/lib/ssh/sftp-server
 Subsystem sftp internal-sftp
-AcceptEnv LANG LC_* COLORTERM
+#AcceptEnv LANG LC_* COLORTERM
 '
 #-----------------------------------------------------------------------------------------------------------------------------
 
@@ -358,7 +357,7 @@ export UDEVFILE
 # shellcheck disable=SC2090
 export UDEVRULE
 export UDEVDESCR
-export HOSTNAME
+export MYHOSTNAME
 export SOURCE
 export COMMANDS
 export DESTINATIONS
