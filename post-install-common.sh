@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=21.2
+readonly VER=21.3
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -210,8 +210,7 @@ INSTALL_GO_PACKAGES() {
          current="$(go version | grep -oP 'go\K\d+\.\d+\.\d+' || true)"
     fi
 
-    _LOG "Contrôle de la dernière version disponible de la toolchain GO"
-    _RUNSILENT "" bash -c 'curl -s https://go.dev/dl/ > /tmp/gover'
+    _RUN "Contrôle de la dernière version disponible de la toolchain GO" bash -c 'curl -s https://go.dev/dl/ > /tmp/gover'
     latest=$(grep -oP 'go\K\d+\.\d+\.\d+' /tmp/gover | head -1 || true)
     arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
     os=$(uname | tr '[:upper:]' '[:lower:]' || true)
@@ -878,21 +877,21 @@ SETUP_SSHD(){
 ${SSHD_CONFIG}"
 
         # config sshd custo
-        if [[ -f "${config_ssh_file}" ]] && echo "${full_ssh_content}" | sudo cmp -s - "${config_ssh_file}"; then
+        if sudo test -f "${config_ssh_file}" && echo "${full_ssh_content}" | sudo cmp -s - "${config_ssh_file}"; then
             _OK "Configuration sshd déjà à jour (${config_ssh_file})"
         else
             _RUN "Configuration sshd créée (${config_ssh_file})" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_file}" <<< "${full_ssh_content}"
         fi
 
         # config sshd AllowUsers
-        if [[ -f "${config_ssh_allow}" ]]; then
+        if sudo test -f "${config_ssh_allow}"; then
             _OK "Fichier ${config_ssh_allow} déjà présent"
         else
             _RUN "Configuration ${config_ssh_allow} créée" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_allow}" <<< "${content_ssh_allow}"
         fi
 
         # banière /etc/issue.net
-        if [[ -f "${banner_file}" ]] && echo "${BANNER}" | sudo cmp -s - "${banner_file}"; then
+        if sudo test -f "${banner_file}" && echo "${BANNER}" | sudo cmp -s - "${banner_file}"; then
             _LOG "Bannière sshd à jour (${banner_file})"
         else
             _LOG "Création banière (${banner_file})"
