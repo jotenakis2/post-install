@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=22.0
+readonly VER=22.1
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################

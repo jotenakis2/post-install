@@ -26,15 +26,16 @@ CHECK_ENV() {
     local deps
     local -a missing=()
 
-    _OK "Contrôle des dépendances obligatoires"
     for deps in curl git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils; do
         if ! rpm -q --quiet "${deps}"; then
             missing+=("${deps}")
         fi
     done
-
+    local list
     if ((${#missing[@]})); then
-        _RUN "Installation des dépendances obligatoires : ${missing[*]}" _PKG_INSTALL "${missing[@]}"
+        list=$(_FORMAT_LIST "${missing[@]}")
+        _OK "Dépendances obligatoires à installer : ${list}"
+        _RUN "Installation des dépendances obligatoires" _PKG_INSTALL "${missing[@]}"
     fi
 
     #
@@ -93,7 +94,8 @@ REMOVE_RPM_PACKAGES() {
         _OK "Aucun paquet à supprimer"
     else
         list=$(_FORMAT_LIST "${to_remove[@]}")
-        _RUN "Suppression de ${list}" _PKG_REMOVE "${to_remove[@]}"
+        _OK "Paquets à supprimer ${list}"
+        _RUN "Suppression des paquets indésirables" _PKG_REMOVE "${to_remove[@]}"
     fi
 
     if (( wants_systemd_networkd_removal )); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
