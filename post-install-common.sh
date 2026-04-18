@@ -80,6 +80,7 @@ INITIALIZE() {
     LOG_FILE="${LOG_DIR}/post-install-fedora-${logsuffix}.log"
     INSTALL_DIR="${HOME}/.local/bin"
     export LOG_DIR LOG_FILE INSTALL_DIR logsuffix
+    touch "${LOG_FILE}"
 
     _LOG "*** INITIALIZE ***"
 
