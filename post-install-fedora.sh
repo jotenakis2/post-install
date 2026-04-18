@@ -160,18 +160,18 @@ INSTALL_CODECS() {
         _RUNSILENT "Mise à jour groupe multimedia." sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
     else
         _OK "ffmpeg (rpmfusion) déjà présent"
-        _OK "Groupe multimedia déjà à jour"
+        _LOG "Groupe multimedia déjà à jour"
     fi
     if ! dnf repolist --enabled | grep -q '^fedora-cisco-openh264'; then
         _RUNSILENT "Activation Cisco h264." sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1 -y
     else
-        _OK "Cisco h264 déjà activé"
+        _LOG "Cisco h264 déjà activé"
     fi
 
     # mesa swap
     local gpu_vendor
     gpu_vendor=$(lspci | grep -iE 'VGA|3D' | head -1 | tr '[:upper:]' '[:lower:]')
-    _INFO "GPU détecté : ${gpu_vendor}"
+    _LOG "GPU détecté : ${gpu_vendor}"
 
     if echo "${gpu_vendor}" | grep -q "amd\|radeon\|advanced micro"; then
         if ! rpm -q mesa-va-drivers-freeworld &>/dev/null; then
@@ -186,7 +186,7 @@ INSTALL_CODECS() {
             _OK "intel-media-driver déjà présent"
         fi
     else
-        _INFO "GPU ni AMD ni Intel => Pas de swap mesa à faire."
+        _INFO "GPU ni AMD ni Intel, pas de swap mesa à faire"
     fi
 }
 

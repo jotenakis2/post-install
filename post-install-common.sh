@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=20.8
+readonly VER=21.0
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -42,6 +42,7 @@ MAIN() {
         SETUP_SHELL
         SETUP_DOTFILES
         SETUP_ETC
+        SETUP_SSHD
         SETUP_CHRONY
         SETUP_SYSTEMD
         SETUP_FIREWALL
@@ -134,6 +135,8 @@ INSTALL_CARGO_PACKAGES() {
         if echo "${check}" | grep -q "update available"; then
             version=$(echo "${check}"| awk -F ":" '{print $2}' | xargs)
             _RUN "Mise à jour de la toolchain RUST (${version})" rustup update stable
+        else
+            _LOG "la toolchain rust est à jour"
         fi
     else
         _RUN "Installation de la toolchain RUST" bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
@@ -205,7 +208,8 @@ INSTALL_GO_PACKAGES() {
          current="$(go version | grep -oP 'go\K\d+\.\d+\.\d+' || true)"
     fi
 
-    _RUN "Contrôle de la dernière version disponible de la toolchain GO" bash -c 'curl -s https://go.dev/dl/ > /tmp/gover'
+    _LOG "Contrôle de la dernière version disponible de la toolchain GO"
+    _RUNSILENT "" bash -c 'curl -s https://go.dev/dl/ > /tmp/gover'
     latest=$(grep -oP 'go\K\d+\.\d+\.\d+' /tmp/gover | head -1 || true)
     arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
     os=$(uname | tr '[:upper:]' '[:lower:]' || true)
@@ -214,7 +218,7 @@ INSTALL_GO_PACKAGES() {
 
     # shellcheck disable=SC2310
     if [[ "${current}" == "${latest}" ]] && _EXIST go; then
-        _OK "Toolchain GO à jour (${latest})"
+        _LOG "la toolchain GO est à jour (${latest})"
     else
         _RUN "Téléchargement de la toolchain GO" wget "https://go.dev/dl/${gofile}"
         echo "Installation de la toolchain GO v${latest}" >> "${LOG_FILE}"
@@ -373,7 +377,8 @@ SETUP_DOTFILES() {
 
     # shellcheck disable=SC2310
     if _EXIST bat; then
-        _RUN "Reconstruction du cache de bat" bash -c "bat cache --clear; bat cache --build"
+        _LOG "Reconstruction du cache de bat"
+        _RUNSILENT "" bash -c "bat cache --clear; bat cache --build"
     fi
     _INFO "Les dotfiles ne sont déployés que pour l'utilisateur qui lance le script (ici : ${USER})"
 
@@ -842,6 +847,56 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 
 }
 
+########################################################################################################################
+SETUP_SSHD(){
+    if [[ "${ACTIVATE_SSHD}" = "yes" ]]; then
+        _SECTION " SERVICE SSHD " "━" "${C_GREEN}"
+        _LOG "*** service sshd ***"
+        _RUNSILENT "" sudo mkdir -pv /etc/ssh/sshd_config.d
+
+        local config_ssh_file banner_file
+        config_ssh_file="/etc/ssh/sshd_config.d/90-jotenakis.conf"
+        banner_file="/etc/issue.net"
+        sudo touch "${config_ssh_file}" "${banner_file}"
+
+        # config sshd custo
+        if [[ -f "${config_ssh_file}" ]] && echo "${SSHD_CONFIG}" | sudo cmp -s - "${config_ssh_file}"; then
+            _OK "Configuration sshd déjà à jour (${config_ssh_file})"
+        else
+            _RUN "Configuration sshd créée (${config_ssh_file})" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_file}" <<< "${SSHD_CONFIG}"
+        fi
+
+        # banière /etc/issue.net
+        if [[ -f "${banner_file}" ]] && echo "${BANNER}" | sudo cmp -s - "${banner_file}"; then
+            _LOG "Bannière sshd à jour (${banner_file})"
+        else
+            _LOG "Création banière (${banner_file})"
+            _RUNSILENT "" sudo rm -fv "${banner_file}"
+            _RUNSILENT "" sudo install -v -m 644 -o root -g root /dev/stdin "${banner_file}" <<< "${BANNER}"
+        fi
+
+        # gestion service
+        if systemctl is-enabled sshd 2>/dev/null; then
+            if systemctl is-started sshd 2>/dev/null; then
+                _LOG "Le service sshd est bien activé et démarré"
+            else
+                _LOG "Le service sshd est bien activé mais n'est pas démarré, on le démarre maintenant"
+                _RUNSILENT "" sudo systemctl start sshd.service
+            fi
+        else
+            _RUN "Activation du service sshd" sudo systemctl --now enable sshd.service
+        fi
+
+    else
+        if systemctl is-enabled sshd 2>/dev/null; then
+            _SECTION " SERVICE SSHD " "━" "${C_GREEN}"
+            _LOG "pas de service sshd demandé"
+            _RUN "Désactivation du service sshd" sudo systemctl --now disable sshd.service
+        else
+            _LOG "pas de service sshd détecté ni demandé, rien à faire"
+        fi
+    fi
+}
 
 ########################################################################################################################
 END() {
