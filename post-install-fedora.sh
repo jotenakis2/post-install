@@ -278,11 +278,13 @@ INSTALL_FLATPAK_PACKAGES() {
 
     # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
     if [[ ${#FLATPAK_PKGS[@]} -gt 0 ]]; then
+        local name
         for pkg in "${FLATPAK_PKGS[@]}"; do
+            name="${pkg##*.}"
             if flatpak info "${pkg}" >/dev/null 2>&1; then
-                _OK "Flatpak '${pkg}' est déjà installé"
+                _OK "Flatpak '${name}' est déjà installé"
             else
-                _RUN "Installation de ${pkg}" sudo flatpak --verbose install -y flathub "${pkg}"
+                _RUN "Installation de ${name}" sudo flatpak --verbose install -y flathub "${pkg}"
             fi
         done
     else
