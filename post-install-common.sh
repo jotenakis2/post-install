@@ -493,7 +493,7 @@ SETUP_FSTAB(){
     while read -r dev mp fs _; do
         [[ "${fs}" != "ext4" ]] && continue
         [[ "${mp}" == "/boot" ]] && continue
-        if tune2fs -l "${dev}" 2>/dev/null | grep -q "fast_commit"; then
+        if sudo tune2fs -l "${dev}" 2>/dev/null | grep -q "fast_commit"; then
             _OK "fast_commit déjà actif sur ${dev} (montée en ${mp})"
         else
             _RUN "Activation flag fast_commit sur ${dev} (montée en ${mp})" sudo tune2fs -O fast_commit "${dev}"
