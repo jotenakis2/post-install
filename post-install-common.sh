@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=21.1
+readonly VER=21.2
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -861,7 +861,7 @@ SETUP_SSHD(){
         config_ssh_file="/etc/ssh/sshd_config.d/90-jotenakis.conf"
         config_ssh_allow="/etc/ssh/sshd_config.d/92-AllowUsers.conf"
         banner_file="/etc/issue.net"
-        sudo touch "${config_ssh_file}" "${banner_file}" "${config_ssh_allow}"
+        #sudo touch "${config_ssh_file}" "${banner_file}" "${config_ssh_allow}"
 
         content_ssh_allow="AllowUsers ${USER}" # on autorise l'utilisateur qui a lancé le script à se connecter en ssh et c'est tout
         ssh_header="# =======================================================================
@@ -888,7 +888,7 @@ ${SSHD_CONFIG}"
         if [[ -f "${config_ssh_allow}" ]]; then
             _OK "Fichier ${config_ssh_allow} déjà présent"
         else
-            _RUN "Configuration ${config_ssh_allow} crée" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_allow}" <<< "${content_ssh_allow}"
+            _RUN "Configuration ${config_ssh_allow} créée" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_allow}" <<< "${content_ssh_allow}"
         fi
 
         # banière /etc/issue.net
