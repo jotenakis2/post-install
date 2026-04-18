@@ -53,7 +53,23 @@ REMOVE_RPM_PACKAGES() {
     _SECTION " Suppression paquets indésirables " "━" "${C_GREEN}"
     _LOG "*** suppression paquets ***"
     local pkg wants_systemd_networkd_removal
+    local -a to_remove=()
+    local -a already_gone=()
+
     wants_systemd_networkd_removal=0
+
+#     for pkg in "${DNF_REMOVE[@]}"; do
+#         if [[ "${pkg}" == "systemd-networkd" ]]; then
+#             wants_systemd_networkd_removal=1
+#             continue
+#         fi
+#         if rpm -q "${pkg}" &>/dev/null; then
+#             _RUN "Suppression ${pkg}" sudo dnf remove -y "${pkg}"
+#         else
+#             _OK "${pkg} déjà supprimé"
+#         fi
+#     done
+#
 
     for pkg in "${DNF_REMOVE[@]}"; do
         if [[ "${pkg}" == "systemd-networkd" ]]; then
@@ -61,16 +77,29 @@ REMOVE_RPM_PACKAGES() {
             continue
         fi
         if rpm -q "${pkg}" &>/dev/null; then
-            _RUN "Suppression ${pkg}" sudo dnf remove -y "${pkg}"
+            to_remove+=("${pkg}")
         else
-            _OK "${pkg} déjà supprimé"
+            already_gone+=("${pkg}")
         fi
     done
+
+    local list
+    if [[ ${#already_gone[@]} -gt 0 ]]; then
+        list=$(_FORMAT_LIST "${already_gone[@]}")
+        _LOG "Déjà supprimés : ${list}"
+    fi
+
+    if [[ ${#to_remove[@]} -eq 0 ]]; then
+        _OK "Aucun paquet à supprimer"
+    else
+        list=$(_FORMAT_LIST "${to_remove[@]}")
+        _RUN "Suppression de ${list}" _PKG_REMOVE "${to_remove[@]}"
+    fi
 
     if (( wants_systemd_networkd_removal )); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
         if systemctl is-active --quiet NetworkManager; then
             if rpm -q systemd-networkd &>/dev/null; then
-                _RUN "Suppression systemd-networkd (NetworkManager est bien actif)" sudo dnf remove -y systemd-networkd
+                _RUN "Suppression systemd-networkd (NetworkManager actif)" _PKG_REMOVE systemd-networkd
             else
                 _OK "systemd-networkd déjà supprimé"
             fi
@@ -158,14 +187,6 @@ INSTALL_FONTS() {
         _OK "Toutes les police demandées sont déjà installées"
     fi
 
-#
-#     for font in "${FONTS[@]}"; do
-#         if ! rpm -q "${font}" &>/dev/null; then
-#             _RUN "Installation ${font}" _PKG_INSTALL "${font}"
-#         else
-#             _OK "${font} déjà présente"
-#         fi
-#     done
     _SETUP_VCONSOLE_FONT
 }
 
@@ -294,33 +315,23 @@ INSTALL_FLATPAK_PACKAGES() {
     fi
 
     # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
-    # if [[ ${#FLATPAK_PKGS[@]} -gt 0 ]]; then
-    #     local name
-    #     for pkg in "${FLATPAK_PKGS[@]}"; do
-    #         name="${pkg##*.}"
-    #         if flatpak info "${pkg}" >/dev/null 2>&1; then
-    #             _OK "Flatpak '${name}' déjà installé"
-    #         else
-    #             _RUN "Installation de ${name}" sudo flatpak --verbose install -y flathub "${pkg}"
-    #         fi
-    #     done
-    # else
-    #     _INFO "Pas Flatpak à installer"
-    # fi
-
     local -a missing=()
     local list
-    for pkg in "${FLATPAK_PKGS[@]}"; do
-        if ! flatpak info "${pkg}" &>/dev/null; then
-            missing+=("${pkg}")
-        fi
-    done
+    if [[ ${#FLATPAK_PKGS[@]} -gt 0 ]]; then # au moins un FP à installer
+        for pkg in "${FLATPAK_PKGS[@]}"; do
+            if ! flatpak info "${pkg}" &>/dev/null; then
+                missing+=("${pkg}")
+            fi
+        done
 
-    if [[ ${#missing[@]} -eq 0 ]]; then
-        _OK "Tous les Flatpak demandés sont déjà installés"
+        if [[ ${#missing[@]} -eq 0 ]]; then
+            _OK "Tous les Flatpak demandés sont déjà installés"
+        else
+            list=$(_FORMAT_LIST "${missing[@]##*.}")
+            _RUN "Installation de ${list}" sudo flatpak install -y flathub "${missing[@]}"
+        fi
     else
-        list=$(_FORMAT_LIST "${missing[@]##*.}")
-        _RUN "Installation de ${list}" sudo flatpak install -y flathub "${missing[@]}"
+        _INFO "Pas Flatpak à installer"
     fi
 
     # 7. Petit nettoyage des runtimes inutilisés
@@ -655,14 +666,21 @@ _PKG_CONFIG() {
     _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main defaultyes true
     _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main max_parallel_downloads 10
 }
+
 _PKG_INSTALL_SKIP() {
     sudo dnf install --skip-unavailable -y "$@"
 }
+
 _PKG_INSTALL() {
     sudo dnf install -y "$@"
 }
+
 _SYS_UPDATE() {
     sudo dnf upgrade --refresh -y
+}
+
+_PKG_REMOVE() {
+    sudo dnf remove -y "$@"
 }
 ########################################################################################################################
 

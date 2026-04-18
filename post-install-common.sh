@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=21.7
+readonly VER=21.8
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -325,7 +325,11 @@ SETUP_SHELL() {
     if _EXIST oh-my-posh; then
         local check
         check=$(oh-my-posh notice)
-        [[ -z "${check}" ]] && _LOG "aucune mise à jour de oh-my-posh dispo" || _RUN "Mise à jour de Oh-My-Posh" oh-my-posh upgrade
+        if [[ -z "${check}" ]]; then
+            _LOG "aucune mise à jour de oh-my-posh dispo"
+        else
+            _RUN "Mise à jour de Oh-My-Posh" oh-my-posh upgrade
+        fi
     else
         _RUN "Téléchargement du binaire Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
         _RUNSILENT "" chmod 777 -v "${omp_bin}"
