@@ -939,7 +939,7 @@ END() {
 
     # shellcheck disable=SC2310
     _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
-    uplog=$(curl -fsS --upload-file "${LOG_FILE}" https://paste.c-net.org/ 2>/dev/null)
+    _RUN "Tentative de téléversement du Log" uplog="$(curl -fsS --upload-file "${LOG_FILE}" https://paste.c-net.org/ 2>/dev/null || true)"
     [[ -n "${uplog}" ]] && _OK "Log téléversé : ${uplog}"
 
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
