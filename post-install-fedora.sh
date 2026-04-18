@@ -10,6 +10,7 @@ source post-install-common.sh   # fonctions distro-agnostique
 ########################################################################################################################
 CHECK_ENV() {
     _SECTION " Préparation " "━" "${C_GREEN}"
+    _LOG "*** Préparation ***"
 
     [[ -n "${BASH_VERSION:-}" ]]       || _DIE "Ce script requiert bash."
     [[ "${BASH_VERSINFO[0]}" -ge 5 ]]  || _DIE "Bash >= 5 requis (actuel : ${BASH_VERSION})."
@@ -50,7 +51,7 @@ CHECK_ENV() {
 ########################################################################################################################
 REMOVE_RPM_PACKAGES() {
     _SECTION " Suppression paquets indésirables " "━" "${C_GREEN}"
-
+    _LOG "*** suppression paquets ***"
     local pkg wants_systemd_networkd_removal
     wants_systemd_networkd_removal=0
 
@@ -82,7 +83,7 @@ REMOVE_RPM_PACKAGES() {
 ########################################################################################################################
 INSTALL_REPOS() {
     _SECTION " Dépôts RPM " "━" "${C_GREEN}"
-
+    _LOG "*** dépôts rpm ***"
     local fedora_ver cache=0
     fedora_ver=$(rpm -E '%fedora')
 
@@ -137,8 +138,8 @@ INSTALL_REPOS() {
 
 ########################################################################################################################
 INSTALL_FONTS() {
-    _SECTION " Nerd Fonts " "━" "${C_GREEN}"
-
+    _SECTION " Polices d'affichage" "━" "${C_GREEN}"
+    _LOG "*** Polices d'affichage ***"
     local font
     for font in "${FONTS[@]}"; do
         if ! rpm -q "${font}" &>/dev/null; then
@@ -151,8 +152,8 @@ INSTALL_FONTS() {
 
 ########################################################################################################################
 INSTALL_CODECS() {
-    _SECTION " Codecs multimédia " "━" "${C_GREEN}"
-
+    _SECTION " Codecs & multimédia " "━" "${C_GREEN}"
+    _LOG "*** codecs & multimédia ***"
     # codecs
     if ! rpm -q ffmpeg &>/dev/null; then
         _RUN "Swap ffmpeg-free →  ffmpeg" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
@@ -192,6 +193,7 @@ INSTALL_CODECS() {
 ########################################################################################################################
 INSTALL_RPM_PACKAGES() {
     _SECTION " Paquets RPM " "━" "${C_GREEN}"
+    _LOG "*** Paquets RPM ***"
     local pkg arch download_dir miss
     local -a missing_packages
     arch=$(uname -m)
@@ -219,7 +221,7 @@ INSTALL_RPM_PACKAGES() {
 ########################################################################################################################
 INSTALL_FLATPAK_PACKAGES() {
     _SECTION " Paquets Flatpak " "━" "${C_GREEN}"
-
+    _LOG "*** paquets flatpak ***"
     # 1. Vérification et installation de Flatpak
     # shellcheck disable=SC2310
     if ! _EXIST flatpak; then
@@ -267,6 +269,7 @@ INSTALL_FLATPAK_PACKAGES() {
 SETUP_CHRONY() {
     # --- Configuration Chrony (IPv4 only si IPv6 désactivé) ---
     if echo "${CMDLINE}" | grep -q 'ipv6.disable=1'; then
+        _LOG "*** chrony ntp ***"
         local chrony_file chrony_content
         chrony_file="/etc/sysconfig/chronyd"
         chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
@@ -287,6 +290,7 @@ SETUP_GRUB(){
     zswap="zswap.enabled=1 zswap.compressor=lz4" # on force l'usage d'un zswap, plus efficace que zram car s'appuie sur un backend physique en plus (file ou part)
 
     _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
+    _LOG "*** Configuration GRUB ***"
 
     if [[ "${is_grub}" == "true" ]]; then
         local luks_param="" target_cmdline="" current_cmdline="" current_default=""
@@ -328,9 +332,10 @@ SETUP_GRUB(){
 
 ########################################################################################################################
 SETUP_FIREWALL() {
-
+    _LOG "*** configuration firewall ***"
     # 1. Vérification de l'installation du paquet
-    if ! rpm -q firewalld >/dev/null 2>&1; then
+    # shellcheck disable=SC2310
+    if ! _EXIST firewalld; then
         _RUN "Installation de firewalld" _PKG_INSTALL firewalld
     fi
 
@@ -338,7 +343,7 @@ SETUP_FIREWALL() {
     if ! systemctl is-active --quiet firewalld; then
         _RUN "Démarrage et activation du service firewalld" sudo systemctl enable --now firewalld.service
     else
-        _OK "Le service firewalld est déjà actif"
+        _LOG "Le service firewalld est déjà actif"
     fi
 
     # 3. Configuration des services essentiels
@@ -346,7 +351,7 @@ SETUP_FIREWALL() {
     local service
     for service in "${FIREWALL_SERVICES[@]}"; do
         if sudo firewall-cmd --permanent --query-service="${service}" >/dev/null 2>&1; then
-            _OK "Le service '${service}' est déjà autorisé"
+            _LOG "Le service '${service}' est déjà autorisé"
         else
             _RUN "Autorisation du service '${service}'" sudo firewall-cmd --permanent --add-service="${service}"
             firewall_changed=true
@@ -362,13 +367,14 @@ SETUP_FIREWALL() {
 
 ########################################################################################################################
 SETUP_SWAP(){
+    _LOG "*** swap ***"
     local target_size ram_total_kib
     local recreate_swap=false
     local swapdir="/var/swap"
 
     ram_total_kib=$(awk '/^MemTotal:/ { print $2; exit }' /proc/meminfo)
-    # SWAP = 2 x RAMtotal avec MAX 16Go
-    SWAP_SIZE=$(( ram_total_kib * 2 / 1024 / 1024 ))
+    # SWAP = "2 x RAMtotal + 1Go" avec MAX 16Go
+    SWAP_SIZE=$(( 1 + ram_total_kib * 2 / 1024 / 1024 ))
     SWAP_MAX=16
     if [[ "${SWAP_SIZE}" -gt "${SWAP_MAX}" ]]; then
         SWAP_SIZE=${SWAP_MAX}
@@ -424,6 +430,7 @@ SETUP_SWAP(){
 
 
     # --- 2.5 SELinux : Autorisation pour systemd-logind ---
+    _LOG "* SELINUX SWAP *"
     # 1. On s'assure que le label est déclaré et appliqué (rapide et idempotent)
     if ! sudo semanage fcontext -l | grep -q "^${swapdir}(/.*)?"; then
         _RUN "Définition du contexte SELinux pour ${swapdir}" sudo semanage fcontext -a -t swapfile_t "${swapdir}(/.*)?"
@@ -445,13 +452,14 @@ SETUP_SWAP(){
 
         _RUNSILENT "" rm -fv "${selinux_tmp}.*"
     else
-        _OK "Le module SELinux systemd_swap_search est déjà actif"
+        _LOG "Le module SELinux systemd_swap_search est déjà actif"
     fi
 }
 
 ########################################################################################################################
 SETUP_SUDO_RS() {
     _SECTION " Configuration sudo-rs " "━" "${C_GREEN}"
+    _LOG "*** configuration sudo-rs ***"
     local change=0
     # 1. On installe sudo-rs
     # shellcheck disable=SC2310
@@ -465,12 +473,12 @@ SETUP_SUDO_RS() {
     local d_sudoers_rs_d="/etc/sudoers-rs.d"
 
     if [[ -f "/etc/sudoers" && ! -f "${f_sudoers_rs}" ]]; then
-        _RUN "Création de ${f_sudoers_rs} depuis l'original" sudo cp -a /etc/sudoers "${f_sudoers_rs}"
+        _RUN "Création du fichier ${f_sudoers_rs} depuis l'original" sudo cp -a /etc/sudoers "${f_sudoers_rs}"
         change=1
     fi
 
     if [[ -d "/etc/sudoers.d" && ! -d "${d_sudoers_rs_d}" ]]; then
-        _RUN "Création de ${d_sudoers_rs_d} depuis l'original" sudo cp -a /etc/sudoers.d "${d_sudoers_rs_d}"
+        _RUN "Création du dossier ${d_sudoers_rs_d} depuis l'original" sudo cp -a /etc/sudoers.d "${d_sudoers_rs_d}"
         change=1
     fi
 

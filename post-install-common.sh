@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=20.6
+readonly VER=20.7
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -79,6 +79,9 @@ INITIALIZE() {
     LOG_FILE="${LOG_DIR}/post-install-fedora-${logsuffix}.log"
     INSTALL_DIR="${HOME}/.local/bin"
     export LOG_DIR LOG_FILE INSTALL_DIR logsuffix
+
+    _LOG "*** INITIALIZE ***"
+
     # RUST
     export RUSTUP_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/rustup"
     export CARGO_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/cargo"
@@ -102,7 +105,8 @@ INITIALIZE() {
     _HEURE >> "${LOG_FILE}"
 
     # aussitôt je conf le package manager si besoin pour accélérer les download de paquets
-    if EXIST crudini; then
+    # shellcheck disable=SC2310
+    if _EXIST crudini; then
         _PKG_CONFIG
     else
         _RUN "Préparation" _PKG_INSTALL crudini
@@ -121,7 +125,7 @@ INITIALIZE() {
 ########################################################################################################################
 INSTALL_CARGO_PACKAGES() {
     _SECTION " Paquets Cargo " "━" "${C_GREEN}"
-
+    _LOG "*** Paquets Cargo ***"
     # 0. toolchain rust
     local check
     # shellcheck disable=SC2310
@@ -190,6 +194,7 @@ INSTALL_CARGO_PACKAGES() {
 ########################################################################################################################
 INSTALL_GO_PACKAGES() {
     _SECTION " Paquets GO " "━" "${C_GREEN}"
+    _LOG "*** Paquets GO ***"
     local pkg current="" latest="" arch="" os="" gofile=""
 
     if [[ ! "${PATH}" =~ "/usr/local/go/bin" ]]; then
@@ -214,7 +219,7 @@ INSTALL_GO_PACKAGES() {
         _RUN "Téléchargement de la toolchain GO" wget "https://go.dev/dl/${gofile}"
         echo "Installation de la toolchain GO v${latest}" >> "${LOG_FILE}"
         _RUNSILENT "" sudo rm -rvf /usr/local/go
-        _RUN "Installation de la toolchain GO (${latest})" sudo tar -C /usr/local -xvzf "${gofile}"
+        _RUN "Installation de la toolchain GO (${latest})" sudo tar -C /usr/local -xzf "${gofile}"
         _RUNSILENT "" rm -vf "${gofile}"
     fi
 
@@ -237,7 +242,7 @@ INSTALL_GO_PACKAGES() {
 ########################################################################################################################
 CLONE_GIT() {
     _SECTION " dépôts Git personnels " "━" "${C_GREEN}"
-
+    _LOG "*** dépôts git personnels ***"
     local repo_entry repo_url dest_dir repo_name backup_dir
 
     for repo_entry in "${GIT_REPOS[@]}"; do
@@ -268,7 +273,7 @@ CLONE_GIT() {
 ########################################################################################################################
 SETUP_SHELL() {
     _SECTION " Shell " "━" "${C_GREEN}"
-
+    _LOG "*** Shell ***"
     # 1- zsh
     local zsh_bin
     zsh_bin=$(command -v zsh)
@@ -343,6 +348,8 @@ SETUP_SHELL() {
 ########################################################################################################################
 SETUP_DOTFILES() {
     _SECTION " Dotfiles " "━" "${C_GREEN}"
+    _LOG "*** dotfiles ***"
+
     if [[ ! -d "${DOTFILES_DIR}" ]]; then
         _ERR "Le dossier ${DOTFILES_DIR} est introuvable. Stow ignoré."
         return
@@ -374,6 +381,7 @@ SETUP_DOTFILES() {
 
 ########################################################################################################################
 SETUP_SYSTEMD(){
+    _LOG "*** systemd ***"
     local service
     local description
     for service in "${!SERVICES_TO_DISABLE[@]}"; do
@@ -397,6 +405,8 @@ SETUP_SYSTEMD(){
 ########################################################################################################################
 SETUP_FSTAB(){
     _SECTION " Configuration FSTAB " "━" "${C_GREEN}"
+    _LOG "*** /etc/fstab ***"
+
     # SWAPFILE
     local swapdir="/var/swap"
     if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
@@ -490,6 +500,7 @@ SETUP_FSTAB(){
 
 ########################################################################################################################
 SETUP_DATA() {
+    _LOG "*** Restauration des données privées ***"
     if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
         _SECTION " Restauration des données privées " "━" "${C_GREEN}"
         local profil file cmd
@@ -525,6 +536,7 @@ SETUP_DATA() {
 
 ########################################################################################################################
 SETUP_KDE_PLASMA() {
+    _LOG "*** Personnalisation de KDE Plasma 6 ***"
 # on check KDE est lancé
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
         _SECTION " Personnalisation de KDE Plasma 6 " "━" "${C_GREEN}"
@@ -661,6 +673,7 @@ SETUP_KDE_PLASMA() {
 
 ########################################################################################################################
 SETUP_PLM() {
+    _LOG "*** Display Manager KDE ***"
 # on teste si KDE tourne
     local change=0
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
@@ -694,9 +707,13 @@ SETUP_PLM() {
 ########################################################################################################################
 SETUP_ETC() {
     _SECTION " Configuration Système " "━" "${C_GREEN}"
+    _LOG "*** configuration système ***"
 
     # par défaut msmtp ne crée pas le log system
-    _RUNSILENT "" sudo bash -c "touch /var/log/msmtp.log && chmod 600 /var/log/msmtp.log"
+    # shellcheck disable=SC2310
+    if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
+        _RUNSILENT "" sudo bash -c "touch /var/log/msmtp.log && chmod 600 /var/log/msmtp.log"
+    fi
 
     # --- Hostname ---
     local currenthost
@@ -706,6 +723,7 @@ SETUP_ETC() {
     fi
 
     # --- NetworkManager & systemd-resolved ---
+    _LOG "* réseau *"
     local nm_dns_conf resolved_10_conf restart=0
     nm_dns_conf=$'[main]\ndns=systemd-resolved\n'
     resolved_10_conf=$'[Resolve]\nLLMNR=no\n'
@@ -734,6 +752,7 @@ SETUP_ETC() {
     fi
 
     # --- Optimisations Kernel (Sysctl) ---
+    _LOG "* sysctl *"
     local sysctlfile sysctl_header full_sysctl_content
     sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
     sysctl_header="# =======================================================================
@@ -756,6 +775,7 @@ SETUP_ETC() {
     fi
 
     # --- Configuration Brave Browser (Policies debloat) ---
+    _LOG "* brave debloat *"
     local brave_policy_file full_brave_policies
     brave_policy_file="/etc/brave/policies/managed/brave_debullshitinator-policies.json"
     full_brave_policies=$(echo "${BRAVE_POLICIES}" | sed "1s/{/{\n    \"_warning\": \"Do not modify this file! It is managed by ${SCRIPTNAME}.\",/")
@@ -768,6 +788,7 @@ SETUP_ETC() {
     fi
 
     # IO scheduler
+    _LOG "* udev *"
     local rules_file rules_content current
     rules_file="/etc/udev/rules.d/60-ioschedulers.rules"
     sudo touch "${rules_file}"
@@ -806,6 +827,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
     fi
 
     # --- Groupe libvirt ---
+    _LOG "* groupe *"
     local main_user
     main_user=${USER}
 
@@ -824,6 +846,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 END() {
     local duration uplog
     _SECTION " Fin " "━" "${C_GREEN}"
+    _LOG "*** fin ***"
     _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
     _OK "REDÉMARREZ pour appliquer les modifications"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"

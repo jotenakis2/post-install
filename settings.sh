@@ -33,9 +33,7 @@ DNF_REMOVE=(
 FONTS=(
     jetbrainsmono-nerd-fonts
     iosevka-nerd-fonts
-    terminus-fonts
     terminus-fonts-console
-    terminus-fonts-grub2
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------

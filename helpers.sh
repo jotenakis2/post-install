@@ -1,26 +1,32 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2154
-#_BANNER
-#_SECTION
-#_HEURE
-#_OK
-#_ERR
-#_INFO
-#_DIE
-#_SYMLINK
-#_PLASMA_EVAL
-#_PASS
-#_RUNSILENT
-#_RUN
-#_EXIST
-#_DETECT_GRUB !!!!!!!!!!!!!!!!!!
-#_DIR_IS_SAFE_TO_RESTORE
-#_CONVERT_SECONDS
-#_FORMAT_LIST
 
 ########################################################################################################################
 # FONCTIONS HELPERS                                                                                                    #
 ########################################################################################################################
+
+# _BANNER
+# _SECTION
+# _HEURE
+# _OK
+# _ERR
+# _INFO
+# _DIE
+# _LOG
+# _IN_ARRAY
+# _SYMLINK
+# _PLASMA_EVAL
+# _PLASMA_GET_PANEL_LOCATION
+# _PASS
+# _RUNSILENT
+# _RUN
+# _EXIST
+# _DETECT_GRUB !!!!!!!!!!!!!!!!!!
+# _DIR_IS_SAFE_TO_RESTORE
+# _CONVERT_SECONDS
+# _FORMAT_LIST
+
+
 _BANNER() {
     local color=$1
     shift
@@ -51,7 +57,16 @@ _BANNER() {
     return 0
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
+_LOG(){
+    local msg="${*^^}"
+    printf '\n%s\n' "${msg}" >> "${LOG_FILE}"
+}
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+_IN_ARRAY() {
+    local needle="$1"; shift
+    printf '%s\n' "$@" | grep -qxF "${needle}"
+}
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 _SECTION() {
     local msg="${1^^}"
     local fillertype="${2}"
