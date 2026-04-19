@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=22.8
+readonly VER=22.9
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -693,7 +693,7 @@ SETUP_PLM() {
         if [[ "${change}" = 0 ]]; then
             _OK "Plasma Login Manager est déjà correctement configuré pour remplacer SDDM"
         fi
-
+        _SET_PLM_WALLPAPER
     else
         echo
         _INFO "KDE n'a pas été détecté, on ne touche pas au display-manager"
@@ -913,6 +913,31 @@ ${SSHD_CONFIG}"
 }
 
 ########################################################################################################################
+
+_SET_PLM_WALLPAPER() {
+    local dest_dir="/var/lib/plasmalogin/wallpapers"
+    local dest_file="${dest_dir}/PlasmaLogin.jpg"
+    local src="${HOME}/.local/share/wallpapers/SpacePlasma.jpg"
+    local confdirPLM="/etc/plasmalogin.conf.d"
+    local configPLM="${confdirPLM}/90-jotenakis.conf"
+    _RUNSILENT "" sudo mkdir -pv "${confdirPLM}"
+
+    if [[ -f "${src}" ]]; then
+        _RUNSILENT "" sudo install -d -m 0755 "${dest_dir}"
+        _RUNSILENT "" sudo install -m 0644 "${src}" "${dest_file}"
+        if ! grep -q "${dest_file}" ; then
+            _LOG "Installation du wallpaper PLM"
+            _RUNSILENT "" sudo bash -c "cat > \"${configPLM}\" <<'EOF'
+[Greeter][Wallpaper][org.kde.image][General]
+Image=file://${dest_file}
+EOF"
+        fi
+    else
+        _LOG "Fond d'écran de PLM introuvable : ${src}"
+    fi
+}
+
+########################################################################################################################
 END() {
     local duration file
     _SECTION " Fin " "━" "${C_GREEN}"
@@ -925,7 +950,7 @@ END() {
     # LOG
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
     _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
-    _RUN "Tentative de téléversement du Log" bash -c "curl -fsS --upload-file \"${LOG_FILE}\" https://paste.c-net.org >/tmp/ok"
+    _RUN "Téléversement du Log" bash -c "curl -fsS --upload-file \"${LOG_FILE}\" https://paste.c-net.org >/tmp/ok"
     file="$(cat /tmp/ok)"
     [[ -n "${file}" ]] &&  _OK "Log téléversé : ${file}"
     rm -f /tmp/ok
