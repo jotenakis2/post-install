@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=22.5
+readonly VER=22.6
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -148,45 +148,25 @@ INSTALL_CARGO_PACKAGES() {
     fi
     _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/cargo-binstall"
 
-    # 2. Installation des paquets via Cargo (binstall)
-    # local cmd
-    # for cmd in "${CARGO_PACKAGES[@]}"; do
-    #     if cargo install --list | grep -q "^${cmd} "; then
-    #         _OK "${cmd} déjà installé"
-    #     else
-    #         _RUN "Installation de ${cmd}" cargo binstall --no-confirm "${cmd}"
-    #     fi
-    #
-    # # 3. Création des liens symboliques dans /usr/local/bin
-    #     local bins_to_link bin_name src_bin dest_link current_target
-    #     if [[ -n "${BIN_MAPPING[${cmd}]:-}" ]]; then
-    #         # il existe une correpondance paquet <=> binaire, on l'utilise
-    #         bins_to_link="${BIN_MAPPING[${cmd}]}"
-    #     else
-    #         # paquet = binaire
-    #         bins_to_link="${cmd}"
-    #     fi
-    #     for bin_name in ${bins_to_link}; do
-    #         src_bin="${CARGO_HOME}/bin/${bin_name}"
-    #         dest_link="/usr/local/bin/${bin_name}"
-    #         _RUNSILENT "" _SYMLINK "${src_bin}" "${dest_link}"
-    #     done
-    # done
-
     # 2 & 3. Installation des paquets via Cargo (binstall) + symlinks
-    local -a to_install=()
+    local -a to_install=() already_installed=()
     local list cmd
     local installed_list
     installed_list=$(cargo install --list 2>/dev/null)
 
     for cmd in "${CARGO_PACKAGES[@]}"; do
-        #if cargo install --list | grep -q "^${cmd} "; then
         if echo "${installed_list}" | grep -q "^${cmd} "; then
-            _OK "${cmd} déjà installé"
+            _LOG "${cmd} déjà installé"
+            already_installed+=("${cmd}")
         else
             to_install+=("${cmd}")
         fi
     done
+
+    if [[ ${#already_installed[@]} -gt 0 ]]; then
+        list=$(_FORMAT_LIST "${already_installed[@]}")
+        _OK "Paquets déjà installés : ${list}"
+    fi
 
     if [[ ${#to_install[@]} -gt 0 ]]; then
         list=$(_FORMAT_LIST "${to_install[@]}")
@@ -490,7 +470,7 @@ SETUP_FSTAB(){
         else
             _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
             _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
-            echo "${NFS_SHARE}   ${NFS_MP}   nfs   defaults,nofail,noatime,lazytime,x-systemd.automount,x-systemd.device-timeout=30     0 0" | sudo tee -a /etc/fstab >/dev/null
+            echo "${NFS_SHARE}   ${NFS_MP}   nfs   rw,_netdev,nofail,nodev,nosuid,noexec,noatime,lazytime,x-systemd.automount,x-systemd.device-timeout=30     0 0" | sudo tee -a /etc/fstab >/dev/null
             _RUNSILENT "" sudo systemctl daemon-reload
             _RUNSILENT "" sudo mount -v "${NFS_MP}"
             _RUN "Installation du partage réseau NFS" sudo ls -l "${NFS_MP}"
@@ -708,7 +688,7 @@ SETUP_PLM() {
         fi
 
         if [[ "${change}" = 0 ]]; then
-            _OK "Plasma Login Manager est déjà correctement configuré pour remplacé SDDM"
+            _OK "Plasma Login Manager est déjà correctement configuré pour remplacer SDDM"
         fi
 
     else

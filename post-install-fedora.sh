@@ -693,6 +693,7 @@ _SYS_UPDATE() {
 _PKG_REMOVE() {
     sudo dnf remove -y "$@"
 }
+
 _IS_PKG_INSTALLED() {
     rpm -q "$@" &>>"${LOG_FILE}"
 }
