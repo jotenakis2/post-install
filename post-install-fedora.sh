@@ -27,7 +27,7 @@ CHECK_ENV() {
     local deps
     local -a missing=()
 
-    for deps in curl git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils; do
+    for deps in curl git stow wget2 pciutils dnf-plugins-core binutils policycoreutils-python-utils; do
         if ! _IS_PKG_INSTALLED "${deps}"; then
             missing+=("${deps}")
         fi
@@ -95,7 +95,7 @@ REMOVE_RPM_PACKAGES() {
         _OK "Aucun paquet à supprimer"
     else
         list=$(_FORMAT_LIST "${to_remove[@]}")
-        _OK "Paquets à supprimer ${list}"
+        _OK "Paquets à supprimer : ${list}"
         _RUN "Suppression des paquets indésirables" _PKG_REMOVE "${to_remove[@]}"
     fi
 
@@ -177,7 +177,7 @@ INSTALL_FONTS() {
 
     if ((${#missing_packages[@]})); then
         miss=$(_FORMAT_LIST "${missing_packages[@]}")
-        _OK "Polices manquantes : ${miss}"
+        _OK "Polices à installer : ${miss}"
         _RUN "Installation des polices manquantes" _PKG_INSTALL_SKIP "${missing_packages[@]}"
     else
         _OK "Toutes les polices demandées sont déjà installées"
@@ -272,7 +272,7 @@ INSTALL_RPM_PACKAGES() {
     if ((${#missing_packages[@]})); then
         miss=$(_FORMAT_LIST "${missing_packages[@]}")
         _RUNSILENT "" mkdir -pv "${download_dir}"
-        _OK "Paquets manquants : ${miss}"
+        _OK "Paquets à installer : ${miss}"
         _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf download --skip-unavailable --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
         _RUN "Installation des paquets manquants depuis le cache de téléchargement" _PKG_INSTALL_SKIP "${download_dir}"/*.rpm
         _RUNSILENT "" rm -rvf "${download_dir}"
@@ -413,7 +413,7 @@ SETUP_FIREWALL() {
     if ! _IS_ACTIVE firewalld; then
         _RUN "Démarrage et activation du service firewalld" sudo systemctl enable --now firewalld.service
     else
-        _LOG "Le service firewalld est déjà actif"
+        _OK "Le firewall est déjà actif"
     fi
 
     # 3. Configuration des services essentiels
@@ -431,6 +431,8 @@ SETUP_FIREWALL() {
     # 4. Si on a fait au moins une modification, on recharge le pare-feu
     if [[ "${firewall_changed}" == true ]]; then
         _RUN "Rechargement des règles de firewalld (${FIREWALL_SERVICES[*]})" sudo firewall-cmd --reload
+    else
+        _OK "Les règles du firewall sont déjà appliquées"
     fi
 }
 

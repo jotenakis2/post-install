@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=22.3
+readonly VER=22.5
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -128,6 +128,7 @@ INITIALIZE() {
 INSTALL_CARGO_PACKAGES() {
     _SECTION " Paquets Cargo " "━" "${C_GREEN}"
     _LOG "*** Paquets Cargo ***"
+
     # 0. toolchain rust
     local check
     if _EXIST rustup; then
@@ -148,48 +149,64 @@ INSTALL_CARGO_PACKAGES() {
     else
         _LOG "cargo-binstall est déjà installé"
     fi
-    #_RUNSILENT "" sudo ln -svf "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/"
     _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/cargo-binstall"
-    local cmd
-    for cmd in "${CARGO_PACKAGES[@]}"; do
 
-        # 1. Installation du paquet via Cargo (binstall)
-        if cargo install --list | grep -q "^${cmd} "; then
+    # 2. Installation des paquets via Cargo (binstall)
+    # local cmd
+    # for cmd in "${CARGO_PACKAGES[@]}"; do
+    #     if cargo install --list | grep -q "^${cmd} "; then
+    #         _OK "${cmd} déjà installé"
+    #     else
+    #         _RUN "Installation de ${cmd}" cargo binstall --no-confirm "${cmd}"
+    #     fi
+    #
+    # # 3. Création des liens symboliques dans /usr/local/bin
+    #     local bins_to_link bin_name src_bin dest_link current_target
+    #     if [[ -n "${BIN_MAPPING[${cmd}]:-}" ]]; then
+    #         # il existe une correpondance paquet <=> binaire, on l'utilise
+    #         bins_to_link="${BIN_MAPPING[${cmd}]}"
+    #     else
+    #         # paquet = binaire
+    #         bins_to_link="${cmd}"
+    #     fi
+    #     for bin_name in ${bins_to_link}; do
+    #         src_bin="${CARGO_HOME}/bin/${bin_name}"
+    #         dest_link="/usr/local/bin/${bin_name}"
+    #         _RUNSILENT "" _SYMLINK "${src_bin}" "${dest_link}"
+    #     done
+    # done
+
+    # 2 & 3. Installation des paquets via Cargo (binstall) + symlinks
+    local -a to_install=()
+    local list cmd
+    local installed_list
+    installed_list=$(cargo install --list 2>/dev/null)
+
+    for cmd in "${CARGO_PACKAGES[@]}"; do
+        #if cargo install --list | grep -q "^${cmd} "; then
+        if echo "${installed_list}" | grep -q "^${cmd} "; then
             _OK "${cmd} déjà installé"
         else
-            _RUN "Installation de ${cmd}" cargo binstall --no-confirm "${cmd}"
+            to_install+=("${cmd}")
         fi
+    done
 
-        # 2. Création des liens symboliques dans /usr/local/bin
-        local bins_to_link
-        if [[ -n "${BIN_MAPPING[${cmd}]:-}" ]]; then
-            # il existe une correpondance paquet <=> binaire, on l'utilise
-            bins_to_link="${BIN_MAPPING[${cmd}]}"
-        else
-            # paquet = binaire
-            bins_to_link="${cmd}"
-        fi
+    if [[ ${#to_install[@]} -gt 0 ]]; then
+        list=$(_FORMAT_LIST "${to_install[@]}")
+        _OK "Paquets à installer : ${list}"
+        _RUN "Installation des paquets manquants" cargo binstall --no-confirm "${to_install[@]}"
+    fi
 
-        local bin_name src_bin dest_link current_target
+    # symlinks après installation
+    for cmd in "${CARGO_PACKAGES[@]}"; do
+        local bins_to_link bin_name
+        bins_to_link="${BIN_MAPPING[${cmd}]:-${cmd}}"
         for bin_name in ${bins_to_link}; do
-            src_bin="${CARGO_HOME}/bin/${bin_name}"
-            dest_link="/usr/local/bin/${bin_name}"
-            _RUNSILENT "" _SYMLINK "${src_bin}" "${dest_link}"
-            # if [[ -x "${src_bin}" ]]; then
-            #     current_target=""
-            #     if [[ -L "${dest_link}" ]]; then
-            #         current_target=$(readlink -f "${dest_link}" || true)
-            #     fi
-            #     if [[ "${current_target}" != "${src_bin}" ]]; then
-            #         _RUNSILENT "" sudo ln -svf "${src_bin}" "${dest_link}"
-            #     fi
-            # else
-            #     _ERR " Binaire introuvable : ${src_bin}"
-            # fi
+            _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/${bin_name}" "/usr/local/bin/${bin_name}"
         done
     done
 
-    # 3. Ajustement des permissions pour l'accès global
+    # 4. Ajustement des permissions pour l'accès global
     _RUNSILENT "" chmod a+x -v "${HOME}" "${HOME}/.local" "${HOME}/.local/share" "${CARGO_HOME}" "${CARGO_HOME}/bin"
 }
 
@@ -216,8 +233,8 @@ INSTALL_GO_PACKAGES() {
     if [[ "${current}" == "${latest}" ]] && _EXIST go; then
         _LOG "la toolchain GO est à jour (${latest})"
     else
-        _RUN "Téléchargement de la toolchain GO" wget "https://go.dev/dl/${gofile}"
-        echo "Installation de la toolchain GO v${latest}" >> "${LOG_FILE}"
+        _EXIST wget || _RUNSILENT "" _PKG_INSTALL wget2
+        _RUNSILENT "" wget "https://go.dev/dl/${gofile}"
         _RUNSILENT "" sudo rm -rvf /usr/local/go
         _RUN "Installation de la toolchain GO (${latest})" sudo tar -C /usr/local -xzf "${gofile}"
         _RUNSILENT "" rm -vf "${gofile}"
@@ -507,7 +524,7 @@ SETUP_DATA() {
     _LOG "*** Restauration des données privées ***"
     if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
         _SECTION " Restauration des données privées " "━" "${C_GREEN}"
-        local profil file cmd
+        local profil file cmd ffile
         for profil in "${!DESTINATIONS[@]}"; do
             cmd=${COMMANDS["${profil}"]}
             if [[ -d "${SOURCE}" ]]; then
@@ -518,7 +535,8 @@ SETUP_DATA() {
                 else
                     if [[ -n "${file}" ]]; then
                         if _DIR_IS_SAFE_TO_RESTORE "${DESTINATIONS[${profil}]}"; then
-                            _RUN "Restauration de ${profil} (${file} vers ${HOME})" tar -xzf "${file}" -C "${HOME}"
+                            ffile=$(basename "${file}")
+                            _RUN "Restauration de ${profil} (de ${ffile} vers ${HOME})" tar -xzf "${file}" -C "${HOME}"
                         else
                             _ERR "Le dossier de restauration de ${profil} contient déjà des données, on ne fait rien"
                         fi
@@ -718,7 +736,7 @@ SETUP_ETC() {
     local currenthost newhost
     currenthost=$(hostnamectl hostname)
     if [[ -n "${MYHOSTNAME}" ]] && [[ "${currenthost}" != "${MYHOSTNAME}" ]]; then
-        _RUN "Changement du nom de la machine (${currenthost} vers ${MYHOSTNAME})" sudo hostnamectl set-hostname "${MYHOSTNAME}"
+        _RUN "Changement du nom de la machine (de ${currenthost} vers ${MYHOSTNAME})" sudo hostnamectl set-hostname "${MYHOSTNAME}"
         newhost=$(hostnamectl hostname)
         _LOG "nouveau hostname : ${newhost}"
     fi
