@@ -928,7 +928,8 @@ _SET_PLM_WALLPAPER() {
         _RUNSILENT "" sudo install -d -m 0755 "${dest_dir}"
         _RUNSILENT "" sudo install -m 0644 "${src}" "${dest_file}"
         _LOG "Installation du wallpaper PLM"
-        _RUNSILENT "" echo "${plm_content}" | sudo install -v -m 644 -o root -g root /dev/stdin "${configPLM}"
+        echo "${plm_content}"
+        echo "${plm_content}" | sudo install -v -m 644 -o root -g root /dev/stdin "${configPLM}"
     else
         _LOG "Fond d'écran de PLM introuvable : ${src}"
     fi
