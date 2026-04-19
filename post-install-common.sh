@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=22.7
+readonly VER=22.8
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -914,19 +914,22 @@ ${SSHD_CONFIG}"
 
 ########################################################################################################################
 END() {
-    local duration uplog
+    local duration file
     _SECTION " Fin " "━" "${C_GREEN}"
     _LOG "*** fin ***"
     _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
-    _OK "REDÉMARREZ pour appliquer les modifications"
-    _OK "Fichier log de la post-installation : ${LOG_FILE}"
-
-    _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
-    uplog=$(curl -fsS --upload-file "${LOG_FILE}" https://paste.c-net.org/ 2>/dev/null || true)
-    [[ -n "${uplog}" ]] && _OK "Log téléversé : ${uplog}"
-
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
     _OK "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
+    _OK "REDÉMARREZ pour appliquer les modifications éventuelles totalement"
+
+    # LOG
+    _OK "Fichier log de la post-installation : ${LOG_FILE}"
+    _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
+    _RUN "Tentative de téléversement du Log" bash -c "curl -fsS --upload-file \"${LOG_FILE}\" https://paste.c-net.org >/tmp/ok"
+    file="$(cat /tmp/ok)"
+    [[ -n "${file}" ]] &&  _OK "Log téléversé : ${file}"
+    rm -f /tmp/ok
+    #
     echo ""
 }
 
