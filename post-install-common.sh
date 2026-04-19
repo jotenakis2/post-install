@@ -109,11 +109,8 @@ INITIALIZE() {
     _HEURE >> "${LOG_FILE}"
 
     # aussitôt je conf le package manager si besoin pour accélérer les download de paquets
-    if _EXIST crudini; then
-        _PKG_CONFIG
-    else
-        _RUN "Préparation" _PKG_INSTALL crudini
-    fi
+    _EXIST crudini || _RUN "Préparation" _PKG_INSTALL crudini
+    _PKG_CONFIG
 
     # PATH
     export PATH="${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
