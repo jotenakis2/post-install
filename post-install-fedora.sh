@@ -686,16 +686,17 @@ _IS_PKG_INSTALLED() {
 }
 
 _REFRESH_DNF_CACHE() {
-    local cache_dir="/var/cache/dnf"
-    local max_age=3600  # 1h en secondes
-    local now cache_mtime age
+    local sentinel="/var/cache/dnf/.last_makecache"
+    local max_age=3600
+    local now sentinel_mtime age
 
     now=$(date +%s)
-    cache_mtime=$(stat -c %Y "${cache_dir}" 2>/dev/null || echo 0)
-    age=$(( now - cache_mtime ))
+    sentinel_mtime=$(stat -c %Y "${sentinel}" 2>/dev/null || echo 0)
+    age=$(( now - sentinel_mtime ))
 
     if [[ ${age} -gt ${max_age} ]]; then
         _RUN "Mise à jour du cache DNF" sudo dnf makecache --quiet
+        sudo touch "${sentinel}"
     else
         _LOG "Cache DNF à jour (${age}s < ${max_age}s)"
     fi
