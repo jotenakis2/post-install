@@ -432,7 +432,7 @@ SETUP_FIREWALL() {
     if [[ "${firewall_changed}" == true ]]; then
         _RUN "Rechargement des règles de firewalld (${FIREWALL_SERVICES[*]})" sudo firewall-cmd --reload
     else
-        _OK "Les règles du firewall sont déjà appliquées"
+        _OK "Les règles du firewall sont déjà à jour"
     fi
 }
 
@@ -464,7 +464,7 @@ SETUP_SWAP(){
             _RUNSILENT "" sudo rm -fv "${swapdir}/swapfile"
             recreate_swap=true
         else
-            _OK "${swapdir}/swapfile est déjà correctement installé"
+            _LOG "${swapdir}/swapfile est déjà correctement installé"
         fi
     else
         recreate_swap=true
