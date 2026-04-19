@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=22.1
+readonly VER=22.3
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -108,13 +109,11 @@ INITIALIZE() {
     _HEURE >> "${LOG_FILE}"
 
     # aussitôt je conf le package manager si besoin pour accélérer les download de paquets
-    # shellcheck disable=SC2310
     if _EXIST crudini; then
         _PKG_CONFIG
     else
         _RUN "Préparation" _PKG_INSTALL crudini
     fi
-    ## shellcheck disable=SC2310
 
     # PATH
     export PATH="${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
@@ -131,7 +130,6 @@ INSTALL_CARGO_PACKAGES() {
     _LOG "*** Paquets Cargo ***"
     # 0. toolchain rust
     local check
-    # shellcheck disable=SC2310
     if _EXIST rustup; then
         check=$(rustup check 2>/dev/null)
         if echo "${check}" | grep -q "update available"; then
@@ -145,7 +143,6 @@ INSTALL_CARGO_PACKAGES() {
     fi
 
     # 1. Installation de cargo-binstall sans compilation
-    # shellcheck disable=SC2310
     if ! _EXIST cargo-binstall; then
         _RUN "Installation de cargo-binstall" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
     else
@@ -205,7 +202,6 @@ INSTALL_GO_PACKAGES() {
     if [[ ! "${PATH}" =~ "/usr/local/go/bin" ]]; then
         export PATH="/usr/local/go/bin:${PATH}"
     fi
-    # shellcheck disable=SC2310
     if _EXIST go; then
          current="$(go version | grep -oP 'go\K\d+\.\d+\.\d+' || true)"
     fi
@@ -217,7 +213,6 @@ INSTALL_GO_PACKAGES() {
     gofile="go${latest}.${os}-${arch}.tar.gz"
     rm -f /tmp/gover
 
-    # shellcheck disable=SC2310
     if [[ "${current}" == "${latest}" ]] && _EXIST go; then
         _LOG "la toolchain GO est à jour (${latest})"
     else
@@ -228,7 +223,6 @@ INSTALL_GO_PACKAGES() {
         _RUNSILENT "" rm -vf "${gofile}"
     fi
 
-    # shellcheck disable=SC2310
     if _EXIST go; then
         for pkg in "${!GO_PACKAGES[@]}"; do # on parcourt les clés du tableau associatif
             local url
@@ -321,7 +315,6 @@ SETUP_SHELL() {
 
     local omp_url="https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/${omp_target}"
     local omp_bin="${INSTALL_DIR}/oh-my-posh"
-    # shellcheck disable=SC2310
     if _EXIST oh-my-posh; then
         local check
         check=$(oh-my-posh notice)
@@ -382,7 +375,6 @@ SETUP_DOTFILES() {
         _RUN "stow : ${name}" stow --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}"
     done
 
-    # shellcheck disable=SC2310
     if _EXIST bat; then
         _LOG "Reconstruction du cache de bat"
         _RUNSILENT "" bash -c "bat cache --clear; bat cache --build"
@@ -398,7 +390,7 @@ SETUP_SYSTEMD(){
     local description
     for service in "${!SERVICES_TO_DISABLE[@]}"; do
         description="${SERVICES_TO_DISABLE[${service}]}"
-        if systemctl is-enabled --quiet "${service}" 2>/dev/null; then
+        if _IS_ENABLED "${service}"; then
             _RUN "Désactivation du ${description}" sudo systemctl disable --now "${service}"
         else
             _OK "Le ${description} est déjà désactivé"
@@ -406,7 +398,7 @@ SETUP_SYSTEMD(){
     done
     for service in "${!USER_SERVICES_TO_ENABLE[@]}"; do
         description="${USER_SERVICES_TO_ENABLE[${service}]}"
-        if ! systemctl --user is-enabled --quiet "${service}" 2>/dev/null; then
+        if ! _IS_ENABLED_USER "${service}"; then
             _RUN "Activation du ${description}" systemctl --user enable --now "${service}"
         else
             _OK "Le ${description} est déjà activé"
@@ -487,10 +479,10 @@ SETUP_FSTAB(){
             echo "${NFS_SHARE}   ${NFS_MP}   nfs   defaults,nofail,noatime,lazytime,x-systemd.automount,x-systemd.device-timeout=30     0 0" | sudo tee -a /etc/fstab >/dev/null
             _RUNSILENT "" sudo systemctl daemon-reload
             _RUNSILENT "" sudo mount -v "${NFS_MP}"
-            _RUN "Installation du partage réseau NFS." sudo ls -l "${NFS_MP}"
+            _RUN "Installation du partage réseau NFS" sudo ls -l "${NFS_MP}"
         fi
     else
-        _RUN "Montage NFS déjà installé."
+        _RUN "Montage NFS déjà installé"
     fi
 
     # fast_commit pour ext4
@@ -525,7 +517,6 @@ SETUP_DATA() {
                     _ERR "Ferme ${cmd} d'abord !"
                 else
                     if [[ -n "${file}" ]]; then
-                        # shellcheck disable=SC2310
                         if _DIR_IS_SAFE_TO_RESTORE "${DESTINATIONS[${profil}]}"; then
                             _RUN "Restauration de ${profil} (${file} vers ${HOME})" tar -xzf "${file}" -C "${HOME}"
                         else
@@ -570,7 +561,6 @@ SETUP_KDE_PLASMA() {
         else
             # Détection du nom exact par Plasma (extraction propre du premier mot)
             local tokyoexist="" currentlist="" currentscheme=""
-            # shellcheck disable=SC2310
             if _EXIST plasma-apply-colorscheme; then
                 currentlist=$(LANG=C plasma-apply-colorscheme --list-schemes 2>/dev/null)
                 currentscheme=$(echo "${currentlist}" | grep -i 'current color scheme' | awk '{print $2}' || true)
@@ -613,7 +603,6 @@ SETUP_KDE_PLASMA() {
         fi
 
         # Baloo
-        # shellcheck disable=SC2310
         if _EXIST balooctl6; then
             if balooctl6 status > /dev/null 2>&1; then
                 _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
@@ -664,7 +653,6 @@ SETUP_KDE_PLASMA() {
         fi
 
         # Configuration des thèmes pour les applications Flatpak (Mode global/system-wide overrides)
-        # shellcheck disable=SC2310
         if _EXIST flatpak; then
             _RUNSILENT "" sudo flatpak override \
                 --filesystem="${HOME}/.local/share/icons:ro" \
@@ -689,18 +677,17 @@ SETUP_PLM() {
 # on teste si KDE tourne
     local change=0
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
-        # shellcheck disable=SC2310
         if ! _EXIST plasmalogin; then
             _RUN "Installation de plasma-login-manager" _PKG_INSTALL plasma-login-manager kcm-plasmalogin
             change=1
         fi
 
-        if systemctl is-enabled --quiet sddm.service 2>/dev/null; then
+        if _IS_ENABLED sddm.service; then
             _RUN "Désactivation de SDDM à partir du prochain boot" sudo systemctl disable sddm.service
             change=1
         fi
 
-        if ! systemctl is-enabled --quiet plasmalogin.service 2>/dev/null; then
+        if ! _IS_ENABLED plasmalogin.service; then
             _RUN "Activation de Plasma Login Manager à partir du prochain boot" sudo systemctl enable --force plasmalogin.service
             change=1
         fi
@@ -722,7 +709,6 @@ SETUP_ETC() {
     _LOG "*** configuration système ***"
 
     # par défaut msmtp ne crée pas le log system
-    # shellcheck disable=SC2310
     if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
         _LOG "config log msmtp car paquet présent"
         _RUNSILENT "" sudo bash -c "touch /var/log/msmtp.log && chmod -v 600 /var/log/msmtp.log"
@@ -906,8 +892,8 @@ ${SSHD_CONFIG}"
         fi
 
         # gestion service
-        if systemctl is-enabled sshd >/dev/null 2>&1; then
-            if systemctl is-active sshd >/dev/null 2>&1; then
+        if _IS_ENABLED sshd; then
+            if _IS_ACTIVE sshd; then
                 _LOG "Le service sshd est bien activé et démarré"
             else
                 _LOG "Le service sshd est bien activé mais n'est pas démarré, on le démarre maintenant"
@@ -918,7 +904,7 @@ ${SSHD_CONFIG}"
         fi
 
     else
-        if systemctl is-enabled sshd >/dev/null 2>&1; then
+        if _IS_ENABLED sshd; then
             _SECTION " SERVICE SSHD " "━" "${C_GREEN}"
             _LOG "pas de service sshd demandé"
             _RUN "Désactivation du service sshd" sudo systemctl --now disable sshd.service
@@ -937,7 +923,6 @@ END() {
     _OK "REDÉMARREZ pour appliquer les modifications"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
 
-    # shellcheck disable=SC2310
     _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
     uplog=$(curl -fsS --upload-file "${LOG_FILE}" https://paste.c-net.org/ 2>/dev/null || true)
     [[ -n "${uplog}" ]] && _OK "Log téléversé : ${uplog}"

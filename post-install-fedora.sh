@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2310
 set -euo pipefail
 source post-install-common.sh   # fonctions distro-agnostique
 
@@ -27,7 +28,7 @@ CHECK_ENV() {
     local -a missing=()
 
     for deps in curl git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils; do
-        if ! rpm -q --quiet "${deps}"; then
+        if ! _IS_PKG_INSTALLED "${deps}"; then
             missing+=("${deps}")
         fi
     done
@@ -64,7 +65,7 @@ REMOVE_RPM_PACKAGES() {
 #             wants_systemd_networkd_removal=1
 #             continue
 #         fi
-#         if rpm -q "${pkg}" &>/dev/null; then
+#         if _IS_PKG_INSTALLED "${pkg}"; then
 #             _RUN "Suppression ${pkg}" sudo dnf remove -y "${pkg}"
 #         else
 #             _OK "${pkg} déjà supprimé"
@@ -77,7 +78,7 @@ REMOVE_RPM_PACKAGES() {
             wants_systemd_networkd_removal=1
             continue
         fi
-        if rpm -q "${pkg}" &>/dev/null; then
+        if _IS_PKG_INSTALLED "${pkg}"; then
             to_remove+=("${pkg}")
         else
             already_gone+=("${pkg}")
@@ -99,8 +100,8 @@ REMOVE_RPM_PACKAGES() {
     fi
 
     if (( wants_systemd_networkd_removal )); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
-        if systemctl is-active --quiet NetworkManager; then
-            if rpm -q systemd-networkd &>/dev/null; then
+        if _IS_ACTIVE NetworkManager; then
+            if _IS_PKG_INSTALLED systemd-networkd; then
                 _RUN "Suppression systemd-networkd (NetworkManager actif)" _PKG_REMOVE systemd-networkd
             else
                 _OK "systemd-networkd déjà supprimé"
@@ -118,7 +119,7 @@ INSTALL_REPOS() {
     local fedora_ver cache=0
     fedora_ver=$(rpm -E '%fedora')
 
-    if ! rpm -q rpmfusion-free-release &>/dev/null; then
+    if ! _IS_PKG_INSTALLED rpmfusion-free-release; then
         _RUN "Ajout du dépôt RPM Fusion free (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-"${fedora_ver}".noarch.rpm
         _RUN "Ajout du dépôt RPM Fusion free tainted (f${fedora_ver})" _PKG_INSTALL rpmfusion-free-release-tainted
         cache=1
@@ -126,7 +127,7 @@ INSTALL_REPOS() {
         _OK "Dépôt RPM Fusion free déjà présent"
     fi
 
-    if ! rpm -q rpmfusion-nonfree-release &>/dev/null; then
+    if ! _IS_PKG_INSTALLED rpmfusion-nonfree-release; then
         _RUN "Ajout du dépôt RPM Fusion nonfree (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"${fedora_ver}".noarch.rpm
         _RUN "Ajout du dépôt RPM Fusion nonfree tainted (f${fedora_ver})" _PKG_INSTALL rpmfusion-nonfree-release-tainted
         cache=1
@@ -134,14 +135,7 @@ INSTALL_REPOS() {
         _OK "Dépôt RPM Fusion nonfree déjà présent"
     fi
 
-    if rpm -q rpmfusion-free-appstream-data &>/dev/null; then
-        _RUN "Suppression métadonnées appstream free" sudo dnf remove -y rpmfusion-free-appstream-data
-    fi
-    if rpm -q rpmfusion-nonfree-appstream-data &>/dev/null; then
-        _RUN "Suppression métadonnées appstream nonfree" sudo dnf remove -y rpmfusion-nonfree-appstream-data
-    fi
-
-    if ! rpm -q terra-release &>/dev/null; then
+    if ! _IS_PKG_INSTALLED terra-release; then
         # shellcheck disable=SC2016
         _RUN "Ajout du dépôt Terra (f${fedora_ver})" sudo dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
         cache=1
@@ -176,7 +170,7 @@ INSTALL_FONTS() {
     missing_packages=()
 
     for font in "${FONTS[@]}"; do
-        if ! rpm -q "${font}" &>/dev/null; then
+        if ! _IS_PKG_INSTALLED "${font}"; then
             missing_packages+=("${font}")
         fi
     done
@@ -224,7 +218,7 @@ INSTALL_CODECS() {
     _SECTION " Codecs & multimédia " "━" "${C_GREEN}"
     _LOG "*** codecs & multimédia ***"
     # codecs
-    if ! rpm -q ffmpeg &>/dev/null; then
+    if ! _IS_PKG_INSTALLED ffmpeg; then
         _RUN "Swap ffmpeg-free →  ffmpeg" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
         _RUNSILENT "Mise à jour groupe multimedia." sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
     else
@@ -243,13 +237,13 @@ INSTALL_CODECS() {
     _LOG "GPU détecté : ${gpu_vendor}"
 
     if echo "${gpu_vendor}" | grep -q "amd\|radeon\|advanced micro"; then
-        if ! rpm -q mesa-va-drivers-freeworld &>/dev/null; then
+        if ! _IS_PKG_INSTALLED mesa-va-drivers-freeworld; then
             _RUN "Swap mesa-va-drivers → freeworld (AMD)" sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld
         else
             _OK "Mesa freeworld déjà présent"
         fi
     elif echo "${gpu_vendor}" | grep -q "intel"; then
-        if ! rpm -q intel-media-driver &>/dev/null; then
+        if ! _IS_PKG_INSTALLED intel-media-driver; then
             _RUN "intel-media-driver" _PKG_INSTALL intel-media-driver
         else
             _OK "intel-media-driver déjà présent"
@@ -270,7 +264,7 @@ INSTALL_RPM_PACKAGES() {
     missing_packages=()
 
     for pkg in "${DNF_PACKAGES[@]}"; do
-        if ! rpm -q "${pkg}" &>/dev/null; then
+        if ! _IS_PKG_INSTALLED "${pkg}"; then
             missing_packages+=("${pkg}")
         fi
     done
@@ -285,6 +279,7 @@ INSTALL_RPM_PACKAGES() {
     else
         _OK "Tous les paquets RPM demandés sont déjà installés"
     fi
+    _CLEANUP_APPSTREAM
 }
 
 ########################################################################################################################
@@ -292,7 +287,6 @@ INSTALL_FLATPAK_PACKAGES() {
     _SECTION " Paquets Flatpak " "━" "${C_GREEN}"
     _LOG "*** paquets flatpak ***"
     # 1. Vérification et installation de Flatpak
-    # shellcheck disable=SC2310
     if ! _EXIST flatpak; then
         _RUN "Installation de Flatpak" _PKG_INSTALL flatpak
     else
@@ -411,13 +405,12 @@ SETUP_GRUB(){
 SETUP_FIREWALL() {
     _LOG "*** configuration firewall ***"
     # 1. Vérification de l'installation du paquet
-    # shellcheck disable=SC2310
     if ! _EXIST firewalld; then
         _RUN "Installation de firewalld" _PKG_INSTALL firewalld
     fi
 
     # 2. Vérification et activation du service
-    if ! systemctl is-active --quiet firewalld; then
+    if ! _IS_ACTIVE firewalld; then
         _RUN "Démarrage et activation du service firewalld" sudo systemctl enable --now firewalld.service
     else
         _LOG "Le service firewalld est déjà actif"
@@ -539,7 +532,6 @@ SETUP_SUDO_RS() {
     _LOG "*** configuration sudo-rs ***"
     local change=0
     # 1. On installe sudo-rs
-    # shellcheck disable=SC2310
     if ! _EXIST sudo-rs; then
         _RUN "Installation de sudo-rs" _PKG_INSTALL sudo-rs
         change=1
@@ -664,6 +656,20 @@ SETUP_SUDO_RS() {
 
 
 ########################################################################################################################
+
+_CLEANUP_APPSTREAM() {
+    if ! _IS_PKG_INSTALLED plasma-discover && ! _IS_PKG_INSTALLED gnome-software; then
+        local -a appstream=()
+        _IS_PKG_INSTALLED rpmfusion-free-appstream-data    && appstream+=("rpmfusion-free-appstream-data")
+        _IS_PKG_INSTALLED rpmfusion-nonfree-appstream-data && appstream+=("rpmfusion-nonfree-appstream-data")
+        if [[ ${#appstream[@]} -gt 0 ]]; then
+            _RUN "Suppression métadonnées appstream RPMFusion" _PKG_REMOVE "${appstream[@]}"
+        fi
+    fi
+}
+
+
+########################################################################################################################
 _PKG_CONFIG() {
     _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main defaultyes true
     _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main max_parallel_downloads 10
@@ -683,6 +689,9 @@ _SYS_UPDATE() {
 
 _PKG_REMOVE() {
     sudo dnf remove -y "$@"
+}
+_IS_PKG_INSTALLED() {
+    rpm -q "$@" &>>"${LOG_FILE}"
 }
 ########################################################################################################################
 

@@ -25,7 +25,10 @@
 # _DIR_IS_SAFE_TO_RESTORE
 # _CONVERT_SECONDS
 # _FORMAT_LIST
-
+# _IS_ENABLED
+# _IS_ENABLED_USER
+# _IS_ACTIVE
+# _IS_ACTIVE_USER
 
 _BANNER() {
     local color=$1
@@ -60,6 +63,19 @@ _BANNER() {
 _LOG(){
     local msg=$*
     printf '\n\n%s\n\n' "${msg}" >> "${LOG_FILE}"
+}
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+_IS_ENABLED(){
+    systemctl is-enabled --quiet "$@" 2>>"${LOG_FILE}"
+}
+_IS_ACTIVE(){
+    systemctl is-active --quiet "$@" 2>>"${LOG_FILE}"
+}
+_IS_ENABLED_USER(){
+    systemctl --user is-enabled --quiet "$@" 2>>"${LOG_FILE}"
+}
+_IS_ACTIVE_USER(){
+    systemctl --user is-active --quiet "$@" 2>>"${LOG_FILE}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 _IN_ARRAY() {
