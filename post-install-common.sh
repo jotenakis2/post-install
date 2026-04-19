@@ -172,6 +172,8 @@ INSTALL_CARGO_PACKAGES() {
         list=$(_FORMAT_LIST "${to_install[@]}")
         _OK "Paquets à installer : ${list}"
         _RUN "Installation des paquets manquants" cargo binstall --no-confirm "${to_install[@]}"
+    else
+        _OK "Aucun paquet à installer"
     fi
 
     # symlinks après installation

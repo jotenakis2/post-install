@@ -60,19 +60,6 @@ REMOVE_RPM_PACKAGES() {
 
     wants_systemd_networkd_removal=0
 
-#     for pkg in "${DNF_REMOVE[@]}"; do
-#         if [[ "${pkg}" == "systemd-networkd" ]]; then
-#             wants_systemd_networkd_removal=1
-#             continue
-#         fi
-#         if _IS_PKG_INSTALLED "${pkg}"; then
-#             _RUN "Suppression ${pkg}" sudo dnf remove -y "${pkg}"
-#         else
-#             _OK "${pkg} déjà supprimé"
-#         fi
-#     done
-#
-
     for pkg in "${DNF_REMOVE[@]}"; do
         if [[ "${pkg}" == "systemd-networkd" ]]; then
             wants_systemd_networkd_removal=1
@@ -180,7 +167,7 @@ INSTALL_FONTS() {
         _OK "Polices à installer : ${miss}"
         _RUN "Installation des polices manquantes" _PKG_INSTALL_SKIP "${missing_packages[@]}"
     else
-        _OK "Toutes les polices demandées sont déjà installées"
+        _OK "Aucune police à installer"
     fi
 
     _SETUP_VCONSOLE_FONT
@@ -277,7 +264,7 @@ INSTALL_RPM_PACKAGES() {
         _RUN "Installation des paquets manquants depuis le cache de téléchargement" _PKG_INSTALL_SKIP "${download_dir}"/*.rpm
         _RUNSILENT "" rm -rvf "${download_dir}"
     else
-        _OK "Tous les paquets RPM demandés sont déjà installés"
+        _OK "Aucun paquet à installer"
     fi
     _CLEANUP_APPSTREAM
 }
