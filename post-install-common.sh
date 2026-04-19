@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=22.6
+readonly VER=22.7
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -25,6 +25,7 @@ MAIN() {
         SETUP_DOTFILES
         SETUP_DATA
     else
+        _REFRESH_DNF_CACHE
         _RUN "Mise à jour forcée du système" _SYS_UPDATE
         SETUP_SUDO_RS
 

@@ -674,7 +674,7 @@ _PKG_INSTALL() {
 }
 
 _SYS_UPDATE() {
-    sudo dnf upgrade --refresh -y
+    sudo dnf upgrade -y
 }
 
 _PKG_REMOVE() {
@@ -684,6 +684,23 @@ _PKG_REMOVE() {
 _IS_PKG_INSTALLED() {
     rpm -q "$@" &>>"${LOG_FILE}"
 }
+
+_REFRESH_DNF_CACHE() {
+    local cache_dir="/var/cache/dnf"
+    local max_age=3600  # 1h en secondes
+    local now cache_mtime age
+
+    now=$(date +%s)
+    cache_mtime=$(stat -c %Y "${cache_dir}" 2>/dev/null || echo 0)
+    age=$(( now - cache_mtime ))
+
+    if [[ ${age} -gt ${max_age} ]]; then
+        _RUN "Mise à jour du cache DNF" sudo dnf makecache --quiet
+    else
+        _LOG "Cache DNF à jour (${age}s < ${max_age}s)"
+    fi
+}
+
 ########################################################################################################################
 
 
