@@ -675,6 +675,7 @@ _CLEANUP_APPSTREAM() {
 _PKG_CONFIG() {
     _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main defaultyes true
     _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main max_parallel_downloads 10
+    _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main countme False
 }
 
 _PKG_INSTALL_SKIP() {
