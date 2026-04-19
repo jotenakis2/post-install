@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=22.9
+readonly VER=23.0
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -920,18 +920,15 @@ _SET_PLM_WALLPAPER() {
     local src="${HOME}/.local/share/wallpapers/SpacePlasma.jpg"
     local confdirPLM="/etc/plasmalogin.conf.d"
     local configPLM="${confdirPLM}/90-jotenakis.conf"
-    _RUNSILENT "" sudo mkdir -pv "${confdirPLM}"
+    local plm_content
+    plm_content=$'[Greeter][Wallpaper][org.kde.image][General]\nImage=file://${dest_file}'
 
+    _RUNSILENT "" sudo mkdir -pv "${confdirPLM}"
     if [[ -f "${src}" ]]; then
         _RUNSILENT "" sudo install -d -m 0755 "${dest_dir}"
         _RUNSILENT "" sudo install -m 0644 "${src}" "${dest_file}"
-        if ! grep -q "${dest_file}" ; then
-            _LOG "Installation du wallpaper PLM"
-            _RUNSILENT "" sudo bash -c "cat > \"${configPLM}\" <<'EOF'
-[Greeter][Wallpaper][org.kde.image][General]
-Image=file://${dest_file}
-EOF"
-        fi
+        _LOG "Installation du wallpaper PLM"
+        _RUNSILENT "" echo "${plm_content}" | install -v -m 644 -o root -g root /dev/stdin "${configPLM}"
     else
         _LOG "Fond d'écran de PLM introuvable : ${src}"
     fi
