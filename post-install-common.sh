@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=23.2
+readonly VER=23.3
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -927,12 +927,18 @@ _SET_PLM_WALLPAPER() {
         _RUNSILENT "" sudo install -d -m 0755 "${confdirPLM}"
         _RUNSILENT "" sudo install -m 0644 "${src}" "${dest_file}"
         _LOG "Installation du wallpaper PLM"
-
-        sudo tee -a "${configPLM}" >/dev/null <<EOF
+        if ! sudo grep -Fqx "Image=file://${dest_file}" "${configPLM}" 2>/dev/null; then
+            _LOG "Ajout de la configuration wallpaper PLM"
+            sudo tee -a "${configPLM}" >/dev/null <<EOF
+# added by post-install-script jotenakis
 [Greeter][Wallpaper][org.kde.image][General]
 Image=file://${dest_file}
-EOF
+# /added by post-install-script jotenakis
 
+EOF
+        else
+            _LOG "Wallpaper PLM déjà configuré"
+        fi
     else
         _LOG "Fond d'écran de PLM introuvable : ${src}"
     fi
