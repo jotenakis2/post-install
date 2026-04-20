@@ -10,19 +10,19 @@ source post-install-common.sh   # fonctions distro-agnostique
 
 ########################################################################################################################
 CHECK() {
-    [[ -n "${BASH_VERSION:-}" ]]       || _DIE "Ce script requiert bash."
-    [[ "${BASH_VERSINFO[0]}" -ge 5 ]]  || _DIE "Bash >= 5 requis (actuel : ${BASH_VERSION})."
-    [[ "${EUID}" -ne 0 ]]              || _DIE "Ne pas lancer en root. Le script gère sudo lui-même."
-    [[ -f /etc/fedora-release ]]       || _DIE "Fedora uniquement."
+    [[ -n "${BASH_VERSION:-}" ]]       || { echo "Ce script requiert bash."; exit 1 ; }
+    [[ "${BASH_VERSINFO[0]}" -ge 5 ]]  || { echo "Bash >= 5 requis (actuel : ${BASH_VERSION})."; exit 1 ; }
+    [[ "${EUID}" -ne 0 ]]              || { echo "Ne pas lancer en root. Le script gère sudo lui-même."; exit 1 ; }
+    [[ -f /etc/fedora-release ]]       || { echo "Fedora uniquement."; exit 1 ; }
 
     # Vérification explicite des droits sudo (groupe wheel)
     if ! id -nG "${USER}" | grep -qw "wheel"; then
-        _DIE "L'utilisateur ${USER} n'appartient pas au groupe 'wheel' (sudo). Abandon."
+        echo "L'utilisateur ${USER} n'appartient pas au groupe 'wheel' (sudo). Abandon." ; exit 1
     fi
     #
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
-    _OK "Environnement valide — ${fedora_rel}, utilisateur ${USER} avec droits sudo"
+    echo "Environnement valide — ${fedora_rel}, utilisateur ${USER} avec droits sudo"
 }
 
 ########################################################################################################################
