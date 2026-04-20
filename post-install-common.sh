@@ -11,6 +11,7 @@ source ./settings.sh                                                            
 MAIN() {
     args=${1:-}
     source helpers.sh # bibliothèque de fonctions d'aide
+    _INIT_COLOR
     trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR # gestion des erreurs
 
     # Préparation
@@ -75,7 +76,6 @@ INITIALIZE() {
 
     local logsuffix
     START=${SECONDS}
-    _INIT_COLOR
     _PASS
     LOG_DIR="${HOME}/.local/log"
     logsuffix="$(date +%Y%m%d-%H%M%S)"
