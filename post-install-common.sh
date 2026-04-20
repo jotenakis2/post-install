@@ -68,9 +68,6 @@ MAIN() {
 
 INITIALIZE() {
     clear
-    _BANNER "blue" "${SCRIPTNAME} (${VER})"
-    _SECTION " Préparation " "━" "${C_GREEN}"
-    _LOG "*** Préparation ***"
     local heure
     heure=$(date '+%T')
 
@@ -84,7 +81,9 @@ INITIALIZE() {
     export LOG_DIR LOG_FILE INSTALL_DIR logsuffix
     mkdir -p "${LOG_DIR}"
     touch "${LOG_FILE}"
-
+    _BANNER "blue" "${SCRIPTNAME} (${VER})"
+    _SECTION " Préparation " "━" "${C_GREEN}"
+    _LOG "*** Préparation ***"
     _OK "Heure de démarrage de la post-installation : ${heure}"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
     INSTALL_DEPS
