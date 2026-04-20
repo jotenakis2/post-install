@@ -29,6 +29,7 @@
 # _IS_ENABLED_USER
 # _IS_ACTIVE
 # _IS_ACTIVE_USER
+# _INIT_COLOR
 
 _BANNER() {
     local color=$1
@@ -59,6 +60,75 @@ _BANNER() {
 
     return 0
 }
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+# shellcheck disable=SC2034
+_INIT_COLOR(){
+    if [[ -t 1 ]] && command -v tput &>/dev/null && [[ -z "${NO_COLOR:-}" ]]; then
+        # texte
+        C_BLACK=$(tput setaf 0)
+        C_RED=$(tput setaf 1)
+        C_GREEN=$(tput setaf 2)
+        C_YELLOW=$(tput setaf 3)
+        C_BLUE=$(tput setaf 4)
+        C_MAGENTA=$(tput setaf 5)
+        C_CYAN=$(tput setaf 6)
+        C_WHITE=$(tput setaf 7)
+
+        # attribut
+        C_BOLD=$(tput bold)
+        C_DIM=$(tput dim)
+        C_RESET=$(tput sgr0)
+        C_UNDERLINE=$(tput smul)
+        C_RESET_UNDERLINE=$(tput rmul)
+
+        # background
+        BKGND_BLACK=$(tput setab 0)
+        BKGND_RED=$(tput setab 1)
+        BKGND_GREEN=$(tput setab 2)
+        BKGND_YELLOW=$(tput setab 3)
+        BKGND_BLUE=$(tput setab 4)
+        BKGND_MAGENTA=$(tput setab 5)
+        BKGND_CYAN=$(tput setab 6)
+        BKGND_WHITE=$(tput setab 7)
+    else
+        # texte
+        C_BLACK=''
+        C_RED=''
+        C_GREEN=''
+        C_YELLOW=''
+        C_BLUE=''
+        C_MAGENTA=''
+        C_CYAN=''
+        C_WHITE=''
+
+        # attribut
+        C_BOLD=''
+        C_DIM=''
+        C_RESET=''
+        C_UNDERLINE=''
+        C_RESET_UNDERLINE=''
+
+        # background
+        BKGND_BLACK=''
+        BKGND_RED=''
+        BKGND_GREEN=''
+        BKGND_YELLOW=''
+        BKGND_BLUE=''
+        BKGND_MAGENTA=''
+        BKGND_CYAN=''
+        BKGND_WHITE=''
+    fi
+    local vars=(
+        C_BLACK C_RED C_GREEN C_YELLOW C_BLUE C_MAGENTA C_CYAN C_WHITE
+        C_BOLD C_DIM C_RESET C_UNDERLINE C_RESET_UNDERLINE
+        BKGND_BLACK BKGND_RED BKGND_GREEN BKGND_YELLOW
+        BKGND_BLUE BKGND_MAGENTA BKGND_CYAN BKGND_WHITE
+    )
+    export "${vars[@]}"
+}
+
+
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 _LOG(){
     local msg=$*

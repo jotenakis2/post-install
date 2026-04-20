@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=23.3
+readonly VER=24.0
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -14,8 +14,8 @@ MAIN() {
     trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR # gestion des erreurs
 
     # Préparation
+    CHECK
     INITIALIZE
-    CHECK_ENV
 
     if [[ "${args}" = "--shellonly" ]]; then
         INSTALL_CARGO_PACKAGES
@@ -25,7 +25,7 @@ MAIN() {
         SETUP_DOTFILES
         SETUP_DATA
     else
-        _REFRESH_DNF_CACHE
+        _REFRESH_SYS_CACHE
         _RUN "Mise à jour forcée du système" _SYS_UPDATE
         SETUP_SUDO_RS
 
@@ -66,24 +66,29 @@ MAIN() {
 ########################################################################################################################
 
 INITIALIZE() {
+    clear
+    _BANNER "blue" "${SCRIPTNAME} (${VER})"
+    _SECTION " Préparation " "━" "${C_GREEN}"
+    _LOG "*** Préparation ***"
+    local heure
+    heure=$(date '+%T')
+
+    local logsuffix
     START=${SECONDS}
-    C_RESET='' C_RED='' C_GREEN='' C_YELLOW='' C_BOLD=''
-    if [[ -t 1 ]]; then
-        export C_RESET='\e[0m'
-        export C_BOLD='\e[1m'
-        export C_RED='\e[1;31m'
-        export C_GREEN='\e[1;32m'
-        export C_YELLOW='\e[1;33m'
-    fi
+    _INIT_COLOR
     _PASS
     LOG_DIR="${HOME}/.local/log"
-    local logsuffix
     logsuffix="$(date +%Y%m%d-%H%M%S)"
     LOG_FILE="${LOG_DIR}/post-install-fedora-${logsuffix}.log"
     INSTALL_DIR="${HOME}/.local/bin"
     export LOG_DIR LOG_FILE INSTALL_DIR logsuffix
     mkdir -p "${LOG_DIR}"
     touch "${LOG_FILE}"
+
+    _OK "Heure de démarrage de la post-installation : ${heure}"
+    _OK "Fichier log de la post-installation : ${LOG_FILE}"
+    INSTALL_DEPS
+
 
     _LOG "*** INITIALIZE ***"
 
@@ -110,16 +115,11 @@ INITIALIZE() {
     _HEURE >> "${LOG_FILE}"
 
     # aussitôt je conf le package manager si besoin pour accélérer les download de paquets
-    _EXIST crudini || _RUN "Préparation" _PKG_INSTALL crudini
     _PKG_CONFIG
 
     # PATH
     export PATH="${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
-
-
     #
-    clear
-    _BANNER "blue" "${SCRIPTNAME} (${VER})"
 }
 
 ########################################################################################################################
@@ -693,7 +693,7 @@ SETUP_PLM() {
         if [[ "${change}" = 0 ]]; then
             _OK "Plasma Login Manager est déjà correctement configuré pour remplacer SDDM"
         fi
-        _SET_PLM_WALLPAPER
+        SET_PLM_WALLPAPER
     else
         echo
         _INFO "KDE n'a pas été détecté, on ne touche pas au display-manager"
@@ -914,7 +914,7 @@ ${SSHD_CONFIG}"
 
 ########################################################################################################################
 
-_SET_PLM_WALLPAPER() {
+SET_PLM_WALLPAPER() {
     local dest_dir="/var/lib/plasmalogin/wallpapers"
     local dest_file="${dest_dir}/PlasmaLogin.jpg"
     local src="${HOME}/.local/share/wallpapers/SpacePlasma.jpg"
@@ -945,6 +945,33 @@ EOF
 }
 
 ########################################################################################################################
+
+INSTALL_DEPS() {
+    local deps
+    local -a prerequisit=(curl crudini ncurses git stow wget2 pciutils dnf-plugins-core binutils policycoreutils-python-utils)
+    local -a missing=()
+    local -a reqOK=()
+
+    for deps in "${prerequisit[@]}"; do
+        if ! _IS_PKG_INSTALLED "${deps}"; then
+            missing+=("${deps}")
+        else
+            reqOK+=("${deps}")
+        fi
+    done
+    local list
+    local listOK
+    if ((${#missing[@]})); then
+        list=$(_FORMAT_LIST "${missing[@]}")
+        listOK=$(_FORMAT_LIST "${reqOK[@]}")
+        _OK "Dépendances obligatoires déjà installées : ${listOK}"
+        _OK "Dépendances obligatoires à installer : ${list}"
+        _RUN "Installation des dépendances obligatoires" _PKG_INSTALL "${missing[@]}"
+    fi
+}
+
+########################################################################################################################
+
 END() {
     local duration file
     _SECTION " Fin " "━" "${C_GREEN}"

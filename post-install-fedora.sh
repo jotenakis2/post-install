@@ -9,10 +9,7 @@ source post-install-common.sh   # fonctions distro-agnostique
 ########################################################################################################################
 
 ########################################################################################################################
-CHECK_ENV() {
-    _SECTION " Préparation " "━" "${C_GREEN}"
-    _LOG "*** Préparation ***"
-
+CHECK() {
     [[ -n "${BASH_VERSION:-}" ]]       || _DIE "Ce script requiert bash."
     [[ "${BASH_VERSINFO[0]}" -ge 5 ]]  || _DIE "Bash >= 5 requis (actuel : ${BASH_VERSION})."
     [[ "${EUID}" -ne 0 ]]              || _DIE "Ne pas lancer en root. Le script gère sudo lui-même."
@@ -22,32 +19,10 @@ CHECK_ENV() {
     if ! id -nG "${USER}" | grep -qw "wheel"; then
         _DIE "L'utilisateur ${USER} n'appartient pas au groupe 'wheel' (sudo). Abandon."
     fi
-
-    # dépendances
-    local deps
-    local -a missing=()
-
-    for deps in curl git stow wget2 pciutils dnf-plugins-core binutils policycoreutils-python-utils; do
-        if ! _IS_PKG_INSTALLED "${deps}"; then
-            missing+=("${deps}")
-        fi
-    done
-    local list
-    if ((${#missing[@]})); then
-        list=$(_FORMAT_LIST "${missing[@]}")
-        _OK "Dépendances obligatoires à installer : ${list}"
-        _RUN "Installation des dépendances obligatoires" _PKG_INSTALL "${missing[@]}"
-    fi
-
     #
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
     _OK "Environnement valide — ${fedora_rel}, utilisateur ${USER} avec droits sudo"
-
-    local heure
-    heure=$(date '+%T')
-    _OK "Heure de démarrage de la post-installation : ${heure}"
-    _OK "Fichier log de la post-installation : ${LOG_FILE}"
 }
 
 ########################################################################################################################
@@ -685,7 +660,7 @@ _IS_PKG_INSTALLED() {
     rpm -q "$@" &>>"${LOG_FILE}"
 }
 
-_REFRESH_DNF_CACHE() {
+_REFRESH_SYS_CACHE() {
     local sentinel="/var/cache/dnf/.last_makecache"
     local max_age=3600
     local now sentinel_mtime age
