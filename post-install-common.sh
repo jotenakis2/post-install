@@ -930,11 +930,11 @@ _SET_PLM_WALLPAPER() {
         if ! sudo grep -Fqx "Image=file://${dest_file}" "${configPLM}" 2>/dev/null; then
             _LOG "Ajout de la configuration wallpaper PLM"
             sudo tee -a "${configPLM}" >/dev/null <<EOF
-# added by post-install-script jotenakis
+
+# added by post-install-script jotenakis -----
 [Greeter][Wallpaper][org.kde.image][General]
 Image=file://${dest_file}
-# /added by post-install-script jotenakis
-
+# /added by post-install-script jotenakis ----
 EOF
         else
             _LOG "Wallpaper PLM déjà configuré"
