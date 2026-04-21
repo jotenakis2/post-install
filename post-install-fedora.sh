@@ -202,28 +202,7 @@ INSTALL_CODECS() {
 INSTALL_RPM_PACKAGES() {
     _SECTION " Paquets RPM " "━" "${C_GREEN}"
     _LOG "*** Paquets RPM ***"
-    local pkg arch download_dir miss
-    local -a missing_packages
-    arch=$(uname -m)
-    download_dir="./dnf-packages$$"
-    missing_packages=()
-
-    for pkg in "${DNF_PACKAGES[@]}"; do
-        if ! _IS_PKG_INSTALLED "${pkg}"; then
-            missing_packages+=("${pkg}")
-        fi
-    done
-
-    if ((${#missing_packages[@]})); then
-        miss=$(_FORMAT_LIST "${missing_packages[@]}")
-        _RUNSILENT "" mkdir -pv "${download_dir}"
-        _OK "Paquets à installer : ${miss}"
-        _RUN "Téléchargement des paquets et dépendances manquants" sudo dnf download --skip-unavailable --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" -y "${missing_packages[@]}"
-        _RUN "Installation des paquets manquants depuis le cache de téléchargement" _PKG_INSTALL_SKIP "${download_dir}"/*.rpm
-        _RUNSILENT "" rm -rvf "${download_dir}"
-    else
-        _OK "Aucun paquet à installer"
-    fi
+    _INSTALL_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${DNF_PACKAGES[@]}"
     _CLEANUP_APPSTREAM
 }
 
@@ -630,6 +609,18 @@ _PKG_INSTALL_SKIP() {
 _PKG_INSTALL() {
     sudo dnf install -y "$@"
 }
+
+_PKG_DOWNLOAD_THEN_INSTALL() {
+    local arch
+    arch=$(uname -m)
+    local download_dir="./dnf-packages$$"
+    echo -n "Téléchargement depuis les dépôts... "
+    _RUNSILENT "" sudo dnf download --skip-unavailable -y --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" "$@"
+    echo -n "installation depuis le cache local..."
+    _RUNSILENT sudo dnf install --skip-unavailable -y "${download_dir}"/*.rpm
+    _RUNSILENT "" rm -rvf "${download_dir}"
+}
+
 
 _SYS_UPDATE() {
     sudo dnf upgrade -y
