@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=24.1
+readonly VER=24.5
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -67,10 +67,8 @@ MAIN() {
 ########################################################################################################################
 
 INITIALIZE() {
-    clear
     local heure
     heure=$(date '+%T')
-
     local logsuffix
     START=${SECONDS}
     _PASS
@@ -78,9 +76,11 @@ INITIALIZE() {
     logsuffix="$(date +%Y%m%d-%H%M%S)"
     LOG_FILE="${LOG_DIR}/post-install-fedora-${logsuffix}.log"
     INSTALL_DIR="${HOME}/.local/bin"
-    export LOG_DIR LOG_FILE INSTALL_DIR logsuffix
+    export LOG_DIR LOG_FILE INSTALL_DIR
     mkdir -p "${LOG_DIR}"
     touch "${LOG_FILE}"
+
+    clear
     _BANNER "blue" "${SCRIPTNAME} (${VER})"
     _SECTION " Préparation " "━" "${C_GREEN}"
     _LOG "*** Préparation ***"
@@ -930,10 +930,10 @@ SET_PLM_WALLPAPER() {
             _LOG "Ajout de la configuration wallpaper PLM"
             sudo tee -a "${configPLM}" >/dev/null <<EOF
 
-# added by post-install-script jotenakis -----
+# added by post-install-script jotenakis -------------------------
 [Greeter][Wallpaper][org.kde.image][General]
 Image=file://${dest_file}
-# /added by post-install-script jotenakis ----
+# /added by post-install-script jotenakis ------------------------
 EOF
         else
             _LOG "Wallpaper PLM déjà configuré"
@@ -946,28 +946,11 @@ EOF
 ########################################################################################################################
 
 INSTALL_DEPS() {
-    local deps
     local -a prerequisit=(curl crudini ncurses git stow wget2 pciutils dnf-plugins-core binutils policycoreutils-python-utils)
-    local -a missing=()
-    local -a reqOK=()
-
-    for deps in "${prerequisit[@]}"; do
-        if ! _IS_PKG_INSTALLED "${deps}"; then
-            missing+=("${deps}")
-        else
-            reqOK+=("${deps}")
-        fi
-    done
-    local list
-    local listOK
-    if ((${#missing[@]})); then
-        list=$(_FORMAT_LIST "${missing[@]}")
-        listOK=$(_FORMAT_LIST "${reqOK[@]}")
-        _OK "Dépendances obligatoires déjà installées : ${listOK}"
-        _OK "Dépendances obligatoires à installer : ${list}"
-        _RUN "Installation des dépendances obligatoires" _PKG_INSTALL "${missing[@]}"
-    fi
+    _INSTALL_TABLE _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
 }
+
+
 
 ########################################################################################################################
 

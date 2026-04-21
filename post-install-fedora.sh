@@ -119,7 +119,7 @@ INSTALL_REPOS() {
         _OK "Dépôt Brave déjà présent"
     fi
     if [[ "${cache}" -eq 1 ]]; then
-        _RUN "Rafraîchissement des métadonnées" sudo dnf makecache
+        _RUN "Mise à jour du cache système" sudo dnf makecache
     fi
 }
 
@@ -127,24 +127,7 @@ INSTALL_REPOS() {
 INSTALL_FONTS() {
     _SECTION " Polices d'affichage " "━" "${C_GREEN}"
     _LOG "*** Polices d'affichage ***"
-    local font
-    local -a missing_packages
-    missing_packages=()
-
-    for font in "${FONTS[@]}"; do
-        if ! _IS_PKG_INSTALLED "${font}"; then
-            missing_packages+=("${font}")
-        fi
-    done
-
-    if ((${#missing_packages[@]})); then
-        miss=$(_FORMAT_LIST "${missing_packages[@]}")
-        _OK "Polices à installer : ${miss}"
-        _RUN "Installation des polices manquantes" _PKG_INSTALL_SKIP "${missing_packages[@]}"
-    else
-        _OK "Aucune police à installer"
-    fi
-
+    _INSTALL_TABLE _IS_PKG_INSTALLED _PKG_INSTALL_SKIP "${FONTS[@]}"
     _SETUP_VCONSOLE_FONT
 }
 
@@ -181,8 +164,8 @@ INSTALL_CODECS() {
     _LOG "*** codecs & multimédia ***"
     # codecs
     if ! _IS_PKG_INSTALLED ffmpeg; then
-        _RUN "Swap ffmpeg-free →  ffmpeg" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
-        _RUNSILENT "Mise à jour groupe multimedia." sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
+        _RUN "ÉCHANGE ffmpeg-free <=> ffmpeg" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
+        _RUN "Mise à jour groupe multimedia" sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
     else
         _OK "ffmpeg (rpmfusion) déjà présent"
         _LOG "Groupe multimedia déjà à jour"
@@ -670,7 +653,7 @@ _REFRESH_SYS_CACHE() {
     age=$(( now - sentinel_mtime ))
 
     if [[ ${age} -gt ${max_age} ]]; then
-        _RUN "Mise à jour du cache DNF" sudo dnf makecache --quiet
+        _RUN "Mise à jour du cache système" sudo dnf makecache
         sudo touch "${sentinel}"
     else
         _LOG "Cache DNF à jour (${age}s < ${max_age}s)"

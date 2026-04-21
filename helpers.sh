@@ -269,21 +269,19 @@ _RUNSILENT() {
     return "${rc}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+_SPIN() {
+    local SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+    local pid="$1" msg="$2" i=0
+    while kill -0 "${pid}" 2>/dev/null; do
+        printf "\r %b%s%b %s" "${C_RED}" "${SPIN_FRAMES[$((i % 10))]}" "${C_RESET}" "${msg}"
+        sleep 0.05
+        (( i++ )) || true
+    done
+    printf '\r\033[2K'
+}
 
 _RUN() {
     local msg="$1"; shift
-
-    _SPIN() {
-        local SPIN_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-        local pid="$1" msg="$2" i=0
-        while kill -0 "${pid}" 2>/dev/null; do
-            printf "\r %b%s%b %s" "${C_RED}" "${SPIN_FRAMES[$((i % 10))]}" "${C_RESET}" "${msg}"
-            sleep 0.05
-            (( i++ )) || true
-        done
-        printf '\r\033[2K'
-    }
-
     "$@" >> "${LOG_FILE}" 2>&1 &
     local pid=$!
     _SPIN "${pid}" "${msg}"
@@ -379,6 +377,42 @@ _CONVERT_SECONDS() {
         printf '%ss\n' "${secs}"
     fi
 }
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_INSTALL_TABLE(){
+# Usage: _INSTALL_TABLE <test_cmd> <install_cmd> val1 val2 val3 ...
+    local test_cmd="$1"
+    local install_cmd="$2"
+    shift 2
+
+    local -a missing=()
+    local -a present=()
+    local pkg
+
+    for pkg in "$@"; do
+        if "${test_cmd}" "${pkg}"; then
+            present+=("${pkg}")
+        else
+            missing+=("${pkg}")
+        fi
+    done
+
+    local all_fmt
+    local missing_fmt
+    local present_fmt
+    if ((${#missing[@]})); then
+        missing_fmt=$(_FORMAT_LIST "${missing[@]}")
+        present_fmt=$(_FORMAT_LIST "${present[@]}")
+        ((${#present[@]})) && _OK "Déjà là : ${present_fmt}"
+        _OK "À installer : ${missing_fmt}"
+        _RUN "Installation..." "${install_cmd}" "${missing[@]}"
+    else
+        all_fmt=$(_FORMAT_LIST "$@")
+        _OK "Tout est là : ${all_fmt}"
+    fi
+
+}
+
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _FORMAT_LIST() {
