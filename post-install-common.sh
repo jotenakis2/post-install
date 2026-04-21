@@ -947,7 +947,7 @@ EOF
 
 INSTALL_DEPS() {
     local -a prerequisit=(curl crudini ncurses git stow wget2 pciutils dnf-plugins-core binutils policycoreutils-python-utils)
-    _MANAGE_TABLE "INSTALLÉS correctement" _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
+    _MANAGE_TABLE "INSTALLÉ correctement" _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
 }
 
 ########################################################################################################################
@@ -1002,7 +1002,7 @@ INSTALL_FLATPAK_PACKAGES() {
     fi
 
     # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
-    _MANAGE_TABLE "INSTALLÉS correctement" _IS_FPPKG_INSTALLED _FPPKG_INSTALL "${FLATPAK_PKGS[@]}"
+    _MANAGE_TABLE "INSTALLÉ correctement" _IS_FPPKG_INSTALLED _FPPKG_INSTALL "${FLATPAK_PKGS[@]}"
 
     # 6. Petit nettoyage des runtimes inutilisés
     _LOG "Nettoyage des runtimes Flatpak orphelins"
