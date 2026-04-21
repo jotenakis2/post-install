@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=25.1
+readonly VER=25.2
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -149,33 +149,36 @@ INSTALL_CARGO_PACKAGES() {
     _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/cargo-binstall"
 
     # 2 & 3. Installation des paquets via Cargo (binstall) + symlinks
-    local -a to_install=() already_installed=()
-    local list cmd
-    local installed_list
+    #local -a to_install=() already_installed=()
+    #local list cmd
+    declare -g installed_list
     installed_list=$(cargo install --list 2>/dev/null)
 
-    for cmd in "${CARGO_PACKAGES[@]}"; do
-        if echo "${installed_list}" | grep -q "^${cmd} "; then
-            _LOG "${cmd} déjà installé"
-            already_installed+=("${cmd}")
-        else
-            to_install+=("${cmd}")
-        fi
-    done
+    # for cmd in "${CARGO_PACKAGES[@]}"; do
+    #     if echo "${installed_list}" | grep -q "^${cmd} "; then
+    #         _LOG "${cmd} déjà installé"
+    #         already_installed+=("${cmd}")
+    #     else
+    #         to_install+=("${cmd}")
+    #     fi
+    # done
+    #
+    # if [[ ${#already_installed[@]} -gt 0 ]]; then
+    #     list=$(_FORMAT_LIST "${already_installed[@]}")
+    #     _OK "Paquets déjà installés : ${list}"
+    # fi
+    #
+    # if [[ ${#to_install[@]} -gt 0 ]]; then
+    #     list=$(_FORMAT_LIST "${to_install[@]}")
+    #     _OK "Paquets à installer : ${list}"
+    #     _RUN "Installation des paquets manquants" cargo binstall --no-confirm "${to_install[@]}"
+    # else
+    #     _OK "Aucun paquet à installer"
+    # fi
 
-    if [[ ${#already_installed[@]} -gt 0 ]]; then
-        list=$(_FORMAT_LIST "${already_installed[@]}")
-        _OK "Paquets déjà installés : ${list}"
-    fi
+    _MANAGE_TABLE "INSTALLÉ correctement" _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
 
-    if [[ ${#to_install[@]} -gt 0 ]]; then
-        list=$(_FORMAT_LIST "${to_install[@]}")
-        _OK "Paquets à installer : ${list}"
-        _RUN "Installation des paquets manquants" cargo binstall --no-confirm "${to_install[@]}"
-    else
-        _OK "Aucun paquet à installer"
-    fi
-
+    local cmd
     # symlinks après installation
     for cmd in "${CARGO_PACKAGES[@]}"; do
         local bins_to_link bin_name

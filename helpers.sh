@@ -449,3 +449,12 @@ _IS_FPPKG_INSTALLED() {
 _FPPKG_INSTALL() {
     sudo flatpak install -y flathub "$@"
 }
+
+
+_IS_CARGOPKG_INSTALLED(){
+    echo "${installed_list}" | grep -q "$@"
+}
+
+_CARGOPKG_INSTALL(){
+    cargo binstall --no-confirm "$@"
+}
