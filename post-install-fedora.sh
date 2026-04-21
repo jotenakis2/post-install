@@ -61,7 +61,7 @@ REMOVE_RPM_PACKAGES() {
     #     _RUN "Suppression des paquets indésirables" _PKG_REMOVE "${to_remove[@]}"
     # fi
 
-    _INSTALL_TABLE _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]}"
+    _INSTALL_TABLE _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]} supprimés"
 
 
     if (( wants_systemd_networkd_removal )); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
@@ -403,7 +403,7 @@ SETUP_SWAP(){
 
 ########################################################################################################################
 SETUP_SUDO_RS() {
-    _SECTION " Configuration sudo-rs " "━" "${C_GREEN}"
+    _SECTION " Configuration de sudo-rs " "━" "${C_GREEN}"
     _LOG "*** configuration sudo-rs ***"
     local change=0
     # 1. On installe sudo-rs
