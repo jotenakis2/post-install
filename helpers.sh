@@ -383,11 +383,12 @@ _CONVERT_SECONDS() {
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-_INSTALL_TABLE(){
-# Usage: _INSTALL_TABLE <test_cmd> <install_cmd> val1 val2 val3 ...
-    local test_cmd="$1"
-    local install_cmd="$2"
-    shift 2
+_MANAGE_TABLE(){
+# Usage: _MANAGE_TABLE message <test_cmd> <cmd_execute> val1 val2 val3 ...
+    local msg="$1"
+    local test_cmd="$2"
+    local install_cmd="$3"
+    shift 3
 
     local -a missing=()
     local -a present=()
@@ -412,7 +413,7 @@ _INSTALL_TABLE(){
         _RUN "Traitement en cours..." "${install_cmd}" "${missing[@]}"
     else
         all_fmt=$(_FORMAT_LIST "$@")
-        _OK "Tout est bon : ${all_fmt}"
+        _OK "Tout est ${msg} : ${all_fmt}"
     fi
 
 }

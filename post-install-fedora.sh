@@ -61,7 +61,7 @@ REMOVE_RPM_PACKAGES() {
     #     _RUN "Suppression des paquets indésirables" _PKG_REMOVE "${to_remove[@]}"
     # fi
 
-    _INSTALL_TABLE _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]}" "SUPPRIMÉS"
+    _MANAGE_TABLE "SUPPRIMÉS correctement" _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]}"
 
 
     if (( wants_systemd_networkd_removal )); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
@@ -130,7 +130,7 @@ INSTALL_REPOS() {
 INSTALL_FONTS() {
     _SECTION " Installation de polices d'affichage personnelles " "━" "${C_GREEN}"
     _LOG "*** Polices d'affichage ***"
-    _INSTALL_TABLE _IS_PKG_INSTALLED _PKG_INSTALL_SKIP "${FONTS[@]}"
+    _MANAGE_TABLE "INSTALLÉS correctement" _IS_PKG_INSTALLED _PKG_INSTALL_SKIP "${FONTS[@]}"
     _SETUP_VCONSOLE_FONT
 }
 
@@ -205,7 +205,7 @@ INSTALL_CODECS() {
 INSTALL_RPM_PACKAGES() {
     _SECTION " Installation des paquets RPM personnalisés " "━" "${C_GREEN}"
     _LOG "*** Paquets RPM ***"
-    _INSTALL_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${DNF_PACKAGES[@]}"
+    _MANAGE_TABLE "INSTALLÉS correctement" _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${DNF_PACKAGES[@]}"
     _CLEANUP_APPSTREAM
 }
 
