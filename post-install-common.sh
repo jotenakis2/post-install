@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=24.6
+readonly VER=24.7
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -976,3 +976,49 @@ END() {
 
 ########################################################################################################################
 
+INSTALL_FLATPAK_PACKAGES() {
+    _SECTION " Paquets Flatpak " "━" "${C_GREEN}"
+    _LOG "*** paquets flatpak ***"
+    # 1. Vérification et installation de Flatpak
+    if ! _EXIST flatpak; then
+        _RUN "Installation de Flatpak" _PKG_INSTALL flatpak
+    else
+        _LOG "Flatpak est déjà installé"
+    fi
+
+    # 2. Ajout de Flathub s'il n'existe pas
+    if ! flatpak --columns=name remotes | grep -q "^flathub$"; then
+        _RUN "Ajout du dépôt Flathub" sudo flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    else
+        _LOG "Dépot flathub déjà présent"
+    fi
+
+    # 3. Activation de Flathub sans filtre
+    _RUNSILENT "" sudo flatpak --verbose remote-modify --no-filter --enable flathub
+
+    # 4. Vérification et suppression du dépôt Fedora
+    if flatpak remotes --columns=name | grep -q "^fedora$"; then
+        _RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak --verbose remote-delete --force fedora
+    else
+        _LOG "Le dépôt Fedora Flatpak n'est pas présent, c'est bien."
+    fi
+
+    # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
+    _INSTALL_TABLE _IS_FPPKG_INSTALLED _FPPKG_INSTALL "${FLATPAK_PKGS[@]}"
+
+    # 6. Petit nettoyage des runtimes inutilisés
+    _LOG "Nettoyage des runtimes Flatpak orphelins"
+    _RUNSILENT "" sudo flatpak --verbose uninstall --unused -y
+}
+
+########################################################################################################################
+
+_IS_FPPKG_INSTALLED() {
+    sudo flatpak info "$@" &>/dev/null || return 1
+}
+
+_FPPKG_INSTALL() {
+    sudo flatpak install -y flathub "$@"
+}
+
+########################################################################################################################

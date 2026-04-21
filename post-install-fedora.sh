@@ -207,60 +207,6 @@ INSTALL_RPM_PACKAGES() {
 }
 
 ########################################################################################################################
-INSTALL_FLATPAK_PACKAGES() {
-    _SECTION " Paquets Flatpak " "━" "${C_GREEN}"
-    _LOG "*** paquets flatpak ***"
-    # 1. Vérification et installation de Flatpak
-    if ! _EXIST flatpak; then
-        _RUN "Installation de Flatpak" _PKG_INSTALL flatpak
-    else
-        _LOG "Flatpak est déjà installé"
-    fi
-
-    # 2. Ajout de Flathub s'il n'existe pas
-    if ! flatpak --columns=name remotes | grep -q "^flathub$"; then
-        _RUN "Ajout du dépôt Flathub" sudo flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-    else
-        _LOG "Dépot flathub déjà présent"
-    fi
-
-    # 3. Activation de Flathub sans filtre
-    _RUNSILENT "" sudo flatpak --verbose remote-modify --no-filter --enable flathub
-
-    # 4. Vérification et suppression du dépôt Fedora
-    if flatpak remotes --columns=name | grep -q "^fedora$"; then
-        _RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak --verbose remote-delete --force fedora
-    else
-        _LOG "Le dépôt Fedora Flatpak a déjà été supprimé"
-    fi
-
-    # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
-    local -a missing=()
-    local list
-    if [[ ${#FLATPAK_PKGS[@]} -gt 0 ]]; then # au moins un FP à installer
-        for pkg in "${FLATPAK_PKGS[@]}"; do
-            if ! flatpak info "${pkg}" &>/dev/null; then
-                missing+=("${pkg}")
-            fi
-        done
-
-        if [[ ${#missing[@]} -eq 0 ]]; then
-            _OK "Tous les Flatpak demandés sont déjà installés"
-        else
-            list=$(_FORMAT_LIST "${missing[@]##*.}")
-            _RUN "Installation de ${list}" sudo flatpak install -y flathub "${missing[@]}"
-        fi
-    else
-        _INFO "Pas Flatpak à installer"
-    fi
-
-    # 7. Petit nettoyage des runtimes inutilisés
-    _LOG "Nettoyage des runtimes Flatpak orphelins"
-    _RUNSILENT "" sudo flatpak --verbose uninstall --unused -y
-}
-
-
-########################################################################################################################
 SETUP_CHRONY() {
     # --- Configuration Chrony (IPv4 only si IPv6 désactivé) ---
     if echo "${CMDLINE}" | grep -q 'ipv6.disable=1'; then
@@ -617,8 +563,8 @@ _PKG_DOWNLOAD_THEN_INSTALL() {
     echo -n "Téléchargement depuis les dépôts... "
     _RUNSILENT "" sudo dnf download --skip-unavailable -y --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" "$@"
     echo -n "installation depuis le cache local..."
-    _RUNSILENT sudo dnf install --skip-unavailable -y "${download_dir}"/*.rpm
-    _RUNSILENT "" rm -rvf "${download_dir}"
+    _RUNSILENT "" sudo dnf install --skip-unavailable -y "${download_dir}"/*.rpm
+    _RUNSILENT "" sudo rm -rvf "${download_dir}"
 }
 
 
