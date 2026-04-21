@@ -412,7 +412,7 @@ _INSTALL_TABLE(){
         _RUN "Traitement en cours..." "${install_cmd}" "${missing[@]}"
     else
         all_fmt=$(_FORMAT_LIST "$@")
-        _OK "Tout est là : ${all_fmt}"
+        _OK "Tout est bon : ${all_fmt}"
     fi
 
 }
