@@ -33,7 +33,7 @@ REMOVE_RPM_PACKAGES() {
     # local -a to_remove=()
     # local -a already_gone=()
     #
-    # wants_systemd_networkd_removal=0
+    wants_systemd_networkd_removal=0
     #
     for pkg in "${DNF_REMOVE[@]}"; do
         if [[ "${pkg}" == "systemd-networkd" ]]; then
