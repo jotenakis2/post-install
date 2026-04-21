@@ -30,7 +30,11 @@
 # _IS_ACTIVE
 # _IS_ACTIVE_USER
 # _INIT_COLOR
+# _IS_FPPKG_INSTALLED
+# _FPPKG_INSTALL
+# _INSTALL_TABLE
 
+############################################################################################################################
 _BANNER() {
     local color=$1
     shift
@@ -403,9 +407,9 @@ _INSTALL_TABLE(){
     if ((${#missing[@]})); then
         missing_fmt=$(_FORMAT_LIST "${missing[@]}")
         present_fmt=$(_FORMAT_LIST "${present[@]}")
-        ((${#present[@]})) && _OK "Déjà là : ${present_fmt}"
-        _OK "À installer : ${missing_fmt}"
-        _RUN "Installation..." "${install_cmd}" "${missing[@]}"
+        ((${#present[@]})) && _OK "Présent : ${present_fmt}"
+        _OK "À traiter : ${missing_fmt}"
+        _RUN "Traitement en cours..." "${install_cmd}" "${missing[@]}"
     else
         all_fmt=$(_FORMAT_LIST "$@")
         _OK "Tout est là : ${all_fmt}"
@@ -432,4 +436,15 @@ _FORMAT_LIST() {
             echo "${result} et ${items[-1]}"
             ;;
     esac
+}
+
+
+########################################################################################################################
+
+_IS_FPPKG_INSTALLED() {
+    sudo flatpak info "$@" &>/dev/null || return 1
+}
+
+_FPPKG_INSTALL() {
+    sudo flatpak install -y flathub "$@"
 }

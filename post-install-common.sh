@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=24.7
+readonly VER=24.8
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -950,8 +950,6 @@ INSTALL_DEPS() {
     _INSTALL_TABLE _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
 }
 
-
-
 ########################################################################################################################
 
 END() {
@@ -1009,16 +1007,6 @@ INSTALL_FLATPAK_PACKAGES() {
     # 6. Petit nettoyage des runtimes inutilisés
     _LOG "Nettoyage des runtimes Flatpak orphelins"
     _RUNSILENT "" sudo flatpak --verbose uninstall --unused -y
-}
-
-########################################################################################################################
-
-_IS_FPPKG_INSTALLED() {
-    sudo flatpak info "$@" &>/dev/null || return 1
-}
-
-_FPPKG_INSTALL() {
-    sudo flatpak install -y flathub "$@"
 }
 
 ########################################################################################################################

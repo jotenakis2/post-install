@@ -30,36 +30,39 @@ REMOVE_RPM_PACKAGES() {
     _SECTION " Suppression paquets indésirables " "━" "${C_GREEN}"
     _LOG "*** suppression paquets ***"
     local pkg wants_systemd_networkd_removal
-    local -a to_remove=()
-    local -a already_gone=()
-
-    wants_systemd_networkd_removal=0
-
+    # local -a to_remove=()
+    # local -a already_gone=()
+    #
+    # wants_systemd_networkd_removal=0
+    #
     for pkg in "${DNF_REMOVE[@]}"; do
         if [[ "${pkg}" == "systemd-networkd" ]]; then
             wants_systemd_networkd_removal=1
             continue
         fi
-        if _IS_PKG_INSTALLED "${pkg}"; then
-            to_remove+=("${pkg}")
-        else
-            already_gone+=("${pkg}")
-        fi
+        # if _IS_PKG_INSTALLED "${pkg}"; then
+        #     to_remove+=("${pkg}")
+        # else
+        #     already_gone+=("${pkg}")
+        # fi
     done
 
-    local list
-    if [[ ${#already_gone[@]} -gt 0 ]]; then
-        list=$(_FORMAT_LIST "${already_gone[@]}")
-        _LOG "Déjà supprimés : ${list}"
-    fi
+    # local list
+    # if [[ ${#already_gone[@]} -gt 0 ]]; then
+    #     list=$(_FORMAT_LIST "${already_gone[@]}")
+    #     _LOG "Déjà supprimés : ${list}"
+    # fi
+    #
+    # if [[ ${#to_remove[@]} -eq 0 ]]; then
+    #     _OK "Aucun paquet à supprimer"
+    # else
+    #     list=$(_FORMAT_LIST "${to_remove[@]}")
+    #     _OK "Paquets à supprimer : ${list}"
+    #     _RUN "Suppression des paquets indésirables" _PKG_REMOVE "${to_remove[@]}"
+    # fi
 
-    if [[ ${#to_remove[@]} -eq 0 ]]; then
-        _OK "Aucun paquet à supprimer"
-    else
-        list=$(_FORMAT_LIST "${to_remove[@]}")
-        _OK "Paquets à supprimer : ${list}"
-        _RUN "Suppression des paquets indésirables" _PKG_REMOVE "${to_remove[@]}"
-    fi
+    _INSTALL_TABLE _IS_PKG_INSTALLED _PKG_REMOVE "${DNF_REMOVE[@]}"
+
 
     if (( wants_systemd_networkd_removal )); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
         if _IS_ACTIVE NetworkManager; then
@@ -164,7 +167,7 @@ INSTALL_CODECS() {
     _LOG "*** codecs & multimédia ***"
     # codecs
     if ! _IS_PKG_INSTALLED ffmpeg; then
-        _RUN "ÉCHANGE ffmpeg-free <=> ffmpeg" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
+        _RUN "Échange ffmpeg-free <=> ffmpeg" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
         _RUN "Mise à jour groupe multimedia" sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
     else
         _OK "ffmpeg (rpmfusion) déjà présent"
