@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=24.9
+readonly VER=25.0
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -82,7 +82,7 @@ INITIALIZE() {
 
     clear
     _BANNER "blue" "${SCRIPTNAME} (${VER})"
-    _SECTION " Préparation " "━" "${C_GREEN}"
+    _SECTION " Préparation de la post-installation " "━" "${C_GREEN}"
     _LOG "*** Préparation ***"
     _OK "Heure de démarrage de la post-installation : ${heure}"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
@@ -123,7 +123,7 @@ INITIALIZE() {
 
 ########################################################################################################################
 INSTALL_CARGO_PACKAGES() {
-    _SECTION " Paquets Cargo " "━" "${C_GREEN}"
+    _SECTION " Installation des paquets Cargo personnalisés " "━" "${C_GREEN}"
     _LOG "*** Paquets Cargo ***"
 
     # 0. toolchain rust
@@ -191,7 +191,7 @@ INSTALL_CARGO_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_GO_PACKAGES() {
-    _SECTION " Paquets GO " "━" "${C_GREEN}"
+    _SECTION " Installation des paquets GO personnalisés " "━" "${C_GREEN}"
     _LOG "*** Paquets GO ***"
     local pkg current="" latest="" arch="" os="" gofile=""
 
@@ -236,7 +236,7 @@ INSTALL_GO_PACKAGES() {
 
 ########################################################################################################################
 CLONE_GIT() {
-    _SECTION " dépôts Git personnels " "━" "${C_GREEN}"
+    _SECTION " Installation des dépôts Git personnalisés " "━" "${C_GREEN}"
     _LOG "*** dépôts git personnels ***"
     local repo_entry repo_url dest_dir repo_name backup_dir
 
@@ -267,7 +267,7 @@ CLONE_GIT() {
 
 ########################################################################################################################
 SETUP_SHELL() {
-    _SECTION " Shell " "━" "${C_GREEN}"
+    _SECTION " Configuration du shell par défaut (zsh) " "━" "${C_GREEN}"
     _LOG "*** Shell ***"
     # 1- zsh
     local zsh_bin
@@ -347,7 +347,7 @@ SETUP_SHELL() {
 
 ########################################################################################################################
 SETUP_DOTFILES() {
-    _SECTION " Dotfiles " "━" "${C_GREEN}"
+    _SECTION " Installation des configurations personnalisées de ${USER} (dotfiles) " "━" "${C_GREEN}"
     _LOG "*** dotfiles ***"
 
     if [[ ! -d "${DOTFILES_DIR}" ]]; then
@@ -404,7 +404,7 @@ SETUP_SYSTEMD(){
 
 ########################################################################################################################
 SETUP_FSTAB(){
-    _SECTION " Configuration FSTAB " "━" "${C_GREEN}"
+    _SECTION " Configuration du fichier FSTAB " "━" "${C_GREEN}"
     _LOG "*** /etc/fstab ***"
 
     # SWAPFILE
@@ -500,9 +500,9 @@ SETUP_FSTAB(){
 
 ########################################################################################################################
 SETUP_DATA() {
-    _LOG "*** Restauration des données privées ***"
+    _LOG "*** Restauration des données privées de l'utilisateur ${USER} ***"
     if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
-        _SECTION " Restauration des données privées " "━" "${C_GREEN}"
+        _SECTION " Restauration des données privées de l'utilisateur ${USER} " "━" "${C_GREEN}"
         local profil file cmd ffile
         for profil in "${!DESTINATIONS[@]}"; do
             cmd=${COMMANDS["${profil}"]}
@@ -539,7 +539,7 @@ SETUP_KDE_PLASMA() {
     _LOG "*** Personnalisation de KDE Plasma 6 ***"
 # on check KDE est lancé
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
-        _SECTION " Personnalisation de KDE Plasma 6 " "━" "${C_GREEN}"
+        _SECTION " Personnalisation de l'interface KDE Plasma 6 de l'utilisateur ${USER} " "━" "${C_GREEN}"
         local change=0
 
         # Color Scheme : Tokyo Night
@@ -702,7 +702,7 @@ SETUP_PLM() {
 
 ########################################################################################################################
 SETUP_ETC() {
-    _SECTION " Configuration Système " "━" "${C_GREEN}"
+    _SECTION " Configuration générale du système " "━" "${C_GREEN}"
     _LOG "*** configuration système ***"
 
     # par défaut msmtp ne crée pas le log system
@@ -841,7 +841,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 ########################################################################################################################
 SETUP_SSHD(){
     if [[ "${ACTIVATE_SSHD}" = "yes" ]]; then
-        _SECTION " SERVICE SSHD " "━" "${C_GREEN}"
+        _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
         _LOG "*** service sshd ***"
         _RUNSILENT "" sudo mkdir -pv /etc/ssh/sshd_config.d
 
@@ -902,7 +902,7 @@ ${SSHD_CONFIG}"
 
     else
         if _IS_ENABLED sshd; then
-            _SECTION " SERVICE SSHD " "━" "${C_GREEN}"
+            _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
             _LOG "pas de service sshd demandé"
             _RUN "Désactivation du service sshd" sudo systemctl --now disable sshd.service
         else
@@ -954,7 +954,7 @@ INSTALL_DEPS() {
 
 END() {
     local duration file
-    _SECTION " Fin " "━" "${C_GREEN}"
+    _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
     _LOG "*** fin ***"
     _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
@@ -975,7 +975,7 @@ END() {
 ########################################################################################################################
 
 INSTALL_FLATPAK_PACKAGES() {
-    _SECTION " Paquets Flatpak " "━" "${C_GREEN}"
+    _SECTION " Installation des paquets Flatpak personnalisés " "━" "${C_GREEN}"
     _LOG "*** paquets flatpak ***"
     # 1. Vérification et installation de Flatpak
     if ! _EXIST flatpak; then

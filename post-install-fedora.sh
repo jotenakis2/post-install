@@ -27,7 +27,7 @@ CHECK() {
 
 ########################################################################################################################
 REMOVE_RPM_PACKAGES() {
-    _SECTION " Suppression paquets indésirables " "━" "${C_GREEN}"
+    _SECTION " Suppression des paquets RPM indésirables " "━" "${C_GREEN}"
     _LOG "*** suppression paquets ***"
     local pkg wants_systemd_networkd_removal
     # local -a to_remove=()
@@ -79,7 +79,7 @@ REMOVE_RPM_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_REPOS() {
-    _SECTION " Dépôts RPM " "━" "${C_GREEN}"
+    _SECTION " Installation des dépôts RPM additionnels " "━" "${C_GREEN}"
     _LOG "*** dépôts rpm ***"
     local fedora_ver cache=0
     fedora_ver=$(rpm -E '%fedora')
@@ -128,7 +128,7 @@ INSTALL_REPOS() {
 
 ########################################################################################################################
 INSTALL_FONTS() {
-    _SECTION " Polices d'affichage " "━" "${C_GREEN}"
+    _SECTION " Installation de polices d'affichage personnelles " "━" "${C_GREEN}"
     _LOG "*** Polices d'affichage ***"
     _INSTALL_TABLE _IS_PKG_INSTALLED _PKG_INSTALL_SKIP "${FONTS[@]}"
     _SETUP_VCONSOLE_FONT
@@ -163,7 +163,7 @@ _SETUP_VCONSOLE_FONT() {
 
 ########################################################################################################################
 INSTALL_CODECS() {
-    _SECTION " Codecs & multimédia " "━" "${C_GREEN}"
+    _SECTION " Installation des codecs multimédias additionnels " "━" "${C_GREEN}"
     _LOG "*** codecs & multimédia ***"
     # codecs
     if ! _IS_PKG_INSTALLED ffmpeg; then
@@ -203,7 +203,7 @@ INSTALL_CODECS() {
 
 ########################################################################################################################
 INSTALL_RPM_PACKAGES() {
-    _SECTION " Paquets RPM " "━" "${C_GREEN}"
+    _SECTION " Installation des paquets RPM personnalisés " "━" "${C_GREEN}"
     _LOG "*** Paquets RPM ***"
     _INSTALL_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${DNF_PACKAGES[@]}"
     _CLEANUP_APPSTREAM
