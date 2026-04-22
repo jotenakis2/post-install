@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=25.2
+readonly VER=25.3
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -142,9 +142,9 @@ INSTALL_CARGO_PACKAGES() {
 
     # 1. Installation de cargo-binstall sans compilation
     if ! _EXIST cargo-binstall; then
-        _RUN "Installation de cargo-binstall" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
+        _RUN "Installation de cargo-binstall (installation de paquets binaires)" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
     else
-        _LOG "cargo-binstall est déjà installé"
+        _LOG "cargo-binstall (installation de paquets binaires) est déjà installé"
     fi
     _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/cargo-binstall"
 

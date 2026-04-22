@@ -286,12 +286,15 @@ _SPIN() {
 
 _RUN() {
     local msg="$1"; shift
+    tput civis || true # Hide cursor, ignore errors if unsupported
     "$@" >> "${LOG_FILE}" 2>&1 &
     local pid=$!
     _SPIN "${pid}" "${msg}"
     if wait "${pid}"; then
+        tput cvvis || true # Show cursor, ignore errors if unsupported
         _OK "${msg}"
     else
+        tput cvvis || true # Show cursor, ignore errors if unsupported
         _ERR "${msg}"
         _DIE "Échec — détails : ${LOG_FILE}"
     fi

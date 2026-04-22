@@ -197,7 +197,7 @@ INSTALL_CODECS() {
             _OK "intel-media-driver déjà présent"
         fi
     else
-        _INFO "GPU ni AMD ni Intel, pas de swap mesa à faire"
+        _INFO "GPU ni AMD ni Intel, pas de d'échange mesa <=> mesa-rpmfusion à faire"
     fi
 }
 
