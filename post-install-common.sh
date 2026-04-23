@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=25.4
+readonly VER=25.5
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -205,12 +205,14 @@ INSTALL_GO_PACKAGES() {
          current="$(go version | grep -oP 'go\K\d+\.\d+\.\d+' || true)"
     fi
 
-    _RUN "Contrôle de la dernière version disponible de la toolchain GO" bash -c 'curl -s https://go.dev/dl/ > /tmp/gover'
-    latest=$(grep -oP 'go\K\d+\.\d+\.\d+' /tmp/gover | head -1 || true)
-    arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
-    os=$(uname | tr '[:upper:]' '[:lower:]' || true)
-    gofile="go${latest}.${os}-${arch}.tar.gz"
-    rm -f /tmp/gover
+    _RUN "Contrôle de la dernière version disponible de la toolchain GO" bash -c "curl -s https://go.dev/dl/ > /tmp/gover \
+    latest=$(grep -oP 'go\K\d+\.\d+\.\d+' /tmp/gover | head -1 || true) \
+    arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true) \
+    os=$(uname | tr '[:upper:]' '[:lower:]' || true) \
+    gofile=\"go${latest}.${os}-${arch}.tar.gz\" \
+    rm -f /tmp/gover \
+    export gofile latest
+    "
 
     if [[ "${current}" == "${latest}" ]] && _EXIST go; then
         _LOG "la toolchain GO est à jour (${latest})"
@@ -223,21 +225,14 @@ INSTALL_GO_PACKAGES() {
     fi
 
     if _EXIST go; then
-        # for pkg in "${!GO_PACKAGES[@]}"; do # on parcourt les clés du tableau associatif
-        #     local url
-        #     url="${GO_PACKAGES[${pkg}]}"
-        #     if ! _EXIST "${pkg}"; then
-        #         _RUN "Installation de ${pkg}" go install "${url}"
-        #     else
-        #         _RUN "Mise à jour de ${pkg}" go install "${url}"
-        #     fi
-        #     #_RUNSILENT "" sudo ln -svf "${GOBIN}/${pkg}" "/usr/local/bin"
-        #     _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin/${pkg}"
-        # done
-    _MANAGE_TABLE "INSTALLÉ correctement" "_EXIST ${pkg}" _GOPKG_INSTALL "${GO_PACKAGES[@]}"
-    for pkg in "${!GO_PACKAGES[@]}"; do
-        _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin/${pkg}"
-    done
+        for pkg in "${!GO_PACKAGES[@]}"; do # on parcourt les clés du tableau associatif
+            local url
+            url="${GO_PACKAGES[${pkg}]}"
+            if ! _EXIST "${pkg}"; then
+                _RUN "Installation de ${pkg}" go install "${url}"
+            fi
+            _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin/${pkg}"
+        done
     fi
 }
 
