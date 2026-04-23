@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=25.5
+readonly VER=25.6
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -223,14 +223,24 @@ INSTALL_GO_PACKAGES() {
     fi
 
     if _EXIST go; then
-        for pkg in "${!GO_PACKAGES[@]}"; do # on parcourt les clés du tableau associatif
+        local -a missing=()
+        local -a missingbin=()
+        local -a present=()
+        for pkg in "${!GO_PACKAGES[@]}"; do
             local url
             url="${GO_PACKAGES[${pkg}]}"
             if ! _EXIST "${pkg}"; then
-                _RUN "Installation de ${pkg}" go install "${url}"
+                present+=("${url}")
             else
-                _OK "${pkg} dejà installé"
+                missing+=("${url}")
+                missingbin+=("${pkg}")
             fi
+        done
+        _OK "Déjà installé : ${present[*]}"
+        for pkg in "${missing[@]}"; do
+            _RUN "Installation de ${pkg}" go install "${pkg}"
+        done
+        for pkg in "${missingbin[@]}"; do
             _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin/${pkg}"
         done
     fi
