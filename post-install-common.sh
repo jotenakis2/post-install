@@ -228,6 +228,8 @@ INSTALL_GO_PACKAGES() {
             url="${GO_PACKAGES[${pkg}]}"
             if ! _EXIST "${pkg}"; then
                 _RUN "Installation de ${pkg}" go install "${url}"
+            else
+                _OK "${pkg} dejà installé"
             fi
             _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin/${pkg}"
         done
