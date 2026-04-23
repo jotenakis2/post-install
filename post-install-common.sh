@@ -205,7 +205,7 @@ INSTALL_GO_PACKAGES() {
          current="$(go version | grep -oP 'go\K\d+\.\d+\.\d+' || true)"
     fi
 
-    _RUN "Contrôle de la dernière version disponible de la toolchain GO" latest="$(curl -s https://go.dev/dl/ | grep -oP 'go\K\d+\.\d+\.\d+' | head -1 || true)"
+    _RUN "Contrôle de la dernière version disponible de la toolchain GO" bash -c "curl -s https://go.dev/dl/ | grep -oP 'go\K\d+\.\d+\.\d+' | head -1 > /tmp/gover"
 #
 #     curl -s https://go.dev/dl/ > /tmp/gover
 #     latest=$(grep -oP 'go\K\d+\.\d+\.\d+' /tmp/gover | head -1 || true)
