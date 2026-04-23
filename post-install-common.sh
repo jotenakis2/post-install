@@ -229,7 +229,7 @@ INSTALL_GO_PACKAGES() {
         for pkg in "${!GO_PACKAGES[@]}"; do
             local url
             url="${GO_PACKAGES[${pkg}]}"
-            if ! _EXIST "${pkg}"; then
+            if _EXIST "${pkg}"; then
                 present+=("${url}")
             else
                 missing+=("${url}")
