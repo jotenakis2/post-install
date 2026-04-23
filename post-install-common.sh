@@ -205,14 +205,12 @@ INSTALL_GO_PACKAGES() {
          current="$(go version | grep -oP 'go\K\d+\.\d+\.\d+' || true)"
     fi
 
-    _RUN "Contrôle de la dernière version disponible de la toolchain GO" bash -c "curl -s https://go.dev/dl/ > /tmp/gover \
-    latest=$(grep -oP 'go\K\d+\.\d+\.\d+' /tmp/gover | head -1 || true) \
-    arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true) \
-    os=$(uname | tr '[:upper:]' '[:lower:]' || true) \
-    gofile=\"go${latest}.${os}-${arch}.tar.gz\" \
-    rm -f /tmp/gover \
-    export gofile latest
-    "
+    _RUN "Contrôle de la dernière version disponible de la toolchain GO" "curl -s https://go.dev/dl/ > /tmp/gover"
+    latest=$(grep -oP 'go\K\d+\.\d+\.\d+' /tmp/gover | head -1 || true)
+    arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
+    os=$(uname | tr '[:upper:]' '[:lower:]' || true)
+    gofile=\"go${latest}.${os}-${arch}.tar.gz\"
+    rm -f /tmp/gover
 
     if [[ "${current}" == "${latest}" ]] && _EXIST go; then
         _LOG "la toolchain GO est à jour (${latest})"
