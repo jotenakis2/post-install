@@ -461,3 +461,7 @@ _IS_CARGOPKG_INSTALLED(){
 _CARGOPKG_INSTALL(){
     cargo binstall --no-confirm "$@"
 }
+
+_GOPKG_INSTALL(){
+    go install "$@"
+}

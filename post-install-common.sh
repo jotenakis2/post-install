@@ -223,17 +223,21 @@ INSTALL_GO_PACKAGES() {
     fi
 
     if _EXIST go; then
-        for pkg in "${!GO_PACKAGES[@]}"; do # on parcourt les clés du tableau associatif
-            local url
-            url="${GO_PACKAGES[${pkg}]}"
-            if ! _EXIST "${pkg}"; then
-                _RUN "Installation de ${pkg}" go install "${url}"
-            else
-                _RUN "Mise à jour de ${pkg}" go install "${url}"
-            fi
-            #_RUNSILENT "" sudo ln -svf "${GOBIN}/${pkg}" "/usr/local/bin"
-            _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin/${pkg}"
-        done
+        # for pkg in "${!GO_PACKAGES[@]}"; do # on parcourt les clés du tableau associatif
+        #     local url
+        #     url="${GO_PACKAGES[${pkg}]}"
+        #     if ! _EXIST "${pkg}"; then
+        #         _RUN "Installation de ${pkg}" go install "${url}"
+        #     else
+        #         _RUN "Mise à jour de ${pkg}" go install "${url}"
+        #     fi
+        #     #_RUNSILENT "" sudo ln -svf "${GOBIN}/${pkg}" "/usr/local/bin"
+        #     _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin/${pkg}"
+        # done
+    _MANAGE_TABLE "INSTALLÉ correctement" "_EXIST ${pkg}" _GOPKG_INSTALL "${GO_PACKAGES[@]}"
+    for pkg in "${!GO_PACKAGES[@]}"; do
+        _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin/${pkg}"
+    done
     fi
 }
 

@@ -22,8 +22,14 @@ DNF_PACKAGES=(
 
 # paquets RPM à désinstaller #------------------------------------------------------------------------------------------------
 DNF_REMOVE=(
-    zram-generator-defaults PackageKit-glib google-noto-sans-mono-cjk-vf-fonts akonadi-server kdeconnectd nano
-    libreswan plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover rsyslog konsole konsole-part kwrite
+    default-fonts-cjk-mono
+    default-fonts-cjk-sans
+    default-fonts-cjk-serif
+    default-fonts-other-mono
+    default-fonts-other-sans
+    default-fonts-other-serif
+    zram-generator-defaults PackageKit-glib rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan
+    plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
