@@ -236,7 +236,11 @@ INSTALL_GO_PACKAGES() {
                 missingbin+=("${pkg}")
             fi
         done
-        _OK "Déjà installé : ${present[*]}"
+        if [[ -z "${missing[*]}" ]]; then
+            _OK "Tout est correctement INSTALLÉS : ${present[*]}"
+        else
+            _OK "Déjà installé : ${present[*]}"
+        fi
         for pkg in "${missing[@]}"; do
             _RUN "Installation de ${pkg}" go install "${pkg}"
         done
