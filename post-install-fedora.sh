@@ -167,7 +167,7 @@ INSTALL_CODECS() {
     _LOG "*** codecs & multimédia ***"
     # codecs
     if ! _IS_PKG_INSTALLED ffmpeg; then
-        _RUN "Échange ffmpeg-free <=> ffmpeg" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
+        _RUN "Échange ffmpeg-free <=> ffmpeg-rpmfusion" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
         _RUN "Mise à jour groupe multimedia" sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
     else
         _OK "ffmpeg (rpmfusion) déjà présent"

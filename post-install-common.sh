@@ -239,7 +239,7 @@ INSTALL_GO_PACKAGES() {
         if [[ -z "${missing[*]}" ]]; then
             _OK "Tout est INSTALLÉ correctement : ${present[*]}"
         else
-            _OK "Déjà installé : ${present[*]}"
+            [[ -n "${present[*]}" ]] && _OK "Déjà installé : ${present[*]}"
         fi
         for pkg in "${missing[@]}"; do
             _RUN "Installation de ${pkg}" go install "${pkg}"
@@ -257,6 +257,7 @@ clone_repos() {
 
     for repo in "${GIT_REPOS[@]}"; do
         name="${repo##*/}"
+        echo "${name}"
         target="${HOME}/git/${name}"
 
         if [[ -d "${target}" ]]; then
