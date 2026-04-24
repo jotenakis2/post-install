@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=25.6
+readonly VER=25.7
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -237,7 +237,7 @@ INSTALL_GO_PACKAGES() {
             fi
         done
         if [[ -z "${missing[*]}" ]]; then
-            _OK "Tout est correctement INSTALLÉS : ${present[*]}"
+            _OK "Tout est INSTALLÉ correctement : ${present[*]}"
         else
             _OK "Déjà installé : ${present[*]}"
         fi
@@ -251,6 +251,32 @@ INSTALL_GO_PACKAGES() {
 }
 
 ########################################################################################################################
+clone_repos() {
+    local repo name target
+    mkdir -p "${HOME}/git"
+
+    for repo in "${GIT_REPOS[@]}"; do
+        name="${repo##*/}"
+        target="${HOME}/git/${name}"
+
+        if [[ -d "${target}" ]]; then
+            if git -C "${target}" rev-parse --git-dir &>/dev/null; then
+                _RUN "Mise à jour de ${name}..." git -C "${target}" pull --ff-only
+            else
+                _ERR "${target} existe mais n'est pas un dépôt git, ignoré."
+            fi
+        else
+            _RUN "Clonage de ${name}..." git clone "${repo}" "${target}"
+        fi
+
+        if [[ "${repo}" == "${DOTFILES_REPO}" && "${target}" != "${DOTFILES_DIR}" ]]; then
+            ln -sfn "${target}" "${DOTFILES_DIR}"
+            _OK "Lien symbolique ${DOTFILES_DIR} → ${target}"
+        fi
+    done
+}
+
+
 CLONE_GIT() {
     _SECTION " Installation des dépôts Git personnalisés " "━" "${C_GREEN}"
     _LOG "*** dépôts git personnels ***"

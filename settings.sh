@@ -92,10 +92,10 @@ MYREPOS="https://codeberg.org/jotenakis"
 DOTFILES_REPO="${MYREPOS}/dotfiles"
 DOTFILES_DIR="${HOME}/dotfiles"
 GIT_REPOS=(
-    "${MYREPOS}/fedupdate|${HOME}/fedupdate"
-    "${MYREPOS}/backupsystem|${HOME}/backupsystem"
-    "${MYREPOS}/scripts|${HOME}/scripts"
-    "${DOTFILES_REPO}|${DOTFILES_DIR}"
+    "${MYREPOS}/fedupdate"
+    "${MYREPOS}/backupsystem"
+    "${MYREPOS}/scripts"
+    "${DOTFILES_REPO}"
     # Ajoute tes autres "repos|dossierlocaux" ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
