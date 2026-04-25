@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=25.8
+readonly VER=25.9
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -212,8 +212,7 @@ INSTALL_GO_PACKAGES() {
     if [[ "${current}" == "${latest}" ]] && _EXIST go; then
         _LOG "la toolchain GO est à jour (${latest})"
     else
-        _EXIST wget || _RUNSILENT "" _PKG_INSTALL wget2
-        _RUNSILENT "" wget "https://go.dev/dl/${gofile}"
+        _RUNSILENT "" curl -LO "https://go.dev/dl/${gofile}"
         _RUNSILENT "" sudo rm -rvf /usr/local/go
         _RUN "Installation de la toolchain GO (${latest})" sudo tar -C /usr/local -xzf "${gofile}"
         _RUNSILENT "" rm -vf "${gofile}"
@@ -986,7 +985,7 @@ EOF
 ########################################################################################################################
 
 INSTALL_DEPS() {
-    local -a prerequisit=(curl crudini ncurses git stow wget2 pciutils dnf-plugins-core binutils policycoreutils-python-utils)
+    local -a prerequisit=(curl crudini ncurses git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils)
     _MANAGE_TABLE "INSTALLÉ correctement" _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
 }
 

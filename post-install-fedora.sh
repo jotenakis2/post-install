@@ -121,6 +121,7 @@ INSTALL_REPOS() {
     else
         _OK "Dépôt Brave déjà présent"
     fi
+    _CLEANUP_APPSTREAM
     if [[ "${cache}" -eq 1 ]]; then
         _RUN "Mise à jour du cache système" sudo dnf makecache
     fi
@@ -206,7 +207,6 @@ INSTALL_RPM_PACKAGES() {
     _SECTION " Installation des paquets RPM personnalisés " "━" "${C_GREEN}"
     _LOG "*** Paquets RPM ***"
     _MANAGE_TABLE "INSTALLÉ correctement" _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${DNF_PACKAGES[@]}"
-    _CLEANUP_APPSTREAM
 }
 
 ########################################################################################################################

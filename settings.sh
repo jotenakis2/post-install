@@ -97,7 +97,7 @@ GIT_REPOS=(
     "${MYREPOS}/scripts"
     "${DOTFILES_REPO}"
     "https://github.com/JeromeTDev/radiosh"
-    # Ajoute tes autres "repos|dossierlocaux" ici
+    # Ajoute tes autres repos ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 
