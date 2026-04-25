@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=25.7
+readonly VER=25.8
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -39,9 +39,9 @@ MAIN() {
         INSTALL_CARGO_PACKAGES
         INSTALL_GO_PACKAGES
         INSTALL_FLATPAK_PACKAGES
+        INSTALL_GIT_REPOS
 
         # config
-        CLONE_GIT
         SETUP_SHELL
         SETUP_DOTFILES
         SETUP_ETC
@@ -202,15 +202,12 @@ INSTALL_GO_PACKAGES() {
         export PATH="/usr/local/go/bin:${PATH}"
     fi
     if _EXIST go; then
-         current="$(go version | grep -oP 'go\K\d+\.\d+\.\d+' || true)"
+         current="$(go version | awk '{print $3}' || true)"
     fi
-
-    _RUN "Contrôle de la dernière version disponible de la toolchain GO" bash -c 'curl -s https://go.dev/dl/ > /tmp/gover'
-    latest=$(grep -oP 'go\K\d+\.\d+\.\d+' /tmp/gover | head -1 || true)
+    latest="$(curl -fsSL https://go.dev/dl/?mode=json | jq -r '.[0].version' || true)"
     arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
     os=$(uname | tr '[:upper:]' '[:lower:]' || true)
-    gofile="go${latest}.${os}-${arch}.tar.gz"
-    rm -f /tmp/gover
+    gofile="${latest}.${os}-${arch}.tar.gz"
 
     if [[ "${current}" == "${latest}" ]] && _EXIST go; then
         _LOG "la toolchain GO est à jour (${latest})"
@@ -251,62 +248,62 @@ INSTALL_GO_PACKAGES() {
 }
 
 ########################################################################################################################
-clone_repos() {
+INSTALL_GIT_REPOS() {
     local repo name target
-    mkdir -p "${HOME}/git"
+    _RUNSILENT "" mkdir -pv "${HOME}/git"
+    _SECTION " Installation des dépôts Git personnalisés " "━" "${C_GREEN}"
 
     for repo in "${GIT_REPOS[@]}"; do
         name="${repo##*/}"
-        echo "${name}"
         target="${HOME}/git/${name}"
 
         if [[ -d "${target}" ]]; then
             if git -C "${target}" rev-parse --git-dir &>/dev/null; then
-                _RUN "Mise à jour de ${name}..." git -C "${target}" pull --ff-only
+                _RUN "Mise à jour de ${name}" git -C "${target}" pull --ff-only
             else
-                _ERR "${target} existe mais n'est pas un dépôt git, ignoré."
+                _ERR "${target} existe mais n'est pas un dépôt git, ignoré"
             fi
         else
-            _RUN "Clonage de ${name}..." git clone "${repo}" "${target}"
+            _RUN "Téléchargement de ${name}" git clone "${repo}" "${target}"
         fi
 
         if [[ "${repo}" == "${DOTFILES_REPO}" && "${target}" != "${DOTFILES_DIR}" ]]; then
-            ln -sfn "${target}" "${DOTFILES_DIR}"
-            _OK "Lien symbolique ${DOTFILES_DIR} → ${target}"
+            #ln -sfn "${target}" "${DOTFILES_DIR}"
+            _RUNSILENT "" _SYMLINK "${target}" "${DOTFILES_DIR}"
         fi
     done
 }
 
 
-CLONE_GIT() {
-    _SECTION " Installation des dépôts Git personnalisés " "━" "${C_GREEN}"
-    _LOG "*** dépôts git personnels ***"
-    local repo_entry repo_url dest_dir repo_name backup_dir
-
-    for repo_entry in "${GIT_REPOS[@]}"; do
-        # Extraction de l'URL et de la destination (séparées par '|')
-        repo_url="${repo_entry%%|*}"
-        dest_dir="${repo_entry##*|}"
-
-        # Récupération du nom du dépôt pour l'affichage (ex: "scripts")
-        repo_name=$(basename "${repo_url}" .git)
-
-        if [[ -d "${dest_dir}/.git" ]]; then
-            # C'est un dépôt Git valide, on le met à jour
-            _RUN "Mise à jour de ${repo_name}" git -C "${dest_dir}" pull --ff-only
-        else
-            # Le chemin existe MAIS n'est pas un dépôt Git (ou c'est un fichier)
-            if [[ -e "${dest_dir}" ]]; then
-                backup_dir="${dest_dir}_backup_$(date +%Y%m%d%H%M%S)"
-                _RUN "Sauvegarde de l'existant non-git (${repo_name})" mv "${dest_dir}" "${backup_dir}"
-                _INFO "Ancien '${dest_dir}' sauvegardé dans '${backup_dir}'"
-            fi
-
-            # La voie est libre, on clone
-            _RUN "Téléchargement de ${repo_name}" git clone "${repo_url}" "${dest_dir}"
-        fi
-    done
-}
+# CLONE_GIT() {
+#     _SECTION " Installation des dépôts Git personnalisés " "━" "${C_GREEN}"
+#     _LOG "*** dépôts git personnels ***"
+#     local repo_entry repo_url dest_dir repo_name backup_dir
+#
+#     for repo_entry in "${GIT_REPOS[@]}"; do
+#         # Extraction de l'URL et de la destination (séparées par '|')
+#         repo_url="${repo_entry%%|*}"
+#         dest_dir="${repo_entry##*|}"
+#
+#         # Récupération du nom du dépôt pour l'affichage (ex: "scripts")
+#         repo_name=$(basename "${repo_url}" .git)
+#
+#         if [[ -d "${dest_dir}/.git" ]]; then
+#             # C'est un dépôt Git valide, on le met à jour
+#             _RUN "Mise à jour de ${repo_name}" git -C "${dest_dir}" pull --ff-only
+#         else
+#             # Le chemin existe MAIS n'est pas un dépôt Git (ou c'est un fichier)
+#             if [[ -e "${dest_dir}" ]]; then
+#                 backup_dir="${dest_dir}_backup_$(date +%Y%m%d%H%M%S)"
+#                 _RUN "Sauvegarde de l'existant non-git (${repo_name})" mv "${dest_dir}" "${backup_dir}"
+#                 _INFO "Ancien '${dest_dir}' sauvegardé dans '${backup_dir}'"
+#             fi
+#
+#             # La voie est libre, on clone
+#             _RUN "Téléchargement de ${repo_name}" git clone "${repo_url}" "${dest_dir}"
+#         fi
+#     done
+# }
 
 ########################################################################################################################
 SETUP_SHELL() {
@@ -411,7 +408,7 @@ SETUP_DOTFILES() {
     local pkg name
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
-        _RUN "stow : ${name}" stow --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}"
+        _RUNSILENT "${name}" stow --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}"
     done
 
     if _EXIST bat; then

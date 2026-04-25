@@ -96,6 +96,7 @@ GIT_REPOS=(
     "${MYREPOS}/backupsystem"
     "${MYREPOS}/scripts"
     "${DOTFILES_REPO}"
+    "https://github.com/JeromeTDev/radiosh"
     # Ajoute tes autres "repos|dossierlocaux" ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
