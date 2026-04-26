@@ -1016,8 +1016,10 @@ END() {
     # LOG
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
     _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
-    file=$(curl -F file=@"${LOG_FILE}" https://temp.sh/upload 2>/dev/null)
-    [[ -n "${file}" ]] &&  _OK "Log téléversé : ${file}"
+    local url
+    url="https://temp.sh/upload"
+    file=$(curl -F file=@"${LOG_FILE}" "${url}" 2>/dev/null)
+    [[ -n "${file}" ]] &&  _INFO "Log téléversé : ${file}"
     #
     echo ""
 }
