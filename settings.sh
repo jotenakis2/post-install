@@ -14,7 +14,7 @@ DNF_PACKAGES=(
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
     vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng
-    libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro konversation
+    libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro konversation libpcap-devel
     # Ajoute tes autres paquets ici
 )
 
@@ -78,7 +78,7 @@ FLATPAK_PKGS=(
 # outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé" #--------------------------------------------
 CARGO_PACKAGES=(
     cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg
-    ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina eza
+    ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina eza netwatch-tui
     # Ajoute tes autres paquets ici
 )
 declare -A BIN_MAPPING=(
@@ -89,6 +89,7 @@ declare -A BIN_MAPPING=(
         ["fd-find"]="fd"
         ["bottom"]="btm"
         ["ripgrep"]="rg"
+        ["netwatch-tui"]="netwatch"
         ["cargo-update"]="cargo-install-update cargo-install-update-config"
         # Ajoute tes autres correspondances ici
 )

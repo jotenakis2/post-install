@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=26.0
+readonly VER=26.1
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -651,6 +651,15 @@ SETUP_KDE_PLASMA() {
 
         # déplacement du panneau principal
         local target_pos="${KDEPANEL:-bottom}" # fallback en bas
+        local display_pos
+        case "${target_pos}" in
+            bottom) display_pos="basse";;
+            top) display_pos="haute";;
+            right) display_pos="droite";;
+            left) display_pos="gauche";;
+            *) display_pos="inconnue";;
+        esac
+
         if ! pgrep plasmashell > /dev/null 2>&1; then
             _INFO "plasmashell n'est pas lancée, déplacement du panneau annulé"
         else
@@ -660,9 +669,9 @@ SETUP_KDE_PLASMA() {
             if [[ -z "${current_positions}" ]]; then
                 _INFO "Aucun panneau détecté"
             elif [[ "${current_positions}" == "${target_pos}" ]]; then
-                _OK "Panneau déjà à la bonne position (${target_pos})"
+                _OK "Panneau déjà à la bonne position (${display_pos})"
             else
-                _RUN "Déplacement du panneau en position ${target_pos}" _PLASMA_EVAL "
+                _RUN "Déplacement du panneau en position ${display_pos}" _PLASMA_EVAL "
                     var allPanels = panels();
                     for (var i = 0; i < allPanels.length; i++) {
                         allPanels[i].location = \"${target_pos}\";
@@ -671,6 +680,10 @@ SETUP_KDE_PLASMA() {
                 change=1
             fi
         fi
+        # Avatar
+        local avatar
+        avatar="/usr/share/plasma/avatars/photos/Cocktail.png"
+        [[ -f /var/lib/AccountsService/icons/"${USER}" ]] || _RUN "Avatar (Cocktail) pour ${USER}" sudo cp -v "${avatar}" /var/lib/AccountsService/icons/"${USER}"
 
         # on redémarre l'interface pour appliquer de suite.
         if pgrep plasmashell > /dev/null 2>&1; then
