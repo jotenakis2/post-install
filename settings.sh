@@ -31,7 +31,7 @@ DNF_REMOVE=(
     default-fonts-other-sans
     default-fonts-other-serif
     zram-generator-defaults PackageKit-glib rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan
-    plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover
+    plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover sudo-python-plugin
         # inutile sur HP EliteBook 645 14 inch G9 Notebook PC
     nxpwireless-firmware
     tiwilink-firmware
