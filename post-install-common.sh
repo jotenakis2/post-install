@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=26.1
+readonly VER=26.2
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -669,7 +669,7 @@ SETUP_KDE_PLASMA() {
             if [[ -z "${current_positions}" ]]; then
                 _INFO "Aucun panneau détecté"
             elif [[ "${current_positions}" == "${target_pos}" ]]; then
-                _OK "Panneau déjà à la bonne position (${display_pos})"
+                _OK "Panneau déjà à la position voulue (${display_pos})"
             else
                 _RUN "Déplacement du panneau en position ${display_pos}" _PLASMA_EVAL "
                     var allPanels = panels();
@@ -1016,7 +1016,7 @@ END() {
     # LOG
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
     _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
-    _RUN "Téléversement du Log" bash -c "curl -fsS --upload-file \"${LOG_FILE}\" https://paste.c-net.org >/tmp/ok"
+    _RUN "Téléversement du Log" bash -c "curl -F \"file=@${LOG_FILE}\" https://temp.sh/upload >/tmp/ok"
     file="$(cat /tmp/ok)"
     [[ -n "${file}" ]] &&  _OK "Log téléversé : ${file}"
     rm -f /tmp/ok
