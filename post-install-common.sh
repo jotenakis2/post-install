@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=26.2
+readonly VER=26.3
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -1016,10 +1016,8 @@ END() {
     # LOG
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
     _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
-    _RUN "Téléversement du Log" bash -c "curl -F \"file=@${LOG_FILE}\" https://temp.sh/upload >/tmp/ok"
-    file="$(cat /tmp/ok)"
+    file=$(curl -F file=@"${LOG_FILE}" https://temp.sh/upload 2>/dev/null)
     [[ -n "${file}" ]] &&  _OK "Log téléversé : ${file}"
-    rm -f /tmp/ok
     #
     echo ""
 }
