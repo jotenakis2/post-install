@@ -15,23 +15,6 @@ DNF_PACKAGES=(
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
     vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng
     libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro konversation
-    # inutile sur HP EliteBook 645 14 inch G9 Notebook PC
-    nxpwireless-firmware
-    tiwilink-firmware
-    brcmfmac-firmware
-    alsa-sof-firmware
-    qcom-wwan-firmware
-    realtek-firmware
-    iwlwifi-mld-firmware
-    iwlwifi-mvm-firmware
-    iwlwifi-dvm-firmware
-    iwlegacy-firmware
-    libertas-firmware
-    intel-audio-firmware
-    cirrus-audio-firmware
-    mt7xxx-firmware
-    intel-vsc-firmware
-    intel-gpu-firmware
     # Ajoute tes autres paquets ici
 )
 
@@ -49,6 +32,23 @@ DNF_REMOVE=(
     default-fonts-other-serif
     zram-generator-defaults PackageKit-glib rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan
     plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover
+        # inutile sur HP EliteBook 645 14 inch G9 Notebook PC
+    nxpwireless-firmware
+    tiwilink-firmware
+    brcmfmac-firmware
+    alsa-sof-firmware
+    qcom-wwan-firmware
+    realtek-firmware
+    iwlwifi-mld-firmware
+    iwlwifi-mvm-firmware
+    iwlwifi-dvm-firmware
+    iwlegacy-firmware
+    libertas-firmware
+    intel-audio-firmware
+    cirrus-audio-firmware
+    mt7xxx-firmware
+    intel-vsc-firmware
+    intel-gpu-firmware
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
