@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=26.3
+readonly VER=26.4
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -540,37 +540,36 @@ SETUP_FSTAB(){
 ########################################################################################################################
 SETUP_DATA() {
     _LOG "*** Restauration des données privées de l'utilisateur ${USER} ***"
-    if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
-        _SECTION " Restauration des données privées de l'utilisateur ${USER} " "━" "${C_GREEN}"
-        local profil file cmd ffile
-        for profil in "${!DESTINATIONS[@]}"; do
-            cmd=${COMMANDS["${profil}"]}
-            if [[ -d "${SOURCE}" ]]; then
-                # on récupère la sauvegarde la plus récente dans le dossier SOURCE pour le profil ${profil}
-                file=$(find "${SOURCE}" -maxdepth 1 -name "${profil}_*.tar.gz" -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2- || true)
-                if [[ -n "${cmd}" ]] && pgrep -x "${cmd}" >/dev/null; then
-                    _ERR "Ferme ${cmd} d'abord !"
-                else
-                    if [[ -n "${file}" ]]; then
-                        if _DIR_IS_SAFE_TO_RESTORE "${DESTINATIONS[${profil}]}"; then
-                            ffile=$(basename "${file}")
-                            _RUN "Restauration de ${profil} (de ${ffile} vers ${HOME})" tar -xzf "${file}" -C "${HOME}"
-                        else
-                            _ERR "Le dossier de restauration de ${profil} contient déjà des données, on ne fait rien"
-                        fi
+    _SECTION " Restauration des données privées de l'utilisateur ${USER} " "━" "${C_GREEN}"
+    if [[ -d "${SOURCE}" ]]; then
+        if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
+            local profil file cmd ffile
+            for profil in "${!DESTINATIONS[@]}"; do
+                cmd=${COMMANDS["${profil}"]}
+                    # on récupère la sauvegarde la plus récente dans le dossier SOURCE pour le profil ${profil}
+                    file=$(find "${SOURCE}" -maxdepth 1 -name "${profil}_*.tar.gz" -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2- || true)
+                    if [[ -n "${cmd}" ]] && pgrep -x "${cmd}" >/dev/null; then
+                        _ERR "Ferme ${cmd} d'abord !"
                     else
-                        _OK "Aucun fichier de sauvegarde trouvé pour le profil ${profil}"
+                        if [[ -n "${file}" ]]; then
+                            if _DIR_IS_SAFE_TO_RESTORE "${DESTINATIONS[${profil}]}"; then
+                                ffile=$(basename "${file}")
+                                _RUN "Restauration de ${profil} (de ${ffile} vers ${HOME})" tar -xzf "${file}" -C "${HOME}"
+                            else
+                                _ERR "Le dossier de restauration de ${profil} contient déjà des données, on ne fait rien"
+                            fi
+                        else
+                            _OK "Aucun fichier de sauvegarde trouvé pour le profil ${profil}"
+                        fi
                     fi
-                fi
-            else
-                _ERR "Le dossier de restauration (${SOURCE}) n'existe pas"
-            fi
-        done
+            done
+        else
+            echo ""
+            _INFO "Aucune données privées à restaurer"
+        fi
     else
-        echo ""
-        _INFO "Aucune données privées à restaurer"
+        _ERR "Le dossier de restauration (${SOURCE}) n'existe pas"
     fi
-
 }
 
 ########################################################################################################################

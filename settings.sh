@@ -31,8 +31,8 @@ DNF_REMOVE=(
     default-fonts-other-sans
     default-fonts-other-serif
     zram-generator-defaults PackageKit-glib rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan
-    plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover sudo-python-plugin
-        # inutile sur HP EliteBook 645 14 inch G9 Notebook PC
+    plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover sudo-python-plugin sssd*
+    # inutile sur HP EliteBook 645 14 inch G9 Notebook PC :
     nxpwireless-firmware
     tiwilink-firmware
     brcmfmac-firmware
@@ -134,8 +134,16 @@ FIREWALL_SERVICES=(
 
 # services systemd à désactiver #---------------------------------------------------------------------------------------------
 declare -A SERVICES_TO_DISABLE=(
-    ["ModemManager.service"]="service ModemManager"
-    ["switcheroo-control.service"]="service switcheroo"
+    ["ModemManager.service"]="service ModemManager (modem 4G/5G)"
+    ["switcheroo-control.service"]="service switcheroo (GPU hybride)"
+    ["flatpak-add-fedora-repos.service"]="service fedora flatpak repo"
+    ["mdmonitor.service"]="service Software RAID monitoring and management"
+    ["lvm2-monitor.service"]="service Monitoring of LVM"
+    ["pcscd.socket"]="socket PC/SC Smart Card Daemon Activation"
+    ["accounts-daemon.service"]="Accounts Service (comptes en ligne)"
+    ["lm_sensors.service"]="Hardware Monitoring Sensors (collecte)"
+    ["authselect-apply-changes.service"]="Apply authselect changes (PAM)"
+
     # ajoute tes autres services systemd à désactiver ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
