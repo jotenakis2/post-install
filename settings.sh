@@ -31,7 +31,8 @@ DNF_REMOVE=(
     default-fonts-other-sans
     default-fonts-other-serif
     zram-generator-defaults PackageKit-glib rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan
-    plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover sudo-python-plugin sssd*
+    plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover sudo-python-plugin sssd-common plymouth-core-libs
+    at
     # inutile sur HP EliteBook 645 14 inch G9 Notebook PC :
     nxpwireless-firmware
     tiwilink-firmware
@@ -140,10 +141,13 @@ declare -A SERVICES_TO_DISABLE=(
     ["mdmonitor.service"]="service Software RAID monitoring and management"
     ["lvm2-monitor.service"]="service Monitoring of LVM"
     ["pcscd.socket"]="socket PC/SC Smart Card Daemon Activation"
-    ["accounts-daemon.service"]="Accounts Service (comptes en ligne)"
-    ["lm_sensors.service"]="Hardware Monitoring Sensors (collecte)"
-    ["authselect-apply-changes.service"]="Apply authselect changes (PAM)"
-
+    ["accounts-daemon.service"]="service Accounts (comptes en ligne)"
+    ["lm_sensors.service"]="service Hardware Monitoring Sensors (collecte)"
+    ["authselect-apply-changes.service"]="service Apply authselect changes (PAM)"
+    ["raid-check.timer"]="timer Weekly RAID setup health check"
+    ["iscsid.socket"]="socket Open-iSCSI iscsid"
+    ["iscsiuio.socket"]="socket Open-iSCSI iscsiuio"
+    ["lvm2-lvmpolld.socket"]="socket LVM poll"
     # ajoute tes autres services systemd à désactiver ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------

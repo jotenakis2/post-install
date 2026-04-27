@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=26.4
+readonly VER=26.5
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -405,9 +405,12 @@ SETUP_DOTFILES() {
 
     # 2- stow pour déployer dotfiles depuis dépôt git
     local pkg name
+    echo -en "${C_GREEN}✓${C_RESET}"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
-        _RUNSILENT "${name}" stow --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}"
+        #_RUNSILENT "${name}"
+        echo -n "${name} "
+        stow --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
     done
 
     if _EXIST bat; then
@@ -503,6 +506,8 @@ SETUP_FSTAB(){
     fi
 
     # NFS
+    local opts
+    opts="rw,_netdev,nofail,nodev,nosuid,noexec,noatime,lazytime,x-systemd.automount,x-systemd.device-timeout=30"
     if ! grep -q "${NFS_SHARE}" /etc/fstab >/dev/null; then
         if grep -q "${NFS_MP}" /etc/fstab >/dev/null; then
             _INFO "Le point de montage demandé (${NFS_MP}) est déjà présent dans /etc/fstab :"
@@ -511,7 +516,7 @@ SETUP_FSTAB(){
         else
             _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
             _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
-            echo "${NFS_SHARE}   ${NFS_MP}   nfs   rw,_netdev,nofail,nodev,nosuid,noexec,noatime,lazytime,x-systemd.automount,x-systemd.device-timeout=30     0 0" | sudo tee -a /etc/fstab >/dev/null
+            echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a /etc/fstab >/dev/null
             _RUNSILENT "" sudo systemctl daemon-reload
             _RUNSILENT "" sudo mount -v "${NFS_MP}"
             _RUN "Installation du partage réseau NFS" sudo ls -l "${NFS_MP}"

@@ -195,7 +195,6 @@ _HEURE() {
     echo "${date}, le ${heure}" | tee -a "${LOG_FILE}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
 _OK()       { printf " %b✓%b %s\n" "${C_GREEN}"  "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
 _ERR()      { printf " %b✗%b %s\n" "${C_RED}"    "${C_RESET}" "$*" | tee -a "${LOG_FILE}" >&2; }
 _INFO()     { printf " %b→%b %s\n" "${C_YELLOW}"   "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
@@ -411,7 +410,7 @@ _MANAGE_TABLE(){
     if ((${#missing[@]})); then
         missing_fmt=$(_FORMAT_LIST "${missing[@]}")
         present_fmt=$(_FORMAT_LIST "${present[@]}")
-        ((${#present[@]})) && _OK "Présent : ${present_fmt}"
+        ((${#present[@]})) && _OK "Dans la liste : ${present_fmt}"
         _OK "À traiter : ${missing_fmt}"
         _RUN "Traitement en cours..." "${install_cmd}" "${missing[@]}"
     else
