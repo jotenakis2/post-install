@@ -405,13 +405,14 @@ SETUP_DOTFILES() {
 
     # 2- stow pour déployer dotfiles depuis dépôt git
     local pkg name
-    echo -en "${C_GREEN}✓${C_RESET}"
+    echo -en "${C_GREEN}✓ ${C_RESET}"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
         #_RUNSILENT "${name}"
         echo -n "${name} "
         stow --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
     done
+    echo ""
 
     if _EXIST bat; then
         _LOG "Reconstruction du cache de bat"
@@ -426,14 +427,37 @@ SETUP_SYSTEMD(){
     _LOG "*** systemd ***"
     local service
     local description
+    local -a missing=()
+    local -a present=()
+
     for service in "${!SERVICES_TO_DISABLE[@]}"; do
         description="${SERVICES_TO_DISABLE[${service}]}"
         if _IS_ENABLED "${service}"; then
-            _RUN "Désactivation du ${description}" sudo systemctl disable --now "${service}"
+            present+=("${service}")
         else
-            _OK "Le ${description} est déjà désactivé"
+            missing+=("${pkg}")
         fi
     done
+
+    local all_fmt
+    local missing_fmt
+    local present_fmt
+    present_fmt=$(_FORMAT_LIST "${present[@]}")
+    if ((${#missing[@]})); then
+        missing_fmt=$(_FORMAT_LIST "${missing[@]}")
+        ((${#present[@]})) && _OK "Déjà désactivés : ${present_fmt}"
+        _OK "À désactiver : ${missing_fmt}"
+        _RUN "Désactivation des services" sudo systemctl disable --now "${missing[@]}"
+    else
+    #     all_fmt=$(_FORMAT_LIST "$@")
+    #     _OK "Tout est ${msg} : ${all_fmt}"
+        _OK "Tous les services sont déjà désactivés : ${present_fmt}"
+    fi
+
+    #
+    # _OK "Le ${description} est déjà désactivé"
+
+
     for service in "${!USER_SERVICES_TO_ENABLE[@]}"; do
         description="${USER_SERVICES_TO_ENABLE[${service}]}"
         if ! _IS_ENABLED_USER "${service}"; then
