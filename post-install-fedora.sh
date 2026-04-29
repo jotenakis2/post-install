@@ -597,7 +597,7 @@ _REFRESH_SYS_CACHE() {
     age=$(( now - sentinel_mtime ))
 
     if [[ ${age} -gt ${max_age} ]]; then
-        _RUN "Mise à jour du cache système" sudo dnf makecache
+        _RUN "Mise à jour du cache des métadonnées des dépôts" sudo dnf makecache
         sudo touch "${sentinel}"
     else
         _LOG "Cache DNF à jour (${age}s < ${max_age}s)"

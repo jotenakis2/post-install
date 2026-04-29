@@ -291,7 +291,7 @@ _RUN() {
     _SPIN "${pid}" "${msg}"
     if wait "${pid}"; then
         tput cvvis || true # Show cursor, ignore errors if unsupported
-        _OK "${msg}"
+        [[ -n "${msg}" ]] && _OK "${msg}"
     else
         tput cvvis || true # Show cursor, ignore errors if unsupported
         _ERR "${msg}"
