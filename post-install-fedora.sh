@@ -28,11 +28,7 @@ CHECK() {
 ########################################################################################################################
 REMOVE_RPM_PACKAGES() {
     _SECTION " Suppression des paquets RPM indésirables " "━" "${C_GREEN}"
-    _LOG "*** suppression paquets ***"
     local pkg wants_systemd_networkd_removal
-    # local -a to_remove=()
-    # local -a already_gone=()
-    #
     wants_systemd_networkd_removal=0
     #
     for pkg in "${DNF_REMOVE[@]}"; do
@@ -40,27 +36,7 @@ REMOVE_RPM_PACKAGES() {
             wants_systemd_networkd_removal=1
             continue
         fi
-        # if _IS_PKG_INSTALLED "${pkg}"; then
-        #     to_remove+=("${pkg}")
-        # else
-        #     already_gone+=("${pkg}")
-        # fi
     done
-
-    # local list
-    # if [[ ${#already_gone[@]} -gt 0 ]]; then
-    #     list=$(_FORMAT_LIST "${already_gone[@]}")
-    #     _LOG "Déjà supprimés : ${list}"
-    # fi
-    #
-    # if [[ ${#to_remove[@]} -eq 0 ]]; then
-    #     _OK "Aucun paquet à supprimer"
-    # else
-    #     list=$(_FORMAT_LIST "${to_remove[@]}")
-    #     _OK "Paquets à supprimer : ${list}"
-    #     _RUN "Suppression des paquets indésirables" _PKG_REMOVE "${to_remove[@]}"
-    # fi
-
     _MANAGE_TABLE "SUPPRIMÉ correctement" _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]}"
 
 
@@ -80,7 +56,6 @@ REMOVE_RPM_PACKAGES() {
 ########################################################################################################################
 INSTALL_REPOS() {
     _SECTION " Installation des dépôts RPM additionnels " "━" "${C_GREEN}"
-    _LOG "*** dépôts rpm ***"
     local fedora_ver cache=0
     fedora_ver=$(rpm -E '%fedora')
 
@@ -130,7 +105,6 @@ INSTALL_REPOS() {
 ########################################################################################################################
 INSTALL_FONTS() {
     _SECTION " Installation de polices d'affichage personnelles " "━" "${C_GREEN}"
-    _LOG "*** Polices d'affichage ***"
     _MANAGE_TABLE "INSTALLÉ correctement" _IS_PKG_INSTALLED _PKG_INSTALL_SKIP "${FONTS[@]}"
     _SETUP_VCONSOLE_FONT
 }
@@ -165,7 +139,6 @@ _SETUP_VCONSOLE_FONT() {
 ########################################################################################################################
 INSTALL_CODECS() {
     _SECTION " Installation des codecs multimédias additionnels " "━" "${C_GREEN}"
-    _LOG "*** codecs & multimédia ***"
     # codecs
     if ! _IS_PKG_INSTALLED ffmpeg; then
         _RUN "Échange ffmpeg-free <=> ffmpeg-rpmfusion" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
@@ -205,7 +178,6 @@ INSTALL_CODECS() {
 ########################################################################################################################
 INSTALL_RPM_PACKAGES() {
     _SECTION " Installation des paquets RPM personnalisés " "━" "${C_GREEN}"
-    _LOG "*** Paquets RPM ***"
     _MANAGE_TABLE "INSTALLÉ correctement" _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${DNF_PACKAGES[@]}"
 }
 
@@ -234,7 +206,6 @@ SETUP_GRUB(){
     zswap="zswap.enabled=1 zswap.compressor=lz4" # on force l'usage d'un zswap, plus efficace que zram car s'appuie sur un backend physique en plus (file ou part)
 
     _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
-    _LOG "*** Configuration GRUB ***"
 
     if [[ "${is_grub}" == "true" ]]; then
         local luks_param="" target_cmdline="" current_cmdline="" current_default=""
@@ -404,7 +375,6 @@ SETUP_SWAP(){
 ########################################################################################################################
 SETUP_SUDO_RS() {
     _SECTION " Configuration de sudo-rs " "━" "${C_GREEN}"
-    _LOG "*** configuration sudo-rs ***"
     local change=0
     # 1. On installe sudo-rs
     if ! _EXIST sudo-rs; then

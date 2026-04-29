@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=26.6
+readonly VER=27.0
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -11,7 +11,7 @@ source ./settings.sh                                                            
 MAIN() {
     args=${1:-}
     source helpers.sh # bibliothèque de fonctions d'aide
-    _INIT_COLOR
+    _ENABLE_COLORS
     trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR # gestion des erreurs
 
     # Préparation
@@ -83,7 +83,6 @@ INITIALIZE() {
     clear
     _BANNER "blue" "${SCRIPTNAME} (${VER})"
     _SECTION " Préparation de la post-installation " "━" "${C_GREEN}"
-    _LOG "*** Préparation ***"
     _OK "Heure de démarrage de la post-installation : ${heure}"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
     INSTALL_DEPS
@@ -99,9 +98,9 @@ INITIALIZE() {
     export GOBIN="${XDG_BIN_HOME:-${HOME}/.local/bin}"
 
     # Dossiers utilisateur requis
-    _RUN "" mkdir -pv "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
+    _RUNSILENT "" mkdir -pv "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
     # Dossiers système requis
-    _RUN "" sudo mkdir -pv /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
+    _RUNSILENT "" sudo mkdir -pv /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
 
     # Préparation d'une session sudo confortable et longue pour l'installation
     SUDOTMP="/etc/sudoers-rs.d/99_POST-INSTALL" # pour delete à la fin
@@ -124,7 +123,6 @@ INITIALIZE() {
 ########################################################################################################################
 INSTALL_CARGO_PACKAGES() {
     _SECTION " Installation des paquets Cargo personnalisés " "━" "${C_GREEN}"
-    _LOG "*** Paquets Cargo ***"
 
     # 0. toolchain rust
     local check
@@ -195,7 +193,7 @@ INSTALL_CARGO_PACKAGES() {
 ########################################################################################################################
 INSTALL_GO_PACKAGES() {
     _SECTION " Installation des paquets GO personnalisés " "━" "${C_GREEN}"
-    _LOG "*** Paquets GO ***"
+
     local pkg current="" latest="" arch="" os="" gofile=""
 
     if [[ ! "${PATH}" =~ "/usr/local/go/bin" ]]; then
@@ -307,7 +305,6 @@ INSTALL_GIT_REPOS() {
 ########################################################################################################################
 SETUP_SHELL() {
     _SECTION " Configuration du shell par défaut (zsh) " "━" "${C_GREEN}"
-    _LOG "*** Shell ***"
     # 1- zsh
     local zsh_bin
     zsh_bin=$(command -v zsh)
@@ -387,7 +384,6 @@ SETUP_SHELL() {
 ########################################################################################################################
 SETUP_DOTFILES() {
     _SECTION " Installation des configurations personnalisées de ${USER} (dotfiles) " "━" "${C_GREEN}"
-    _LOG "*** dotfiles ***"
 
     if [[ ! -d "${DOTFILES_DIR}" ]]; then
         _ERR "Le dossier ${DOTFILES_DIR} est introuvable. Stow ignoré."
@@ -471,7 +467,6 @@ SETUP_SYSTEMD(){
 ########################################################################################################################
 SETUP_FSTAB(){
     _SECTION " Configuration du fichier FSTAB " "━" "${C_GREEN}"
-    _LOG "*** /etc/fstab ***"
 
     # SWAPFILE
     local swapdir="/var/swap"
@@ -542,8 +537,7 @@ SETUP_FSTAB(){
             _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
             echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a /etc/fstab >/dev/null
             _RUNSILENT "" sudo systemctl daemon-reload
-            _RUNSILENT "" sudo mount -v "${NFS_MP}"
-            _RUN "Installation du partage réseau NFS" sudo ls -l "${NFS_MP}"
+            _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
         fi
     else
         _RUN "Montage NFS déjà installé"
@@ -568,7 +562,6 @@ SETUP_FSTAB(){
 
 ########################################################################################################################
 SETUP_DATA() {
-    _LOG "*** Restauration des données privées de l'utilisateur ${USER} ***"
     _SECTION " Restauration des données privées de l'utilisateur ${USER} " "━" "${C_GREEN}"
     if [[ -d "${SOURCE}" ]]; then
         if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
@@ -603,7 +596,6 @@ SETUP_DATA() {
 
 ########################################################################################################################
 SETUP_KDE_PLASMA() {
-    _LOG "*** Personnalisation de KDE Plasma 6 ***"
 # on check KDE est lancé
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
         _SECTION " Personnalisation de l'interface KDE Plasma 6 de l'utilisateur ${USER} " "━" "${C_GREEN}"
@@ -783,7 +775,6 @@ SETUP_PLM() {
 ########################################################################################################################
 SETUP_ETC() {
     _SECTION " Configuration générale du système " "━" "${C_GREEN}"
-    _LOG "*** configuration système ***"
 
     # par défaut msmtp ne crée pas le log system
     if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
@@ -922,7 +913,6 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 SETUP_SSHD(){
     if [[ "${ACTIVATE_SSHD}" = "yes" ]]; then
         _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
-        _LOG "*** service sshd ***"
         _RUNSILENT "" sudo mkdir -pv /etc/ssh/sshd_config.d
 
         local config_ssh_file banner_file full_ssh_content ssh_header
@@ -1035,7 +1025,6 @@ INSTALL_DEPS() {
 END() {
     local duration file
     _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
-    _LOG "*** fin ***"
     _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
     _OK "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."

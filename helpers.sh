@@ -67,7 +67,7 @@ _BANNER() {
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 # shellcheck disable=SC2034
-_INIT_COLOR(){
+_ENABLE_COLORS(){
     if [[ -t 1 ]] && command -v tput &>/dev/null && [[ -z "${NO_COLOR:-}" ]]; then
         # texte
         C_BLACK=$(tput setaf 0)
@@ -184,6 +184,7 @@ _SECTION() {
     [[ $(((term_cols - str_len) % 2)) -ne 0 ]] && printf "%s" "${ch}"
     printf "\n"
     echo -e "${C_RESET}"
+    echo ">>>>>>>>>> ${msg}" >> "${LOG_FILE}"
     return 0
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -291,10 +292,11 @@ _RUN() {
     _SPIN "${pid}" "${msg}"
     if wait "${pid}"; then
         tput cvvis || true # Show cursor, ignore errors if unsupported
-        [[ -n "${msg}" ]] && _OK "${msg}"
+        _OK "${msg}"
     else
         tput cvvis || true # Show cursor, ignore errors if unsupported
         _ERR "${msg}"
+        tail -n5 "${LOG_FILE}"
         _DIE "Échec — détails : ${LOG_FILE}"
     fi
 }
