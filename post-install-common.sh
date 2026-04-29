@@ -485,7 +485,7 @@ SETUP_FSTAB(){
 ########################################################################################################################
 SETUP_DATA() {
     _SECTION " Restauration des données privées de l'utilisateur ${USER} " "━" "${C_GREEN}"
-    _RUN "Vérification en cours" bash -c "touch \"${SOURCE}\" >> ${LOG_FILE}"
+    _RUN "Vérification en cours" bash -c "touch \"${SOURCE}\" 2>/dev/null ; return 0"
     if [[ -d "${SOURCE}" ]]; then
         if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
             local profil file cmd ffile
