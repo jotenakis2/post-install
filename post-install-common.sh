@@ -462,7 +462,7 @@ SETUP_FSTAB(){
             _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
         fi
     else
-        _RUN "Montage NFS déjà installé"
+        _INFO "Montage NFS déjà installé"
     fi
 
     # fast_commit pour ext4
