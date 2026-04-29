@@ -45,7 +45,7 @@ REMOVE_RPM_PACKAGES() {
             if _IS_PKG_INSTALLED systemd-networkd; then
                 _RUN "Suppression systemd-networkd (NetworkManager actif)" _PKG_REMOVE systemd-networkd
             else
-                _OK "systemd-networkd déjà supprimé"
+                _INFO "systemd-networkd déjà supprimé"
             fi
         else
             _INFO "NetworkManager inactif — systemd-networkd conservé"
@@ -56,47 +56,52 @@ REMOVE_RPM_PACKAGES() {
 ########################################################################################################################
 INSTALL_REPOS() {
     _SECTION " Installation des dépôts RPM additionnels " "━" "${C_GREEN}"
-    local fedora_ver cache=0
+    local fedora_ver rpmf cache=0
+    local rpmfusion_list="rpmfusion-free-release rpmfusion-nonfree-release"
     fedora_ver=$(rpm -E '%fedora')
 
-    if ! _IS_PKG_INSTALLED rpmfusion-free-release; then
-        _RUN "Ajout du dépôt RPM Fusion free (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-"${fedora_ver}".noarch.rpm
-        _RUN "Ajout du dépôt RPM Fusion free tainted (f${fedora_ver})" _PKG_INSTALL rpmfusion-free-release-tainted
-        cache=1
-    else
-        _OK "Dépôt RPM Fusion free déjà présent"
-    fi
+    for rpmf in ${rpmfusion_list}; do
+        if _IS_PKG_INSTALLED "${rpmf}"; then
+            _INFO "Dépôt ${rpmf} déjà présent"
+        else
+            _RUN "Ajout du dépôt ${rpmf} (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/free/fedora/"${rpmf}"-"${fedora_ver}".noarch.rpm
+            _RUN "Ajout du dépôt ${rpmf}-tainted (f${fedora_ver})" _PKG_INSTALL "${rpmf}"-tainted
+            cache=1
+        fi
+    done
 
-    if ! _IS_PKG_INSTALLED rpmfusion-nonfree-release; then
-        _RUN "Ajout du dépôt RPM Fusion nonfree (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"${fedora_ver}".noarch.rpm
-        _RUN "Ajout du dépôt RPM Fusion nonfree tainted (f${fedora_ver})" _PKG_INSTALL rpmfusion-nonfree-release-tainted
-        cache=1
-    else
-        _OK "Dépôt RPM Fusion nonfree déjà présent"
-    fi
+    # if ! _IS_PKG_INSTALLED rpmfusion-nonfree-release; then
+    #     _RUN "Ajout du dépôt RPM Fusion nonfree (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"${fedora_ver}".noarch.rpm
+    #     _RUN "Ajout du dépôt RPM Fusion nonfree tainted (f${fedora_ver})" _PKG_INSTALL rpmfusion-nonfree-release-tainted
+    #     cache=1
+    # else
+    #     _OK "Dépôt RPM Fusion nonfree déjà présent"
+    # fi
 
-    if ! _IS_PKG_INSTALLED terra-release; then
+    if _IS_PKG_INSTALLED terra-release; then
+        _INFO "Dépôt Terra déjà présent"
+    else
         # shellcheck disable=SC2016
         _RUN "Ajout du dépôt Terra (f${fedora_ver})" sudo dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
         cache=1
-    else
-        _OK "Dépôt Terra déjà présent"
     fi
 
-    if ! dnf repolist 2>/dev/null | grep -q "bigmenpixel:profile-sync-daemon"; then
+    if dnf repolist 2>/dev/null | grep -q "bigmenpixel:profile-sync-daemon"; then
+        _INFO "Dépôt COPR profile-sync-daemon déjà présent"
+    else
         _RUN "Ajout du dépôt COPR profile-sync-daemon" sudo dnf copr enable -y bigmenpixel/profile-sync-daemon
         cache=1
-    else
-        _OK "Dépôt COPR profile-sync-daemon déjà présent"
     fi
 
-    if ! dnf repolist 2>/dev/null | grep -q "brave-browser"; then
+    if dnf repolist 2>/dev/null | grep -q "brave-browser"; then
+        _INFO "Dépôt Brave déjà présent"
+    else
         _RUN "Ajout du dépôt Brave" sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
         cache=1
-    else
-        _OK "Dépôt Brave déjà présent"
     fi
+
     _CLEANUP_APPSTREAM
+
     if [[ "${cache}" -eq 1 ]]; then
         _RUN "Mise à jour du cache système" sudo dnf makecache
     fi
@@ -141,10 +146,10 @@ INSTALL_CODECS() {
     _SECTION " Installation des codecs multimédias additionnels " "━" "${C_GREEN}"
     # codecs
     if ! _IS_PKG_INSTALLED ffmpeg; then
-        _RUN "Échange ffmpeg-free <=> ffmpeg-rpmfusion" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
+        _RUN "Échange ffmpeg-free <=> ffmpeg (rpmfusion)" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
         _RUN "Mise à jour groupe multimedia" sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
     else
-        _OK "ffmpeg (rpmfusion) déjà présent"
+        _INFO "ffmpeg (rpmfusion) déjà présent"
         _LOG "Groupe multimedia déjà à jour"
     fi
     if ! dnf repolist --enabled | grep -q '^fedora-cisco-openh264'; then
@@ -162,13 +167,13 @@ INSTALL_CODECS() {
         if ! _IS_PKG_INSTALLED mesa-va-drivers-freeworld; then
             _RUN "Swap mesa-va-drivers → freeworld (AMD)" sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld
         else
-            _OK "Mesa freeworld déjà présent"
+            _INFO "Mesa freeworld déjà présent"
         fi
     elif echo "${gpu_vendor}" | grep -q "intel"; then
         if ! _IS_PKG_INSTALLED intel-media-driver; then
             _RUN "intel-media-driver" _PKG_INSTALL intel-media-driver
         else
-            _OK "intel-media-driver déjà présent"
+            _INFO "intel-media-driver déjà présent"
         fi
     else
         _INFO "GPU ni AMD ni Intel, pas de d'échange mesa <=> mesa-rpmfusion à faire"
@@ -185,13 +190,13 @@ INSTALL_RPM_PACKAGES() {
 SETUP_CHRONY() {
     # --- Configuration Chrony (IPv4 only si IPv6 désactivé) ---
     if echo "${CMDLINE}" | grep -q 'ipv6.disable=1'; then
-        _LOG "*** chrony ntp ***"
+        _LOG "* chrony ntp *"
         local chrony_file chrony_content
         chrony_file="/etc/sysconfig/chronyd"
         chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
         readonly chrony_file chrony_content
         if [[ -f "${chrony_file}" ]] && echo "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
-            _OK "Configuration chronyd déjà à jour (${chrony_file})"
+            _INFO "Configuration chronyd déjà à jour (${chrony_file})"
         else
             _RUN "Configuration de chronyd (${chrony_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
            _RUNSILENT "" sudo systemctl try-restart chronyd
@@ -238,7 +243,7 @@ SETUP_GRUB(){
 
             _RUN "Regénération de la configuration de GRUB pour inclure les nouveaux paramètres (grub2-mkconfig)" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
         else
-            _OK "GRUB est déjà correctement configuré"
+            _INFO "GRUB est déjà correctement configuré"
         fi
     else
         _ERR "GRUB n'a pas été détecté, je ne change rien au bootloader."
@@ -247,7 +252,7 @@ SETUP_GRUB(){
 
 ########################################################################################################################
 SETUP_FIREWALL() {
-    _LOG "*** configuration firewall ***"
+    _LOG "* configuration firewall *"
     # 1. Vérification de l'installation du paquet
     if ! _EXIST firewalld; then
         _RUN "Installation de firewalld" _PKG_INSTALL firewalld
@@ -257,7 +262,7 @@ SETUP_FIREWALL() {
     if ! _IS_ACTIVE firewalld; then
         _RUN "Démarrage et activation du service firewalld" sudo systemctl enable --now firewalld.service
     else
-        _OK "Le firewall est déjà actif"
+        _INFO "Le firewall est déjà actif"
     fi
 
     # 3. Configuration des services essentiels
@@ -276,14 +281,14 @@ SETUP_FIREWALL() {
     if [[ "${firewall_changed}" == true ]]; then
         _RUN "Rechargement des règles de firewalld (${FIREWALL_SERVICES[*]})" sudo firewall-cmd --reload
     else
-        _OK "Les règles du firewall sont déjà à jour"
+        _INFO "Les règles du firewall sont déjà à jour"
     fi
 }
 
 
 ########################################################################################################################
 SETUP_SWAP(){
-    _LOG "*** swap ***"
+    _LOG "* swap *"
     local target_size ram_total_kib
     local recreate_swap=false
     local swapdir="/var/swap"
@@ -321,7 +326,7 @@ SETUP_SWAP(){
         if [[ "${fs_type}" == "btrfs" ]]; then
             if [[ -e "${swapdir}" ]]; then
                 if btrfs subvolume show "${swapdir}" >/dev/null 2>&1; then
-                    _OK "Sous-volume BTRFS ${swapdir} existe déjà"
+                    _INFO "Sous-volume BTRFS ${swapdir} existe déjà"
                 else
                     _RUNSILENT "" sudo rm -rvf "${swapdir}"
                     _RUN "Création du sous-volume BTRFS ${swapdir}" sudo btrfs subvolume create "${swapdir}"
@@ -341,7 +346,7 @@ SETUP_SWAP(){
     if ! swapon --show | grep -q "${swapdir}/swapfile"; then
         _RUN "Activation du swap" sudo swapon "${swapdir}/swapfile"
     else
-        _OK "Swap déjà actif"
+        _INFO "Swap déjà actif"
     fi
 
 
@@ -495,7 +500,7 @@ SETUP_SUDO_RS() {
     if [[ "${change}" -eq 1 ]]; then
         _OK "sudo-rs est en place et remplace définitivement sudo"
     else
-        _OK "sudo-rs est déjà correctement configuré pour remplacer sudo"
+        _INFO "sudo-rs est déjà correctement configuré pour remplacer sudo"
     fi
 }
 

@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=27.2
+readonly VER=27.4
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -83,12 +83,12 @@ INITIALIZE() {
     clear
     _BANNER "blue" "${SCRIPTNAME} (${VER})"
     _SECTION " Préparation de la post-installation " "━" "${C_GREEN}"
-    _OK "Heure de démarrage de la post-installation : ${heure}"
-    _OK "Fichier log de la post-installation : ${LOG_FILE}"
+    _INFO "Heure de démarrage de la post-installation : ${heure}"
+    _INFO "Fichier log de la post-installation : ${LOG_FILE}"
     INSTALL_DEPS
 
 
-    _LOG "*** INITIALIZE ***"
+    _LOG "* Init *"
 
     # RUST
     export RUSTUP_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/rustup"
@@ -146,38 +146,13 @@ INSTALL_CARGO_PACKAGES() {
     fi
     _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/cargo-binstall"
 
-    # 2 & 3. Installation des paquets via Cargo (binstall) + symlinks
-    #local -a to_install=() already_installed=()
-    #local list cmd
+    # 2. Installation des paquets via Cargo (binstall)
     declare -g installed_list
     installed_list=$(cargo install --list 2>/dev/null)
-
-    # for cmd in "${CARGO_PACKAGES[@]}"; do
-    #     if echo "${installed_list}" | grep -q "^${cmd} "; then
-    #         _LOG "${cmd} déjà installé"
-    #         already_installed+=("${cmd}")
-    #     else
-    #         to_install+=("${cmd}")
-    #     fi
-    # done
-    #
-    # if [[ ${#already_installed[@]} -gt 0 ]]; then
-    #     list=$(_FORMAT_LIST "${already_installed[@]}")
-    #     _OK "Paquets déjà installés : ${list}"
-    # fi
-    #
-    # if [[ ${#to_install[@]} -gt 0 ]]; then
-    #     list=$(_FORMAT_LIST "${to_install[@]}")
-    #     _OK "Paquets à installer : ${list}"
-    #     _RUN "Installation des paquets manquants" cargo binstall --no-confirm "${to_install[@]}"
-    # else
-    #     _OK "Aucun paquet à installer"
-    # fi
-
     _MANAGE_TABLE "INSTALLÉ correctement" _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
 
+    # 3. symlinks globaux
     local cmd
-    # symlinks après installation
     for cmd in "${CARGO_PACKAGES[@]}"; do
         local bins_to_link bin_name
         bins_to_link="${BIN_MAPPING[${cmd}]:-${cmd}}"
@@ -231,9 +206,9 @@ INSTALL_GO_PACKAGES() {
             fi
         done
         if [[ -z "${missing[*]}" ]]; then
-            _OK "Tout est INSTALLÉ correctement : ${present[*]}"
+            _INFO "Tout est INSTALLÉ correctement : ${present[*]}"
         else
-            [[ -n "${present[*]}" ]] && _OK "Déjà installé : ${present[*]}"
+            [[ -n "${present[*]}" ]] && _INFO "Déjà installé : ${present[*]}"
         fi
         for pkg in "${missing[@]}"; do
             _RUN "Installation de ${pkg}" go install "${pkg}"
@@ -265,46 +240,14 @@ INSTALL_GIT_REPOS() {
         fi
 
         if [[ "${repo}" == "${DOTFILES_REPO}" && "${target}" != "${DOTFILES_DIR}" ]]; then
-            #ln -sfn "${target}" "${DOTFILES_DIR}"
             _RUNSILENT "" _SYMLINK "${target}" "${DOTFILES_DIR}"
         fi
     done
 }
 
-
-# CLONE_GIT() {
-#     _SECTION " Installation des dépôts Git personnalisés " "━" "${C_GREEN}"
-#     _LOG "*** dépôts git personnels ***"
-#     local repo_entry repo_url dest_dir repo_name backup_dir
-#
-#     for repo_entry in "${GIT_REPOS[@]}"; do
-#         # Extraction de l'URL et de la destination (séparées par '|')
-#         repo_url="${repo_entry%%|*}"
-#         dest_dir="${repo_entry##*|}"
-#
-#         # Récupération du nom du dépôt pour l'affichage (ex: "scripts")
-#         repo_name=$(basename "${repo_url}" .git)
-#
-#         if [[ -d "${dest_dir}/.git" ]]; then
-#             # C'est un dépôt Git valide, on le met à jour
-#             _RUN "Mise à jour de ${repo_name}" git -C "${dest_dir}" pull --ff-only
-#         else
-#             # Le chemin existe MAIS n'est pas un dépôt Git (ou c'est un fichier)
-#             if [[ -e "${dest_dir}" ]]; then
-#                 backup_dir="${dest_dir}_backup_$(date +%Y%m%d%H%M%S)"
-#                 _RUN "Sauvegarde de l'existant non-git (${repo_name})" mv "${dest_dir}" "${backup_dir}"
-#                 _INFO "Ancien '${dest_dir}' sauvegardé dans '${backup_dir}'"
-#             fi
-#
-#             # La voie est libre, on clone
-#             _RUN "Téléchargement de ${repo_name}" git clone "${repo_url}" "${dest_dir}"
-#         fi
-#     done
-# }
-
 ########################################################################################################################
 SETUP_SHELL() {
-    _SECTION " Configuration du shell par défaut (zsh) " "━" "${C_GREEN}"
+    _SECTION " Configuration du shell par défaut " "━" "${C_GREEN}"
     # 1- zsh
     local zsh_bin
     zsh_bin=$(command -v zsh)
@@ -320,7 +263,7 @@ SETUP_SHELL() {
             if [[ "${current_shell}" != "${zsh_bin}" ]]; then
                 _RUN "chsh ${user} → zsh" sudo chsh -s "${zsh_bin}" "${user}"
             else
-                _OK "${user} utilise déjà zsh"
+                _INFO "${user} utilise déjà zsh"
             fi
         fi
     done < /etc/passwd
@@ -363,22 +306,7 @@ SETUP_SHELL() {
     # 3- symlinks
     _SYMLINK "${HOME}/.local/share/icons" "${HOME}/.icons"
     _SYMLINK "${HOME}/.local/share/themes" "${HOME}/.themes"
-    #_SYMLINK "${HOME}/.config/mozilla/firefox" "${HOME}/.mozilla/firefox"
-    #_SYMLINK "${HOME}/.config/thunderbird" "${HOME}/.thunderbird"
 
-    # 4- installation de fedupdate
-    # local here fedupdate
-    # fedupdate=$(command -v fedupdate)
-    # if [[ -z "${fedupdate}" ]] && command -v make >/dev/null 2>&1; then
-    #     here=$(pwd)
-    #     cd "${HOME}/fedupdate"
-    #     _RUNSILENT "Installation de fedupdate" make install
-    #     cd "${here}"
-    # elif [[ -n "${fedupdate}" ]]; then
-    #     _OK "fedupdate est déjà installé (${fedupdate})"
-    # fi
-
-    # 4- Divers
 }
 
 ########################################################################################################################
@@ -420,7 +348,7 @@ SETUP_DOTFILES() {
 
 ########################################################################################################################
 SETUP_SYSTEMD(){
-    _LOG "*** systemd ***"
+    _LOG "* systemd *"
     local service
     local description
     local -a missing=()
@@ -441,25 +369,19 @@ SETUP_SYSTEMD(){
     present_fmt=$(_FORMAT_LIST "${present[@]}")
     if ((${#missing[@]})); then
         missing_fmt=$(_FORMAT_LIST "${missing[@]}")
-        ((${#present[@]})) && _OK "Déjà désactivés : ${present_fmt}"
-        _OK "À désactiver : ${missing_fmt}"
+        ((${#present[@]})) && _INFO "Déjà désactivés : ${present_fmt}"
+        _INFO "À désactiver : ${missing_fmt}"
         _RUN "Désactivation des services" sudo systemctl disable --now "${missing[@]}"
     else
-    #     all_fmt=$(_FORMAT_LIST "$@")
-    #     _OK "Tout est ${msg} : ${all_fmt}"
-        _OK "Tous les services sont déjà désactivés : ${present_fmt}"
+        _INFO "Tous les services sont déjà désactivés : ${present_fmt}"
     fi
-
-    #
-    # _OK "Le ${description} est déjà désactivé"
-
 
     for service in "${!USER_SERVICES_TO_ENABLE[@]}"; do
         description="${USER_SERVICES_TO_ENABLE[${service}]}"
         if ! _IS_ENABLED_USER "${service}"; then
             _RUN "Activation du ${description}" systemctl --user enable --now "${service}"
         else
-            _OK "Le ${description} est déjà activé"
+            _INFO "Le ${description} est déjà activé"
         fi
     done
 }
@@ -477,7 +399,7 @@ SETUP_FSTAB(){
         _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.swap
         _RUN "Ajout du swap" sudo bash -c "echo ${swapdir}/swapfile none swap defaults,nofail 0 0 >> /etc/fstab"
     else
-        _OK "Swap déjà présent dans /etc/fstab"
+        _INFO "Swap déjà présent dans /etc/fstab"
     fi
 
     # --- Optimisations Fstab (noatime, lazytime) ---
@@ -521,7 +443,7 @@ SETUP_FSTAB(){
         _RUN "Optimisations des systèmes de fichier" sudo cp -av "${tmp_dir}/fstab.new" /etc/fstab
         _RUNSILENT "" sudo systemctl daemon-reload
     else
-        _OK "Les options d'optimisations sont déjà présentes dans /etc/fstab"
+        _INFO "Les options d'optimisations sont déjà présentes dans /etc/fstab"
     fi
 
     # NFS
@@ -563,7 +485,7 @@ SETUP_FSTAB(){
 ########################################################################################################################
 SETUP_DATA() {
     _SECTION " Restauration des données privées de l'utilisateur ${USER} " "━" "${C_GREEN}"
-
+    _RUN "Vérification en cours" bash -c "ls -l \"${SOURCE}\" > ${LOG_FILE}"
     if [[ -d "${SOURCE}" ]]; then
         if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
             local profil file cmd ffile
@@ -582,7 +504,7 @@ SETUP_DATA() {
                                 _ERR "Le dossier de restauration de ${profil} contient déjà des données, on ne fait rien"
                             fi
                         else
-                            _OK "Aucun fichier de sauvegarde trouvé pour le profil ${profil}"
+                            _INFO "Aucun fichier de sauvegarde trouvé pour le profil ${profil}"
                         fi
                     fi
             done
@@ -664,7 +586,7 @@ SETUP_KDE_PLASMA() {
             if balooctl6 status > /dev/null 2>&1; then
                 _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
             else
-                _OK "Service d'indexation déjà désactivé"
+                _INFO "Service d'indexation déjà désactivé"
             fi
         else
             _INFO "L'outil balooctl n'est pas installé. Aucune action requise"
@@ -690,7 +612,7 @@ SETUP_KDE_PLASMA() {
             if [[ -z "${current_positions}" ]]; then
                 _INFO "Aucun panneau détecté"
             elif [[ "${current_positions}" == "${target_pos}" ]]; then
-                _OK "Panneau déjà à la position voulue (${display_pos})"
+                _INFO "Panneau déjà à la position voulue (${display_pos})"
             else
                 _RUN "Déplacement du panneau en position ${display_pos}" _PLASMA_EVAL "
                     var allPanels = panels();
@@ -718,7 +640,7 @@ SETUP_KDE_PLASMA() {
                 sleep 1 ;\
                 systemctl --user restart plasma-plasmashell.service"
             else
-                _OK "Aucune modification de configuration effectuée, je ne redémarre pas l'interface de KDE Plasma 6"
+                _INFO "Aucune modification de configuration effectuée, je ne redémarre pas l'interface de KDE Plasma 6"
             fi
         fi
 
@@ -743,7 +665,7 @@ SETUP_KDE_PLASMA() {
 
 ########################################################################################################################
 SETUP_PLM() {
-    _LOG "*** Display Manager KDE ***"
+    _LOG "* Login Manager KDE *"
 # on teste si KDE tourne
     local change=0
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
@@ -763,7 +685,7 @@ SETUP_PLM() {
         fi
 
         if [[ "${change}" = 0 ]]; then
-            _OK "Plasma Login Manager est déjà correctement configuré pour remplacer SDDM"
+            _INFO "Plasma Login Manager est déjà correctement configuré pour remplacer SDDM"
         fi
         SET_PLM_WALLPAPER
     else
@@ -805,7 +727,7 @@ SETUP_ETC() {
         "
         restart=1
     else
-        _OK "NetworkManager déjà configuré pour utiliser systemd-resolved (/etc/NetworkManager/conf.d/99-global-dns.conf)"
+        _INFO "NetworkManager déjà configuré pour utiliser systemd-resolved (/etc/NetworkManager/conf.d/99-global-dns.conf)"
     fi
 
     _RUNSILENT "" _SYMLINK /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
@@ -814,7 +736,7 @@ SETUP_ETC() {
         _RUN "Déploiement de la configuration DNS (dans /etc/systemd/resolved.conf.d/)" sudo bash -c "echo '${RESOLVED_DNS_SERVERS}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf ; echo '${resolved_10_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
         restart=1
     else
-        _OK "Configuration DNS déjà présente (dans /etc/systemd/resolved.conf.d/)"
+        _INFO "Configuration DNS déjà présente (dans /etc/systemd/resolved.conf.d/)"
     fi
     if [[ ${restart} -eq 1 ]]; then
         _RUN "Redémarrage des services NetworkManager et systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
@@ -837,7 +759,7 @@ SETUP_ETC() {
     ${SYSCTL_CONF}"
 
     if [[ -f "${sysctlfile}" ]] && echo "${full_sysctl_content}" | sudo cmp -s - "${sysctlfile}"; then
-        _OK "Configuration noyau déjà à jour (${sysctlfile})"
+        _INFO "Configuration noyau déjà à jour (${sysctlfile})"
     else
         _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -v -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
         _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
@@ -851,7 +773,7 @@ SETUP_ETC() {
     readonly brave_policy_file full_brave_policies
 
     if [[ -f "${brave_policy_file}" ]] && echo "${full_brave_policies}" | sudo cmp -s - "${brave_policy_file}"; then
-        _OK "Configuration policies debloat Brave déjà à jour (${brave_policy_file})"
+        _INFO "Configuration policies debloat Brave déjà à jour (${brave_policy_file})"
     else
         _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
     fi
@@ -873,7 +795,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 '
 
     if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
-        _OK "Règle IO scheduler déjà à jour (${rules_file})"
+        _INFO "Règle IO scheduler déjà à jour (${rules_file})"
     else
         #printf '%s\n' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
         _RUN "Règle IO scheduler créée (${rules_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
@@ -887,7 +809,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
     current=$(cat "${rules_file}" 2>/dev/null || true)
 
     if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
-        _OK "Règle udev persistante (${UDEVDESCR}) à jour (${rules_file})"
+        _INFO "Règle udev persistante (${UDEVDESCR}) à jour (${rules_file})"
     else
         _RUN "Règle udev persistante (${UDEVDESCR}) créée (${rules_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
         _RUNSILENT "" sudo udevadm control --reload-rules
@@ -902,7 +824,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 
     if getent group libvirt >/dev/null 2>&1; then
         if id -nG "${main_user}" | grep -qw "libvirt"; then
-            _OK "L'utilisateur ${main_user} est déjà dans le groupe libvirt"
+            _INFO "L'utilisateur ${main_user} est déjà dans le groupe libvirt"
         else
             _RUN "Ajout de l'utilisateur ${main_user} au groupe libvirt" sudo usermod -aG libvirt "${main_user}"
         fi
@@ -938,14 +860,14 @@ ${SSHD_CONFIG}"
 
         # config sshd custo
         if sudo test -f "${config_ssh_file}" && echo "${full_ssh_content}" | sudo cmp -s - "${config_ssh_file}"; then
-            _OK "Configuration sshd déjà à jour (${config_ssh_file})"
+            _INFO "Configuration sshd déjà à jour (${config_ssh_file})"
         else
             _RUN "Configuration sshd créée (${config_ssh_file})" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_file}" <<< "${full_ssh_content}"
         fi
 
         # config sshd AllowUsers
         if sudo test -f "${config_ssh_allow}"; then
-            _OK "Fichier ${config_ssh_allow} déjà présent"
+            _INFO "Fichier ${config_ssh_allow} déjà présent"
         else
             _RUN "Configuration ${config_ssh_allow} créée" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_allow}" <<< "${content_ssh_allow}"
         fi
@@ -1028,11 +950,11 @@ END() {
     _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
     _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
-    _OK "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
-    _OK "REDÉMARREZ pour appliquer les modifications éventuelles totalement"
+    _INFO "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
+    _INFO "REDÉMARREZ pour appliquer les modifications éventuelles totalement"
 
     # LOG
-    _OK "Fichier log de la post-installation : ${LOG_FILE}"
+    _INFO "Fichier log de la post-installation : ${LOG_FILE}"
     _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
     local url
     url="https://temp.sh/upload"
@@ -1046,7 +968,6 @@ END() {
 
 INSTALL_FLATPAK_PACKAGES() {
     _SECTION " Installation des paquets Flatpak personnalisés " "━" "${C_GREEN}"
-    _LOG "*** paquets flatpak ***"
     # 1. Vérification et installation de Flatpak
     if ! _EXIST flatpak; then
         _RUN "Installation de Flatpak" _PKG_INSTALL flatpak
