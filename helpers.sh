@@ -196,12 +196,21 @@ _HEURE() {
     echo "${date}, le ${heure}" | tee -a "${LOG_FILE}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-_OK2()       { printf " %b✓%b %s\n" "${C_GREEN}"  "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
-_OK(){
- echo "${C_GREEN} ✓${C_RESET} $*" | tee -a "${LOG_FILE}"
+_OK() {
+    local msg
+    msg="$*"
+    echo "${C_GREEN} ✓${C_RESET} ${msg}"
+    echo "[OK] ${msg}" >> "${LOG_FILE}"
 }
+
+_INFO() {
+    local msg
+    msg="$*"
+    echo "${C_YELLOW} →${C_RESET} ${msg}"
+    echo "[INFO] ${msg}" >> "${LOG_FILE}"
+}
+
 _ERR()      { printf " %b✗%b %s\n" "${C_RED}"    "${C_RESET}" "$*" | tee -a "${LOG_FILE}" >&2; }
-_INFO()     { printf " %b→%b %s\n" "${C_YELLOW}"   "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
 _DIE()      { _ERR "$*"; exit 1; }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
