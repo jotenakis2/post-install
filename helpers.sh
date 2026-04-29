@@ -58,10 +58,10 @@ _BANNER() {
     local hline
     hline=$(printf '%*s' "${w}" '' | sed "s/ /${H}/g")
 
-    printf '\033[%sm%s%s%s\033[0m\n' "${fg}" "${TL}" "${hline}" "${TR}" | tee -a "${LOG_FILE}"
-    printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text}" "${padr}" '' "${V}" | tee -a "${LOG_FILE}"
-    printf '\033[%sm%s%s%s\033[0m\n' "${fg}" "${BL}" "${hline}" "${BR}" | tee -a "${LOG_FILE}"
-
+    printf '\033[%sm%s%s%s\033[0m\n' "${fg}" "${TL}" "${hline}" "${TR}"
+    printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text}" "${padr}" '' "${V}"
+    printf '\033[%sm%s%s%s\033[0m\n' "${fg}" "${BL}" "${hline}" "${BR}"
+    echo "${text}" >> "${LOG_FILE}"
     return 0
 }
 
@@ -184,7 +184,7 @@ _SECTION() {
     [[ $(((term_cols - str_len) % 2)) -ne 0 ]] && printf "%s" "${ch}"
     printf "\n"
     echo -e "${C_RESET}"
-    echo ">>>>>>>>>> ${msg}" >> "${LOG_FILE}"
+    echo -e "\n>>>>>>>>>> ${msg}" >> "${LOG_FILE}"
     return 0
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -196,7 +196,10 @@ _HEURE() {
     echo "${date}, le ${heure}" | tee -a "${LOG_FILE}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-_OK()       { printf " %b✓%b %s\n" "${C_GREEN}"  "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
+_OK2()       { printf " %b✓%b %s\n" "${C_GREEN}"  "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
+_OK(){
+ echo "${C_GREEN} ✓${C_RESET} $*" | tee -a "${LOG_FILE}"
+}
 _ERR()      { printf " %b✗%b %s\n" "${C_RED}"    "${C_RESET}" "$*" | tee -a "${LOG_FILE}" >&2; }
 _INFO()     { printf " %b→%b %s\n" "${C_YELLOW}"   "${C_RESET}" "$*" | tee -a "${LOG_FILE}"; }
 _DIE()      { _ERR "$*"; exit 1; }

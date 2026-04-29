@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=27.0
+readonly VER=27.1
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -563,6 +563,7 @@ SETUP_FSTAB(){
 ########################################################################################################################
 SETUP_DATA() {
     _SECTION " Restauration des données privées de l'utilisateur ${USER} " "━" "${C_GREEN}"
+
     if [[ -d "${SOURCE}" ]]; then
         if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
             local profil file cmd ffile
