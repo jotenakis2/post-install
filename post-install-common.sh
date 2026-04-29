@@ -431,7 +431,7 @@ SETUP_SYSTEMD(){
         if _IS_ENABLED "${service}"; then
             present+=("${service}")
         else
-            missing+=("${pkg}")
+            missing+=("${service}")
         fi
     done
 
