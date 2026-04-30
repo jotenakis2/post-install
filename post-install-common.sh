@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=28.1
+readonly VER=28.2
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -146,7 +146,7 @@ INSTALL_CARGO_PACKAGES() {
         # 2. Installation des paquets via Cargo (binstall)
         declare -g installed_list
         installed_list=$(cargo install --list 2>/dev/null)
-        _MANAGE_TABLE "INSTALLÉ correctement" _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
+        _MANAGE_TABLE _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
 
         # 3. symlinks globaux
         local cmd
@@ -956,7 +956,7 @@ EOF
 
 INSTALL_DEPS() {
     local -a prerequisit=(curl crudini ncurses git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils)
-    _MANAGE_TABLE "INSTALLÉ correctement" _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
+    _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
 }
 
 ########################################################################################################################
@@ -1010,7 +1010,7 @@ INSTALL_FLATPAK_PACKAGES() {
         fi
 
         # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
-        _MANAGE_TABLE "INSTALLÉ correctement" _IS_FPPKG_INSTALLED _FPPKG_INSTALL "${FLATPAK_PKGS[@]}"
+        _MANAGE_TABLE _IS_FPPKG_INSTALLED _FPPKG_INSTALL "${FLATPAK_PKGS[@]}"
 
         # 6. Petit nettoyage des runtimes inutilisés
         _LOG "Nettoyage des runtimes Flatpak orphelins"

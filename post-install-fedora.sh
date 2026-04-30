@@ -37,7 +37,7 @@ REMOVE_RPM_PACKAGES() {
             continue
         fi
     done
-    _MANAGE_TABLE "SUPPRIMÉ correctement" _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]}"
+    _MANAGE_TABLE _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]}"
 
     if [[ "${ZSWAP}" = "yes" ]]; then # on dégage zram si zswap est demandé
         _IS_PKG_INSTALLED zram-generator-defaults && _RUNSILENT "" _PKG_REMOVE zram-generator-defaults
@@ -115,7 +115,7 @@ INSTALL_REPOS() {
 ########################################################################################################################
 INSTALL_FONTS() {
     _SECTION " Installation de polices d'affichage personnelles " "━" "${C_GREEN}"
-    _MANAGE_TABLE "INSTALLÉ correctement" _IS_PKG_INSTALLED _PKG_INSTALL_SKIP "${FONTS[@]}"
+    _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL_SKIP "${FONTS[@]}"
     _SETUP_VCONSOLE_FONT
 }
 
@@ -188,7 +188,7 @@ INSTALL_CODECS() {
 ########################################################################################################################
 INSTALL_RPM_PACKAGES() {
     _SECTION " Installation des paquets RPM personnalisés " "━" "${C_GREEN}"
-    _MANAGE_TABLE "INSTALLÉ correctement" _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${DNF_PACKAGES[@]}"
+    _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${DNF_PACKAGES[@]}"
 }
 
 ########################################################################################################################
