@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=27.7
+readonly VER=27.8
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -118,100 +118,108 @@ INITIALIZE() {
 
 ########################################################################################################################
 INSTALL_CARGO_PACKAGES() {
-    _SECTION " Installation des paquets Cargo personnalisés " "━" "${C_GREEN}"
+    if [[ -n "${CARGO_PACKAGES[*]}" ]]; then
+        _SECTION " Installation des paquets Cargo personnalisés " "━" "${C_GREEN}"
 
-    # 0. toolchain rust
-    local check
-    if _EXIST rustup; then
-        check=$(rustup check 2>/dev/null)
-        if echo "${check}" | grep -q "update available"; then
-            version=$(echo "${check}"| awk -F ":" '{print $2}' | xargs)
-            _RUN "Mise à jour de la toolchain RUST (${version})" rustup update stable
+        # 0. toolchain rust
+        local check
+        if _EXIST rustup; then
+            check=$(rustup check 2>/dev/null)
+            if echo "${check}" | grep -q "update available"; then
+                version=$(echo "${check}"| awk -F ":" '{print $2}' | xargs)
+                _RUN "Mise à jour de la toolchain RUST (${version})" rustup update stable
+            else
+                _LOG "la toolchain rust est à jour"
+            fi
         else
-            _LOG "la toolchain rust est à jour"
+            _RUN "Installation de la toolchain RUST" bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
         fi
-    else
-        _RUN "Installation de la toolchain RUST" bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
-    fi
 
-    # 1. Installation de cargo-binstall sans compilation
-    if ! _EXIST cargo-binstall; then
-        _RUN "Installation de cargo-binstall (installation de paquets binaires)" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
-    else
-        _LOG "cargo-binstall (installation de paquets binaires) est déjà installé"
-    fi
-    _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/cargo-binstall"
+        # 1. Installation de cargo-binstall sans compilation
+        if ! _EXIST cargo-binstall; then
+            _RUN "Installation de cargo-binstall (installation de paquets binaires)" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
+        else
+            _LOG "cargo-binstall (installation de paquets binaires) est déjà installé"
+        fi
+        _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/cargo-binstall"
 
-    # 2. Installation des paquets via Cargo (binstall)
-    declare -g installed_list
-    installed_list=$(cargo install --list 2>/dev/null)
-    _MANAGE_TABLE "INSTALLÉ correctement" _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
+        # 2. Installation des paquets via Cargo (binstall)
+        declare -g installed_list
+        installed_list=$(cargo install --list 2>/dev/null)
+        _MANAGE_TABLE "INSTALLÉ correctement" _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
 
-    # 3. symlinks globaux
-    local cmd
-    for cmd in "${CARGO_PACKAGES[@]}"; do
-        local bins_to_link bin_name
-        bins_to_link="${BIN_MAPPING[${cmd}]:-${cmd}}"
-        for bin_name in ${bins_to_link}; do
-            _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/${bin_name}" "/usr/local/bin/${bin_name}"
+        # 3. symlinks globaux
+        local cmd
+        for cmd in "${CARGO_PACKAGES[@]}"; do
+            local bins_to_link bin_name
+            bins_to_link="${BIN_MAPPING[${cmd}]:-${cmd}}"
+            for bin_name in ${bins_to_link}; do
+                _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/${bin_name}" "/usr/local/bin/${bin_name}"
+            done
         done
-    done
 
-    # 4. Ajustement des permissions pour l'accès global
-    _RUNSILENT "" chmod a+x -v "${HOME}" "${HOME}/.local" "${HOME}/.local/share" "${CARGO_HOME}" "${CARGO_HOME}/bin"
+        # 4. Ajustement des permissions pour l'accès global
+        _RUNSILENT "" chmod a+x -v "${HOME}" "${HOME}/.local" "${HOME}/.local/share" "${CARGO_HOME}" "${CARGO_HOME}/bin"
+    else
+        _LOG "Aucun paquets cargo demandés"
+    fi
 }
 
 ########################################################################################################################
 INSTALL_GO_PACKAGES() {
-    _SECTION " Installation des paquets GO personnalisés " "━" "${C_GREEN}"
+     if [[ -n "${GO_PACKAGES[*]}" ]]; then
+        _SECTION " Installation des paquets GO personnalisés " "━" "${C_GREEN}"
 
-    local pkg current="" latest="" arch="" os="" gofile=""
+        local pkg current="" latest="" arch="" os="" gofile=""
 
-    if [[ ! "${PATH}" =~ "/usr/local/go/bin" ]]; then
-        export PATH="/usr/local/go/bin:${PATH}"
-    fi
-    if _EXIST go; then
-         current="$(go version | awk '{print $3}' || true)"
-    fi
-    latest="$(curl -fsSL https://go.dev/dl/?mode=json | jq -r '.[0].version' || true)"
-    arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
-    os=$(uname | tr '[:upper:]' '[:lower:]' || true)
-    gofile="${latest}.${os}-${arch}.tar.gz"
-
-    if [[ "${current}" == "${latest}" ]] && _EXIST go; then
-        _LOG "la toolchain GO est à jour (${latest})"
-    else
-        _RUNSILENT "" curl -LO "https://go.dev/dl/${gofile}"
-        _RUNSILENT "" sudo rm -rvf /usr/local/go
-        _RUN "Installation de la toolchain GO (${latest})" sudo tar -C /usr/local -xzf "${gofile}"
-        _RUNSILENT "" rm -vf "${gofile}"
-    fi
-
-    if _EXIST go; then
-        local -a missing=()
-        local -a missingbin=()
-        local -a present=()
-        for pkg in "${!GO_PACKAGES[@]}"; do
-            local url
-            url="${GO_PACKAGES[${pkg}]}"
-            if _EXIST "${pkg}"; then
-                present+=("${url}")
-            else
-                missing+=("${url}")
-                missingbin+=("${pkg}")
-            fi
-        done
-        if [[ -z "${missing[*]}" ]]; then
-            _INFO "Tout est INSTALLÉ correctement : ${present[*]}"
-        else
-            [[ -n "${present[*]}" ]] && _INFO "Déjà installé : ${present[*]}"
+        if [[ ! "${PATH}" =~ "/usr/local/go/bin" ]]; then
+            export PATH="/usr/local/go/bin:${PATH}"
         fi
-        for pkg in "${missing[@]}"; do
-            _RUN "Installation de ${pkg}" go install "${pkg}"
-        done
-        for pkg in "${missingbin[@]}"; do
-            _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin/${pkg}"
-        done
+        if _EXIST go; then
+            current="$(go version | awk '{print $3}' || true)"
+        fi
+        latest="$(curl -fsSL https://go.dev/dl/?mode=json | jq -r '.[0].version' || true)"
+        arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
+        os=$(uname | tr '[:upper:]' '[:lower:]' || true)
+        gofile="${latest}.${os}-${arch}.tar.gz"
+
+        if [[ "${current}" == "${latest}" ]] && _EXIST go; then
+            _LOG "la toolchain GO est à jour (${latest})"
+        else
+            _RUNSILENT "" curl -LO "https://go.dev/dl/${gofile}"
+            _RUNSILENT "" sudo rm -rvf /usr/local/go
+            _RUN "Installation de la toolchain GO (${latest})" sudo tar -C /usr/local -xzf "${gofile}"
+            _RUNSILENT "" rm -vf "${gofile}"
+        fi
+
+        if _EXIST go; then
+            local -a missing=()
+            local -a missingbin=()
+            local -a present=()
+            for pkg in "${!GO_PACKAGES[@]}"; do
+                local url
+                url="${GO_PACKAGES[${pkg}]}"
+                if _EXIST "${pkg}"; then
+                    present+=("${url}")
+                else
+                    missing+=("${url}")
+                    missingbin+=("${pkg}")
+                fi
+            done
+            if [[ -z "${missing[*]}" ]]; then
+                _INFO "Tout est INSTALLÉ correctement : ${present[*]}"
+            else
+                [[ -n "${present[*]}" ]] && _INFO "Déjà installé : ${present[*]}"
+            fi
+            for pkg in "${missing[@]}"; do
+                _RUN "Installation de ${pkg}" go install "${pkg}"
+            done
+            for pkg in "${missingbin[@]}"; do
+                _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin/${pkg}"
+            done
+        fi
+    else
+        _LOG "Aucun paquets GO demandés"
     fi
 }
 
@@ -221,7 +229,7 @@ INSTALL_GIT_REPOS() {
     _RUNSILENT "" mkdir -pv "${HOME}/git"
     _SECTION " Installation des dépôts Git personnalisés " "━" "${C_GREEN}"
 
-    for repo in "${GIT_REPOS[@]}"; do
+    for repo in "${GIT_REPOS[@]}" "${DOTFILES_REPO}"; do
         name="${repo##*/}"
         target="${HOME}/git/${name}"
 
@@ -352,9 +360,9 @@ SETUP_SYSTEMD(){
     for service in "${!SERVICES_TO_DISABLE[@]}"; do
         description="${SERVICES_TO_DISABLE[${service}]}"
         if _IS_ENABLED "${service}"; then
-            present+=("${service}")
-        else
             missing+=("${service}")
+        else
+            present+=("${service}")
         fi
     done
 

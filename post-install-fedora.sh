@@ -108,7 +108,7 @@ INSTALL_REPOS() {
     _CLEANUP_APPSTREAM
 
     if [[ "${cache}" -eq 1 ]]; then
-        _RUN "Mise à jour du cache système" sudo dnf makecache
+        _RUN "Mise à jour du cache des métadonnées des dépôts" sudo dnf makecache
     fi
 }
 
@@ -170,9 +170,9 @@ INSTALL_CODECS() {
 
     if echo "${gpu_vendor}" | grep -q "amd\|radeon\|advanced micro"; then
         if ! _IS_PKG_INSTALLED mesa-va-drivers-freeworld; then
-            _RUN "Swap mesa-va-drivers → freeworld (AMD)" sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld
+            _RUN "Swap mesa-va-drivers → rpmfusion (AMD)" sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld
         else
-            _INFO "Mesa freeworld déjà présent"
+            _INFO "Mesa (rpmfusion) déjà présent"
         fi
     elif echo "${gpu_vendor}" | grep -q "intel"; then
         if ! _IS_PKG_INSTALLED intel-media-driver; then
@@ -181,7 +181,7 @@ INSTALL_CODECS() {
             _INFO "intel-media-driver déjà présent"
         fi
     else
-        _INFO "GPU ni AMD ni Intel, pas de d'échange mesa <=> mesa-rpmfusion à faire"
+        _INFO "GPU ni AMD ni Intel, pas de d'échange mesa <=> mesa (rpmfusion) à faire"
     fi
 }
 
