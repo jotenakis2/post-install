@@ -376,7 +376,7 @@ SETUP_SYSTEMD(){
         _INFO "À désactiver : ${missing_fmt}"
         _RUN "Désactivation des services" sudo systemctl disable --now "${missing[@]}"
     else
-        _INFO "Tous les services sont déjà désactivés : ${present_fmt}"
+        _INFO "Services déjà désactivés : ${present_fmt}"
     fi
 
     for service in "${!USER_SERVICES_TO_ENABLE[@]}"; do
@@ -384,7 +384,7 @@ SETUP_SYSTEMD(){
         if ! _IS_ENABLED_USER "${service}"; then
             _RUN "Activation du ${description}" systemctl --user enable --now "${service}"
         else
-            _INFO "Le ${description} est déjà activé"
+            _INFO "${description} déjà activé"
         fi
     done
 }
@@ -743,7 +743,7 @@ SystemKeepFree=2G
         "
         restart=1
     else
-        _INFO "NetworkManager déjà configuré pour utiliser systemd-resolved (/etc/NetworkManager/conf.d/99-global-dns.conf)"
+        _INFO "NetworkManager déjà configuré (/etc/NetworkManager/conf.d/99-global-dns.conf)"
     fi
 
     _RUNSILENT "" _SYMLINK /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
@@ -789,7 +789,7 @@ SystemKeepFree=2G
     readonly brave_policy_file full_brave_policies
 
     if [[ -f "${brave_policy_file}" ]] && echo "${full_brave_policies}" | sudo cmp -s - "${brave_policy_file}"; then
-        _INFO "Configuration policies debloat Brave déjà à jour (${brave_policy_file})"
+        _INFO "Configuration Brave déjà à jour (${brave_policy_file})"
     else
         _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
     fi
@@ -840,7 +840,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 
     if getent group libvirt >/dev/null 2>&1; then
         if id -nG "${main_user}" | grep -qw "libvirt"; then
-            _INFO "L'utilisateur ${main_user} est déjà dans le groupe libvirt"
+            _INFO "Utilisateur ${main_user} déjà dans libvirt"
         else
             _RUN "Ajout de l'utilisateur ${main_user} au groupe libvirt" sudo usermod -aG libvirt "${main_user}"
         fi

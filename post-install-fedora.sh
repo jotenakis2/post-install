@@ -271,7 +271,7 @@ SETUP_FIREWALL() {
     if ! _IS_ACTIVE firewalld; then
         _RUN "Démarrage et activation du service firewalld" sudo systemctl enable --now firewalld.service
     else
-        _INFO "Le firewall est déjà actif"
+        _INFO "Firewall déjà actif"
     fi
 
     # 3. Configuration des services essentiels
@@ -279,7 +279,7 @@ SETUP_FIREWALL() {
     local service
     for service in "${FIREWALL_SERVICES[@]}"; do
         if sudo firewall-cmd --permanent --query-service="${service}" >/dev/null 2>&1; then
-            _LOG "Le service '${service}' est déjà autorisé"
+            _LOG "Service '${service}' déjà autorisé"
         else
             _RUN "Autorisation du service '${service}'" sudo firewall-cmd --permanent --add-service="${service}"
             firewall_changed=true
@@ -290,7 +290,7 @@ SETUP_FIREWALL() {
     if [[ "${firewall_changed}" == true ]]; then
         _RUN "Rechargement des règles de firewalld (${FIREWALL_SERVICES[*]})" sudo firewall-cmd --reload
     else
-        _INFO "Les règles du firewall sont déjà à jour"
+        _INFO "Règles du firewall déjà à jour"
     fi
 }
 
