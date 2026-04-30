@@ -333,7 +333,7 @@ SETUP_DOTFILES() {
 
     # 2- stow pour déployer dotfiles depuis dépôt git
     local pkg name
-    echo -en "${C_GREEN}✓ ${C_RESET}"
+    echo -en " ${C_GREEN}✓ ${C_RESET}"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
         echo -n " ${name}"
