@@ -252,7 +252,7 @@ SETUP_GRUB(){
 
             _RUN "Regénération de la configuration de GRUB pour inclure les nouveaux paramètres (grub2-mkconfig)" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
         else
-            _INFO "GRUB est déjà correctement configuré (/etc/default/grub)"
+            _INFO "GRUB déjà correctement configuré (/etc/default/grub)"
         fi
     else
         _ERR "GRUB n'a pas été détecté, je ne change rien au bootloader."

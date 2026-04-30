@@ -384,7 +384,7 @@ SETUP_SYSTEMD(){
         if ! _IS_ENABLED_USER "${service}"; then
             _RUN "Activation du ${description}" systemctl --user enable --now "${service}"
         else
-            _INFO "${description} déjà activé"
+            _INFO "${description^} déjà activé"
         fi
     done
 }
@@ -446,7 +446,7 @@ SETUP_FSTAB(){
         _RUN "Optimisations des systèmes de fichier" sudo cp -av "${tmp_dir}/fstab.new" /etc/fstab
         _RUNSILENT "" sudo systemctl daemon-reload
     else
-        _INFO "Les options d'optimisations sont déjà présentes dans /etc/fstab"
+        _INFO "Options d'optimisations déjà présentes dans /etc/fstab"
     fi
 
     # NFS
@@ -454,7 +454,7 @@ SETUP_FSTAB(){
     opts="rw,_netdev,nofail,nodev,nosuid,noexec,noatime,lazytime,x-systemd.automount,x-systemd.device-timeout=30"
     if ! grep -q "${NFS_SHARE}" /etc/fstab >/dev/null; then
         if grep -q "${NFS_MP}" /etc/fstab >/dev/null; then
-            _INFO "Le point de montage demandé (${NFS_MP}) est déjà présent dans /etc/fstab :"
+            _INFO "Point de montage demandé (${NFS_MP}) déjà présent dans /etc/fstab :"
             grep "${NFS_MP}" /etc/fstab
             _INFO "Abandon de l'installation du partage réseau NFS."
         else
@@ -687,7 +687,7 @@ SETUP_PLM() {
         fi
 
         if [[ "${change}" = 0 ]]; then
-            _INFO "Plasma Login Manager est déjà correctement configuré pour remplacer SDDM"
+            _INFO "Plasma Login Manager déjà correctement configuré"
         fi
         SET_PLM_WALLPAPER
     else
