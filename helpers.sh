@@ -419,33 +419,34 @@ _MANAGE_TABLE(){
     local test_cmd="$2"
     local install_cmd="$3"
     shift 3
+    local list
+    list="$*"
+    if [[ "${list}" != "" ]]; then
+        local -a missing=()
+        local -a present=()
+        local pkg
+        for pkg in "$@"; do
+            if "${test_cmd}" "${pkg}"; then
+                present+=("${pkg}")
+            else
+                missing+=("${pkg}")
+            fi
+        done
 
-    local -a missing=()
-    local -a present=()
-    local pkg
-
-    for pkg in "$@"; do
-        if "${test_cmd}" "${pkg}"; then
-            present+=("${pkg}")
+        local all_fmt
+        local missing_fmt
+        local present_fmt
+        if ((${#missing[@]})); then
+            missing_fmt=$(_FORMAT_LIST "${missing[@]}")
+            present_fmt=$(_FORMAT_LIST "${present[@]}")
+            ((${#present[@]})) && _OK "Dans la liste : ${present_fmt}"
+            _OK "À traiter : ${missing_fmt}"
+            _RUN "Traitement en cours..." "${install_cmd}" "${missing[@]}"
         else
-            missing+=("${pkg}")
+            all_fmt=$(_FORMAT_LIST "$@")
+            _OK "Tout est ${msg} : ${all_fmt}"
         fi
-    done
-
-    local all_fmt
-    local missing_fmt
-    local present_fmt
-    if ((${#missing[@]})); then
-        missing_fmt=$(_FORMAT_LIST "${missing[@]}")
-        present_fmt=$(_FORMAT_LIST "${present[@]}")
-        ((${#present[@]})) && _OK "Dans la liste : ${present_fmt}"
-        _OK "À traiter : ${missing_fmt}"
-        _RUN "Traitement en cours..." "${install_cmd}" "${missing[@]}"
-    else
-        all_fmt=$(_FORMAT_LIST "$@")
-        [[ -n "${all_fmt}" ]] && _OK "Tout est ${msg} : ${all_fmt}"
     fi
-
 }
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
