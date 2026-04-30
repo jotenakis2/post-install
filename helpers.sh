@@ -415,10 +415,9 @@ _CONVERT_SECONDS() {
 
 _MANAGE_TABLE(){
 # Usage: _MANAGE_TABLE message <test_cmd> <cmd_execute> val1 val2 val3 ...
-    local msg="$1"
-    local test_cmd="$2"
-    local install_cmd="$3"
-    shift 3
+    local test_cmd="$1"
+    local install_cmd="$2"
+    shift 2
     local list
     list="$*"
     if [[ "${list}" != "" ]]; then
@@ -433,21 +432,38 @@ _MANAGE_TABLE(){
             fi
         done
 
+        local test
+        case "${test_cmd}" in
+            _IS_PKG_INSTALLED) test="paquet installé (o/n) ?" ;;
+            _IS_PKG_REMOVED) test="paquet retiré (o/n) ?" ;;
+            _IS_FPPKG_INSTALLED) test="paquet installé (o/n) ?" ;;
+            *) test="${test_cmd}" ;;
+        esac
+        local treat
+        case "${install_cmd}" in
+            _PKG_INSTALL*) treat="installation" ;;
+            _PKG_DOWNLOAD_THEN_INSTALL) treat="installation" ;;
+            _PKG_REMOVE) treat="suppression" ;;
+            _CARGOPKG_INSTALL) treat="installation";;
+            _FPPKG_INSTALL) treat="installation";;
+            *) treat="${install_cmd}" ;;
+        esac
+
         local all_fmt
         local missing_fmt
         local present_fmt
         if ((${#missing[@]})); then
             missing_fmt=$(_FORMAT_LIST "${missing[@]}")
             present_fmt=$(_FORMAT_LIST "${present[@]}")
-            ((${#present[@]})) && _INFO "Paquets de la liste à IGNORER car réussissant le test demandé (${test_cmd}) : ${present_fmt}"
-            _INFO "Paquets de la liste à TRAITER car échouant au test demandé (${test_cmd}) : ${missing_fmt}"
-            _RUN "Traitement en cours (${install_cmd})..." "${install_cmd}" "${missing[@]}"
+            ((${#present[@]})) && _INFO "Paquets de la liste fournie à IGNORER car réussissant le test demandé (${test}) : ${present_fmt}"
+            _INFO "Paquets de la liste fournie à TRAITER car échouant au test demandé (${test}) : ${missing_fmt}"
+            _RUN "Traitement en cours (${treat})..." "${install_cmd}" "${missing[@]}"
         else
             all_fmt=$(_FORMAT_LIST "$@")
-            _INFO "Tout a été traité : ${all_fmt}"
+            _INFO "Tout a été traité (${treat}) : ${all_fmt}"
         fi
     else
-        _INFO "Rien à traiter, liste transmise vide..."
+        _INFO "Rien à traiter (${treat}), liste transmise vide..."
     fi
 }
 
