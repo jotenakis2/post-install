@@ -446,6 +446,8 @@ _MANAGE_TABLE(){
             all_fmt=$(_FORMAT_LIST "$@")
             _OK "Tout est ${msg} : ${all_fmt}"
         fi
+    else
+        _INFO "Rien à traiter..."
     fi
 }
 

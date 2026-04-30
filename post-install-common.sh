@@ -981,7 +981,7 @@ INSTALL_FLATPAK_PACKAGES() {
     if ! flatpak --columns=name remotes | grep -q "^flathub$"; then
         _RUN "Ajout du dépôt Flathub" sudo flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
     else
-        _LOG "Dépot flathub déjà présent"
+        _INFO "Dépot flathub déjà présent"
     fi
 
     # 3. Activation de Flathub sans filtre

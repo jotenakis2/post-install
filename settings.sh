@@ -78,8 +78,8 @@ FLATPAK_PKGS=(
 
 # outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé" #--------------------------------------------
 CARGO_PACKAGES=(
-    #cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg
-    #ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina eza netwatch-tui
+    cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg
+    ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina eza netwatch-tui
     # Ajoute tes autres paquets ici
 )
 declare -A BIN_MAPPING=(
@@ -99,10 +99,10 @@ declare -A BIN_MAPPING=(
 
 # outils GO #-----------------------------------------------------------------------------------------------------------------
 declare -A GO_PACKAGES=(
-    #["stormy"]="github.com/ashish0kumar/stormy@latest"
-    #["golazo"]="github.com/0xjuanma/golazo@latest"
-    #["radiogogo"]="github.com/zi0p4tch0/radiogogo@latest"
-    #["xytz"]="github.com/xdagiz/xytz@latest"
+    ["stormy"]="github.com/ashish0kumar/stormy@latest"
+    ["golazo"]="github.com/0xjuanma/golazo@latest"
+    ["radiogogo"]="github.com/zi0p4tch0/radiogogo@latest"
+    ["xytz"]="github.com/xdagiz/xytz@latest"
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
