@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=27.8
+readonly VER=27.9
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -969,37 +969,41 @@ END() {
 ########################################################################################################################
 
 INSTALL_FLATPAK_PACKAGES() {
-    _SECTION " Installation des paquets Flatpak personnalisés " "━" "${C_GREEN}"
-    # 1. Vérification et installation de Flatpak
-    if ! _EXIST flatpak; then
-        _RUN "Installation de Flatpak" _PKG_INSTALL flatpak
+    if [[ -n "${FLATPAK_PKGS[*]}" ]]; then
+        _SECTION " Installation des paquets Flatpak personnalisés " "━" "${C_GREEN}"
+        # 1. Vérification et installation de Flatpak
+        if ! _EXIST flatpak; then
+            _RUN "Installation de Flatpak" _PKG_INSTALL flatpak
+        else
+            _LOG "Flatpak est déjà installé"
+        fi
+
+        # 2. Ajout de Flathub s'il n'existe pas
+        if ! flatpak --columns=name remotes | grep -q "^flathub$"; then
+            _RUN "Ajout du dépôt Flathub" sudo flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+        else
+            _INFO "Dépot flathub déjà présent"
+        fi
+
+        # 3. Activation de Flathub sans filtre
+        _RUNSILENT "" sudo flatpak --verbose remote-modify --no-filter --enable flathub
+
+        # 4. Vérification et suppression du dépôt Fedora
+        if flatpak remotes --columns=name | grep -q "^fedora$"; then
+            _RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak --verbose remote-delete --force fedora
+        else
+            _LOG "Le dépôt Fedora Flatpak n'est pas présent, c'est bien."
+        fi
+
+        # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
+        _MANAGE_TABLE "INSTALLÉ correctement" _IS_FPPKG_INSTALLED _FPPKG_INSTALL "${FLATPAK_PKGS[@]}"
+
+        # 6. Petit nettoyage des runtimes inutilisés
+        _LOG "Nettoyage des runtimes Flatpak orphelins"
+        _RUNSILENT "" sudo flatpak --verbose uninstall --unused -y
     else
-        _LOG "Flatpak est déjà installé"
+        _LOG "Aucun paquets Flatpak demandés"
     fi
-
-    # 2. Ajout de Flathub s'il n'existe pas
-    if ! flatpak --columns=name remotes | grep -q "^flathub$"; then
-        _RUN "Ajout du dépôt Flathub" sudo flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-    else
-        _INFO "Dépot flathub déjà présent"
-    fi
-
-    # 3. Activation de Flathub sans filtre
-    _RUNSILENT "" sudo flatpak --verbose remote-modify --no-filter --enable flathub
-
-    # 4. Vérification et suppression du dépôt Fedora
-    if flatpak remotes --columns=name | grep -q "^fedora$"; then
-        _RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak --verbose remote-delete --force fedora
-    else
-        _LOG "Le dépôt Fedora Flatpak n'est pas présent, c'est bien."
-    fi
-
-    # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
-    _MANAGE_TABLE "INSTALLÉ correctement" _IS_FPPKG_INSTALLED _FPPKG_INSTALL "${FLATPAK_PKGS[@]}"
-
-    # 6. Petit nettoyage des runtimes inutilisés
-    _LOG "Nettoyage des runtimes Flatpak orphelins"
-    _RUNSILENT "" sudo flatpak --verbose uninstall --unused -y
 }
 
 ########################################################################################################################
