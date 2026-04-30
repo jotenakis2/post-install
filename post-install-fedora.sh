@@ -39,6 +39,10 @@ REMOVE_RPM_PACKAGES() {
     done
     _MANAGE_TABLE "SUPPRIMÉ correctement" _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]}"
 
+    if [[ "${ZSWAP}" = "yes" ]]; then # on dégage zram si zswap est demandé
+        _IS_PKG_INSTALLED zram-generator-defaults && _PKG_REMOVE zram-generator-defaults >> "${LOG_FILE}"
+        _LOG "ZSWAP est demandé : zram est supprimé"
+    fi
 
     if (( wants_systemd_networkd_removal )); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
         if _IS_ACTIVE NetworkManager; then
@@ -206,13 +210,16 @@ SETUP_CHRONY() {
 
 ########################################################################################################################
 SETUP_GRUB(){
-    local is_grub zswap
+    local is_grub zswap=""
     is_grub=$(_DETECT_GRUB)
-    zswap="zswap.enabled=1 zswap.compressor=lz4" # on force l'usage d'un zswap, plus efficace que zram car s'appuie sur un backend physique en plus (file ou part)
 
     _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
 
     if [[ "${is_grub}" == "true" ]]; then
+        if [[ "${ZSWAP}" = "yes" ]]; then
+            zswap="zswap.enabled=1 zswap.compressor=lz4"
+            _LOG "ZSWAP est demandé : \"${zswap}\" ajouté à GRUB"
+        fi
         local luks_param="" target_cmdline="" current_cmdline="" current_default=""
 
         if grep -q 'rd\.luks\.uuid=' /etc/default/grub; then

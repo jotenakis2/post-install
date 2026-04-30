@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=27.5
+readonly VER=27.6
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -81,14 +81,13 @@ INITIALIZE() {
     touch "${LOG_FILE}"
 
     clear
+    source /etc/os-release
     _BANNER "blue" "${SCRIPTNAME} (${VER})"
     _SECTION " Préparation de la post-installation " "━" "${C_GREEN}"
+    _INFO "Distribution : ${PRETTY_NAME}"
     _INFO "Heure de démarrage de la post-installation : ${heure}"
     _INFO "Fichier log de la post-installation : ${LOG_FILE}"
     INSTALL_DEPS
-
-
-    _LOG "* Init *"
 
     # RUST
     export RUSTUP_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/rustup"
@@ -108,9 +107,6 @@ INITIALIZE() {
 
     _RUNSILENT "" sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=180' > '${sudotmp}'"
     _RUNSILENT "" sudo chmod -v 0440 "${sudotmp}"
-
-
-    _HEURE >> "${LOG_FILE}"
 
     # aussitôt je conf le package manager si besoin pour accélérer les download de paquets
     _PKG_CONFIG
@@ -332,9 +328,8 @@ SETUP_DOTFILES() {
     echo -en "${C_GREEN}✓ ${C_RESET}"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
-        #_RUNSILENT "${name}"
         echo -n "${name} "
-        stow --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
+        stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
     done
     echo ""
 

@@ -30,7 +30,7 @@ DNF_REMOVE=(
     default-fonts-other-mono
     default-fonts-other-sans
     default-fonts-other-serif
-    zram-generator-defaults PackageKit-glib rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan
+    PackageKit-glib rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan
     plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover sudo-python-plugin sssd-common plymouth-core-libs
     at
     # inutile sur HP EliteBook 645 14 inch G9 Notebook PC :
@@ -317,7 +317,12 @@ TTY_COLOR="vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# paramètres additionels de la ligne de commande du noyau (zswap sera automatiquement ajouté même si non spécifié ici) -------
+# ZSWAP yes/no ? si "yes" zram sera désactivé --------------------------------------------------------------------------------
+ZSWAP="yes"
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
+# paramètres additionels de la ligne de commande du noyau --------------------------------------------------------------------
 CMDLINE="ipv6.disable=1"
 #-----------------------------------------------------------------------------------------------------------------------------
 
@@ -406,4 +411,5 @@ export ACTIVATE_SSHD
 # shellcheck disable=SC2090
 export BANNER
 export VCONSOLE_FONT
+export ZSWAP
 ###############################################################################################################################
