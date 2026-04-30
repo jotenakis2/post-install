@@ -439,12 +439,12 @@ _MANAGE_TABLE(){
         if ((${#missing[@]})); then
             missing_fmt=$(_FORMAT_LIST "${missing[@]}")
             present_fmt=$(_FORMAT_LIST "${present[@]}")
-            ((${#present[@]})) && _OK "Paquets de la liste à IGNORER car réussissant le test demandé (${test_cmd}) : ${present_fmt}"
-            _OK "Paquets de la liste à TRAITER car échouant au test demandé (${test_cmd}) : ${missing_fmt}"
+            ((${#present[@]})) && _INFO "Paquets de la liste à IGNORER car réussissant le test demandé (${test_cmd}) : ${present_fmt}"
+            _INFO "Paquets de la liste à TRAITER car échouant au test demandé (${test_cmd}) : ${missing_fmt}"
             _RUN "Traitement en cours (${install_cmd})..." "${install_cmd}" "${missing[@]}"
         else
             all_fmt=$(_FORMAT_LIST "$@")
-            _OK "Tout a été traité : ${all_fmt}"
+            _INFO "Tout a été traité : ${all_fmt}"
         fi
     else
         _INFO "Rien à traiter, liste transmise vide..."
