@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=27.9
+readonly VER=28.0
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -714,6 +714,20 @@ SETUP_ETC() {
         _RUN "Changement du nom de la machine (de ${currenthost} vers ${MYHOSTNAME})" sudo hostnamectl set-hostname "${MYHOSTNAME}"
         newhost=$(hostnamectl hostname)
         _LOG "nouveau hostname : ${newhost}"
+    fi
+
+    # --- journald ---
+    local journald_content journald_file
+    journald_file="/etc/systemd/journald.conf"
+    journald_content='[Journal]
+SystemMaxUse=900M
+SystemKeepFree=2G
+'
+
+    if [[ -f "${journald_file}" ]] &&  echo "${journald_content}" | sudo cmp -s - "${journald_file}"; then
+        _INFO "Réglage du journal système déjà fait (${journald_file})"
+    else
+        _RUN "Réglage du journal système (${journald_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${journald_file}" <<< "${journald_content}"
     fi
 
     # --- NetworkManager & systemd-resolved ---

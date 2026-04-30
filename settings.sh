@@ -68,9 +68,9 @@ VCONSOLE_FONT="ter-v24b" # font console
 
 # paquets flatpak à installer #-----------------------------------------------------------------------------------------------
 FLATPAK_PKGS=(
-    #"com.ktechpit.whatsie"
-    #"io.github.giantpinkrobots.flatsweep"
-    #"com.github.tchx84.Flatseal"
+    "com.ktechpit.whatsie"
+    "io.github.giantpinkrobots.flatsweep"
+    "com.github.tchx84.Flatseal"
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -108,7 +108,7 @@ declare -A GO_PACKAGES=(
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# mes repos git à installer (dotfiles obligatoire) #--------------------------------------------------------------------------
+# mes repos git à installer (repo dotfiles obligatoire, autres optionnels) ---------------------------------------------------
 MYREPOS="https://codeberg.org/jotenakis"
 DOTFILES_REPO="${MYREPOS}/dotfiles"
 DOTFILES_DIR="${HOME}/dotfiles"
