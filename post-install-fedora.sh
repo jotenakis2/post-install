@@ -40,7 +40,7 @@ REMOVE_RPM_PACKAGES() {
     _MANAGE_TABLE "SUPPRIMÉ correctement" _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]}"
 
     if [[ "${ZSWAP}" = "yes" ]]; then # on dégage zram si zswap est demandé
-        _IS_PKG_INSTALLED zram-generator-defaults && _PKG_REMOVE zram-generator-defaults >> "${LOG_FILE}"
+        _IS_PKG_INSTALLED zram-generator-defaults && _RUNSILENT "" _PKG_REMOVE zram-generator-defaults
         _LOG "ZSWAP est demandé : zram est supprimé"
     fi
 
@@ -60,16 +60,17 @@ REMOVE_RPM_PACKAGES() {
 ########################################################################################################################
 INSTALL_REPOS() {
     _SECTION " Installation des dépôts RPM additionnels " "━" "${C_GREEN}"
-    local fedora_ver rpmf cache=0
-    local rpmfusion_list="rpmfusion-free-release rpmfusion-nonfree-release"
+    local fedora_ver rpmf cache=0 type
+    local rpmfusion_list="free nonfree"
     fedora_ver=$(rpm -E '%fedora')
 
     for rpmf in ${rpmfusion_list}; do
-        if _IS_PKG_INSTALLED "${rpmf}"; then
-            _INFO "Dépôt ${rpmf} déjà présent"
+        type="rpmfusion-${rpmf}-release"
+        if _IS_PKG_INSTALLED "${type}"; then
+            _INFO "Dépôt ${type} déjà présent"
         else
-            _RUN "Ajout du dépôt ${rpmf} (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/free/fedora/"${rpmf}"-"${fedora_ver}".noarch.rpm
-            _RUN "Ajout du dépôt ${rpmf}-tainted (f${fedora_ver})" _PKG_INSTALL "${rpmf}"-tainted
+            _RUN "Ajout du dépôt ${type} (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/"${rpmf}"/fedora/"${type}"-"${fedora_ver}".noarch.rpm
+            _RUN "Ajout du dépôt ${type}-tainted (f${fedora_ver})" _PKG_INSTALL "${type}"-tainted
             cache=1
         fi
     done
