@@ -443,7 +443,7 @@ _MANAGE_TABLE(){
         _RUN "Traitement en cours..." "${install_cmd}" "${missing[@]}"
     else
         all_fmt=$(_FORMAT_LIST "$@")
-        _OK "Tout est ${msg} : ${all_fmt}"
+        [[ -n "${all_fmt}" ]] && _OK "Tout est ${msg} : ${all_fmt}"
     fi
 
 }
