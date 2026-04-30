@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=28.2
+readonly VER=28.4
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -207,7 +207,7 @@ INSTALL_GO_PACKAGES() {
                 fi
             done
             if [[ -z "${missing[*]}" ]]; then
-                _INFO "Tout est INSTALLÉ correctement : ${present[*]}"
+                _INFO "Tout a été traité (installation) : ${present[*]}"
             else
                 [[ -n "${present[*]}" ]] && _INFO "Déjà installé : ${present[*]}"
             fi
@@ -336,7 +336,7 @@ SETUP_DOTFILES() {
     echo -en "${C_GREEN}✓ ${C_RESET}"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
-        echo -n "${name} "
+        echo -n " ${name}"
         stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
     done
     echo ""

@@ -242,6 +242,7 @@ SETUP_GRUB(){
 
             # Application des modifications (avec gestion de l'absence)
             _RUN "Mise à jour des paramètres de GRUB (/etc/default/grub)" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
+            _INFO "Options de démarrage du noyau ajoutée à GRUB : ${target_cmdline}"
 
             if grep -q '^GRUB_TIMEOUT=' /etc/default/grub; then
                 _RUN "Délai GRUB 2 sec (/etc/default/grub)" sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
@@ -251,7 +252,7 @@ SETUP_GRUB(){
 
             _RUN "Regénération de la configuration de GRUB pour inclure les nouveaux paramètres (grub2-mkconfig)" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
         else
-            _INFO "GRUB est déjà correctement configuré"
+            _INFO "GRUB est déjà correctement configuré (/etc/default/grub)"
         fi
     else
         _ERR "GRUB n'a pas été détecté, je ne change rien au bootloader."

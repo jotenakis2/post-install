@@ -434,9 +434,10 @@ _MANAGE_TABLE(){
 
         local test
         case "${test_cmd}" in
-            _IS_PKG_INSTALLED) test="paquet installé (o/n) ?" ;;
-            _IS_PKG_REMOVED) test="paquet retiré (o/n) ?" ;;
-            _IS_FPPKG_INSTALLED) test="paquet installé (o/n) ?" ;;
+            _IS_PKG_INSTALLED) test="paquet présent ?" ;;
+            _IS_PKG_REMOVED) test="paquet absent ?" ;;
+            _IS_FPPKG_INSTALLED) test="paquet présent ?" ;;
+            _IS_CARGOPKG_INSTALLED) test="paquet présent ?" ;;
             *) test="${test_cmd}" ;;
         esac
         local treat
@@ -455,9 +456,9 @@ _MANAGE_TABLE(){
         if ((${#missing[@]})); then
             missing_fmt=$(_FORMAT_LIST "${missing[@]}")
             present_fmt=$(_FORMAT_LIST "${present[@]}")
-            ((${#present[@]})) && _INFO "Paquets de la liste fournie à IGNORER car réussissant le test demandé (${test}) : ${present_fmt}"
-            _INFO "Paquets de la liste fournie à TRAITER car échouant au test demandé (${test}) : ${missing_fmt}"
-            _RUN "Traitement en cours (${treat})..." "${install_cmd}" "${missing[@]}"
+            ((${#present[@]})) && _INFO "Paquets à IGNORER car réussissant le test \"${test}\" : ${present_fmt}"
+            _INFO "Paquets à TRAITER car échouant au test \"${test}\" : ${missing_fmt}"
+            _RUN "${treat^} en cours..." "${install_cmd}" "${missing[@]}"
         else
             all_fmt=$(_FORMAT_LIST "$@")
             _INFO "Tout a été traité (${treat}) : ${all_fmt}"
