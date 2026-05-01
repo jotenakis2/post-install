@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -Eeuo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=28.5
+readonly VER=28.6
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -470,7 +470,7 @@ SETUP_FSTAB(){
             else
                 _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
                 _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
-                _RUNSILENT "" echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a /etc/fstab >/dev/null
+                _RUNSILENT "" echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a /etc/fstab
                 _RUNSILENT "" sudo systemctl daemon-reload
                 _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
             fi
