@@ -470,7 +470,7 @@ SETUP_FSTAB(){
             else
                 _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
                 _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
-                _RUNSILENT "" echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a /etc/fstab
+                echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a /etc/fstab >/dev/null
                 _RUNSILENT "" sudo systemctl daemon-reload
                 _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
             fi
