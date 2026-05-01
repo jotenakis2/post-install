@@ -28,12 +28,17 @@ CHECK() {
 ########################################################################################################################
 REMOVE_RPM_PACKAGES() {
     _SECTION " Suppression des paquets RPM indésirables " "━" "${C_GREEN}"
-    local pkg wants_systemd_networkd_removal
+    local pkg wants_systemd_networkd_removal wants_akonadi_removal
     wants_systemd_networkd_removal=0
+    wants_akonadi_removal=0
     #
     for pkg in "${DNF_REMOVE[@]}"; do
         if [[ "${pkg}" == "systemd-networkd" ]]; then
             wants_systemd_networkd_removal=1
+            continue
+        fi
+        if [[ "${pkg}" == "akonadi-server" ]]; then
+            wants_akonadi_removal=1
             continue
         fi
     done
@@ -55,6 +60,11 @@ REMOVE_RPM_PACKAGES() {
             _INFO "NetworkManager inactif — systemd-networkd conservé"
         fi
     fi
+    if (( wants_akonadi_removal )); then
+        _RUNSILENT "" rm -rvf "${HOME}/.local/share/akonadi"*
+        _RUNSILENT "" rm -rvf "${HOME}/.cache/akonadi"*
+    fi
+
 }
 
 ########################################################################################################################
@@ -509,7 +519,7 @@ SETUP_SUDO_RS() {
     if [[ "${change}" -eq 1 ]]; then
         _OK "sudo-rs est en place et remplace définitivement sudo"
     else
-        _INFO "sudo-rs est déjà correctement configuré pour remplacer sudo"
+        _INFO "sudo-rs déjà correctement configuré"
     fi
 }
 
