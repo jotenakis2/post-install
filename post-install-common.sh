@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
-set -euo pipefail
+set -Eeuo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=28.4
+readonly VER=28.5
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -10,54 +10,58 @@ source ./settings.sh                                                            
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
     args=${1:-}
-    source helpers.sh # bibliothèque de fonctions d'aide
+    source ./helpers.sh
     _ENABLE_COLORS
-    trap '_ERR "Interruption ligne ${LINENO}"; _DIE "Log : ${LOG_FILE}"' ERR # gestion des erreurs
-
-    # Préparation
+    # en cas d'erreur ou d'interruption je nettoie, affiche le LOGFILE et sort proprement.
+    trap 'sudo rm -f "${SUDOTMP[@]}"; _DIE "Log : ${LOG_FILE}"' ERR INT
     CHECK
     INITIALIZE
 
-    if [[ "${args}" = "--shellonly" ]]; then
-        INSTALL_CARGO_PACKAGES
-        INSTALL_GO_PACKAGES
-        CLONE_GIT
-        SETUP_SHELL
-        SETUP_DOTFILES
-        SETUP_DATA
+    if [[ "${args}" = "--shellonly" ]] || [[ "${args}" = "-s" ]]; then
+
+        _SECTION " Mode shellonly (cargo, go, git, shell, dotfiles) " "━" "${C_GREEN}"
+        INSTALL_CARGO_PACKAGES ; INSTALL_GO_PACKAGES ; INSTALL_GIT_REPOS ; SETUP_SHELL ; SETUP_DOTFILES
+
+    elif [[ "${args}" = "--check" ]] || [[ "${args}" = "-c" ]]; then
+
+        _SECTION " Mode contrôle - paramètres personnalisables de ${SCRIPTNAME} " "━" "${C_GREEN}"
+        echo "Fichier : "
+        ls -l ./settings.sh 2>/dev/null
+        echo ""
+        echo "Contenu : "
+        if _EXIST bat ; then
+            grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh | bat -pP
+        else
+            grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh
+        fi
+        echo ""
+        _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
+        exit 0
+
+    elif [[ "${args}" = "--help" ]] || [[ "${args}" = "-h" ]]; then
+
+        _SECTION " Mode aide " "━" "${C_GREEN}"
+        _INFO "Usage : ./${SCRIPTNAME} [ --shellonly | --check | --help ]"
+        _INFO "Sans option, ${SCRIPTNAME} éxécute la post-installation complète."
+        _INFO "Les paramètres personnalisables sont stockés dans ./settings.sh."
+        _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
+        exit 0
+
     else
         _REFRESH_SYS_CACHE
         _RUN "Mise à jour forcée du système" _SYS_UPDATE
         SETUP_SUDO_RS
-
         # remove/install
         REMOVE_RPM_PACKAGES
-        INSTALL_REPOS
-        INSTALL_RPM_PACKAGES
-        INSTALL_FONTS
-        INSTALL_CODECS
-        INSTALL_CARGO_PACKAGES
-        INSTALL_GO_PACKAGES
-        INSTALL_FLATPAK_PACKAGES
+        INSTALL_REPOS ; INSTALL_RPM_PACKAGES ; INSTALL_FONTS ; INSTALL_CODECS
+        INSTALL_CARGO_PACKAGES ; INSTALL_GO_PACKAGES ; INSTALL_FLATPAK_PACKAGES
         INSTALL_GIT_REPOS
-
         # config
-        SETUP_SHELL
-        SETUP_DOTFILES
-        SETUP_ETC
-        SETUP_CHRONY
-        SETUP_SYSTEMD
-        SETUP_FIREWALL
-        SETUP_SWAP
-        SETUP_SSHD
-        SETUP_FSTAB
-        SETUP_GRUB
-        SETUP_KDE_PLASMA
-        SETUP_PLM
+        SETUP_SHELL ; SETUP_DOTFILES; SETUP_ETC ; SETUP_CHRONY ; SETUP_SYSTEMD ; SETUP_FIREWALL
+        SETUP_SWAP ; SETUP_SSHD ; SETUP_FSTAB ; SETUP_GRUB
+        SETUP_KDE_PLASMA ; SETUP_PLM
         SETUP_DATA
     fi
-
-    # Finalisation
     END
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -85,7 +89,7 @@ INITIALIZE() {
     _BANNER "blue" "${SCRIPTNAME} (${VER})"
     _SECTION " Préparation de la post-installation " "━" "${C_GREEN}"
     _INFO "Distribution : ${PRETTY_NAME}"
-    _INFO "Heure de démarrage de la post-installation : ${heure}"
+    _INFO "Heure de démarrage du script : ${heure}"
     _INFO "Fichier log de la post-installation : ${LOG_FILE}"
     INSTALL_DEPS
 
@@ -102,10 +106,11 @@ INITIALIZE() {
     _RUNSILENT "" sudo mkdir -pv /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
 
     # Préparation d'une session sudo confortable et longue pour l'installation
-    SUDOTMP="/etc/sudoers-rs.d/99_POST-INSTALL" # pour delete à la fin
-    local sudotmp="/etc/sudoers.d/99_POST-INSTALL"
-
-    _RUNSILENT "" sudo bash -c "echo 'Defaults pwfeedback,timestamp_timeout=180' > '${sudotmp}'"
+    local sudotmp
+    declare -ga SUDOTMP=()
+    sudotmp="/etc/sudoers.d/99_POST-INSTALL"
+    SUDOTMP=(/etc/sudoers-rs.d/99_POST-INSTALL /etc/sudoers.d/99_POST-INSTALL) # pour delete à la fin et en cas de plantage
+    _RUNSILENT "" bash -c "echo 'Defaults pwfeedback,timestamp_timeout=180' | sudo tee '${sudotmp}'"
     _RUNSILENT "" sudo chmod -v 0440 "${sudotmp}"
 
     # aussitôt je conf le package manager si besoin pour accélérer les download de paquets
@@ -308,8 +313,8 @@ SETUP_SHELL() {
     fi
 
     # 3- symlinks
-    _SYMLINK "${HOME}/.local/share/icons" "${HOME}/.icons"
-    _SYMLINK "${HOME}/.local/share/themes" "${HOME}/.themes"
+    #_SYMLINK "${HOME}/.local/share/icons" "${HOME}/.icons"
+    #_SYMLINK "${HOME}/.local/share/themes" "${HOME}/.themes"
 
 }
 
@@ -394,15 +399,19 @@ SETUP_FSTAB(){
     _SECTION " Configuration du fichier FSTAB " "━" "${C_GREEN}"
 
     # SWAPFILE
-    local swapdir="/var/swap"
-    if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
-        if [[ ! -f /etc/fstab.origin ]]; then
-            _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.origin
+    if [[ "${ZSWAP}" = "yes" ]]; then
+        local swapdir="/var/swap"
+        if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
+            if [[ ! -f /etc/fstab.origin ]]; then
+                _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.origin
+            fi
+            _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.swap
+            _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap defaults,nofail 0 0 | sudo tee -a /etc/fstab"
+        else
+            _INFO "Swap déjà présent dans /etc/fstab"
         fi
-        _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.swap
-        _RUN "Ajout du swap" sudo bash -c "echo ${swapdir}/swapfile none swap defaults,nofail 0 0 >> /etc/fstab"
     else
-        _INFO "Swap déjà présent dans /etc/fstab"
+        _LOG "Pas de zswap demandé on ne fait pas de swapfile."
     fi
 
     # --- Optimisations Fstab (noatime, lazytime) ---
@@ -450,22 +459,26 @@ SETUP_FSTAB(){
     fi
 
     # NFS
-    local opts
-    opts="rw,_netdev,nofail,nodev,nosuid,noexec,noatime,lazytime,x-systemd.automount,x-systemd.device-timeout=30"
-    if ! grep -q "${NFS_SHARE}" /etc/fstab >/dev/null; then
-        if grep -q "${NFS_MP}" /etc/fstab >/dev/null; then
-            _INFO "Point de montage demandé (${NFS_MP}) déjà présent dans /etc/fstab :"
-            grep "${NFS_MP}" /etc/fstab
-            _INFO "Abandon de l'installation du partage réseau NFS."
+    if [[ "${NFS_SHARE}" != "" ]]; then
+        local opts
+        opts="rw,_netdev,nofail,nodev,nosuid,noexec,noatime,lazytime,x-systemd.automount,x-systemd.device-timeout=30"
+        if ! grep -q "${NFS_SHARE}" /etc/fstab >/dev/null; then
+            if grep -q "${NFS_MP}" /etc/fstab >/dev/null; then
+                _INFO "Point de montage demandé (${NFS_MP}) déjà présent dans /etc/fstab :"
+                grep "${NFS_MP}" /etc/fstab
+                _INFO "Abandon de l'installation du partage réseau NFS."
+            else
+                _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
+                _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
+                _RUNSILENT "" echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a /etc/fstab >/dev/null
+                _RUNSILENT "" sudo systemctl daemon-reload
+                _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
+            fi
         else
-            _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
-            _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
-            echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a /etc/fstab >/dev/null
-            _RUNSILENT "" sudo systemctl daemon-reload
-            _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
+            _INFO "Montage NFS déjà installé"
         fi
     else
-        _INFO "Montage NFS déjà installé"
+        _LOG "Aucun montage NFS demandé"
     fi
 
     # fast_commit pour ext4
@@ -477,7 +490,7 @@ SETUP_FSTAB(){
         if sudo tune2fs -l "${dev}" 2>/dev/null | grep -q "fast_commit"; then
             _LOG "fast_commit déjà actif sur ${dev} (montée en ${mp})"
         else
-            _RUN "Activation flag fast_commit sur ${dev} (montée en ${mp})" sudo tune2fs -O fast_commit "${dev}"
+            _RUN "Activation flag \"fast_commit\" sur ${dev} (montée en ${mp})" sudo tune2fs -O fast_commit "${dev}"
         fi
     done <<< "${mounts}"
 
@@ -651,8 +664,6 @@ SETUP_KDE_PLASMA() {
             _RUNSILENT "" sudo flatpak override \
                 --filesystem="${HOME}/.local/share/icons:ro" \
                 --filesystem="${HOME}/.local/share/themes:ro" \
-                --filesystem="${HOME}/.icons:ro" \
-                --filesystem="${HOME}/.themes:ro" \
                 --filesystem="xdg-config/gtk-3.0:ro" \
                 --filesystem="xdg-config/gtk-4.0:ro" \
                 --env="GTK_THEME=TokyoNight" \
@@ -661,7 +672,7 @@ SETUP_KDE_PLASMA() {
         fi
     else
         echo
-        _INFO "KDE n'a pas été détecté, je ne touche pas à la customization de KDE"
+        _INFO "KDE n'a pas été détecté, pas de personnalisation"
     fi
 }
 
@@ -692,7 +703,7 @@ SETUP_PLM() {
         SET_PLM_WALLPAPER
     else
         echo
-        _INFO "KDE n'a pas été détecté, on ne touche pas au display-manager"
+        _INFO "KDE n'a pas été détecté, pas de changement du login-manager"
     fi
 }
 
@@ -701,7 +712,7 @@ SETUP_PLM() {
 SETUP_ETC() {
     _SECTION " Configuration générale du système " "━" "${C_GREEN}"
 
-    # par défaut msmtp ne crée pas le log system
+    # par défaut msmtp ne crée pas le log system !
     if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
         _LOG "config log msmtp car paquet présent"
         _RUNSILENT "" sudo bash -c "touch /var/log/msmtp.log && chmod -v 600 /var/log/msmtp.log"
@@ -717,12 +728,14 @@ SETUP_ETC() {
     fi
 
     # --- journald ---
+    _LOG "* journald *"
     local journald_content journald_file
     journald_file="/etc/systemd/journald.conf"
     journald_content='[Journal]
 SystemMaxUse=900M
 SystemKeepFree=2G
 '
+    readonly journald_file journald_content
 
     if [[ -f "${journald_file}" ]] &&  echo "${journald_content}" | sudo cmp -s - "${journald_file}"; then
         _INFO "Réglage du journal système déjà fait (${journald_file})"
@@ -809,28 +822,31 @@ ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="
 # HDD rotatif
 ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
 '
-
     if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
         _INFO "Règle IO scheduler déjà à jour (${rules_file})"
     else
-        #printf '%s\n' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
         _RUN "Règle IO scheduler créée (${rules_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
     fi
 
     # --- udev static custom rule
-    rules_file="/etc/udev/rules.d/${UDEVFILE}" ; sudo touch "${rules_file}"
-    rules_content="${UDEVRULE}"
-    current=$(cat "${rules_file}" 2>/dev/null || true)
+    if [[ -n "${UDEVRULE}" ]]; then
+        local udevfilename="99-persist-key.rules"
+        rules_file="/etc/udev/rules.d/${udevfilename}"
+        sudo touch "${rules_file}"
+        rules_content="${UDEVRULE}"
+        current=$(cat "${rules_file}" 2>/dev/null || true)
 
-    if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
-        _INFO "Règle udev persistante (${UDEVDESCR}) à jour (${rules_file})"
+        if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
+            _INFO "Règle udev persistante (${UDEVDESCR}) à jour (${rules_file})"
+        else
+            _RUN "Règle udev persistante (${UDEVDESCR}) créée (${rules_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
+            _RUNSILENT "" sudo udevadm control --reload-rules
+            _RUNSILENT "" sudo udevadm trigger
+        fi
     else
-        _RUN "Règle udev persistante (${UDEVDESCR}) créée (${rules_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
-        _RUNSILENT "" sudo udevadm control --reload-rules
-        _RUNSILENT "" sudo udevadm trigger
-
+        _LOG "Aucune règle udev persistante demandée"
     fi
 
     # --- Groupe libvirt ---
@@ -892,8 +908,8 @@ ${SSHD_CONFIG}"
         if sudo test -f "${banner_file}" && echo "${BANNER}" | sudo cmp -s - "${banner_file}"; then
             _LOG "Bannière sshd à jour (${banner_file})"
         else
-            _LOG "Création banière (${banner_file})"
-            _RUNSILENT "" sudo rm -fv "${banner_file}"
+            _LOG "Création banière ssh (${banner_file})"
+            _RUNSILENT "" sudo rm -f "${banner_file}"
             _RUNSILENT "" sudo install -v -m 644 -o root -g root /dev/stdin "${banner_file}" <<< "${BANNER}"
         fi
 
@@ -913,9 +929,9 @@ ${SSHD_CONFIG}"
         if _IS_ENABLED sshd; then
             _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
             _LOG "pas de service sshd demandé"
-            _RUN "Désactivation du service sshd" sudo systemctl --now disable sshd.service
+            _RUN "Désactivation du service sshd" sudo systemctl --now disable sshd.service sshd.socket
         else
-            _LOG "pas de service sshd détecté ni demandé, rien à faire"
+            _LOG "pas de service sshd détecté ni demandé"
         fi
     fi
 }
@@ -926,13 +942,13 @@ SET_PLM_WALLPAPER() {
     local dest_dir="/var/lib/plasmalogin/wallpapers"
     local dest_file="${dest_dir}/PlasmaLogin.jpg"
     local src="${HOME}/.local/share/wallpapers/SpacePlasma.jpg"
-    local confdirPLM="/etc/plasmalogin.conf.d"
+    #local confdirPLM="/etc/plasmalogin.conf.d"
     #local configPLM="${confdirPLM}/90-jotenakis.conf"
     local configPLM="/etc/plasmalogin.conf"
 
     if [[ -f "${src}" ]]; then
         _RUNSILENT "" sudo install -d -m 0755 "${dest_dir}"
-        _RUNSILENT "" sudo install -d -m 0755 "${confdirPLM}"
+        #_RUNSILENT "" sudo install -d -m 0755 "${confdirPLM}"
         _RUNSILENT "" sudo install -m 0644 "${src}" "${dest_file}"
         _LOG "Installation du wallpaper PLM"
         if ! sudo grep -Fqx "Image=file://${dest_file}" "${configPLM}" 2>/dev/null; then
@@ -948,7 +964,7 @@ EOF
             _LOG "Wallpaper PLM déjà configuré"
         fi
     else
-        _LOG "Fond d'écran de PLM introuvable : ${src}"
+        _LOG "Fond d'écran custo de PLM introuvable : ${src}"
     fi
 }
 
@@ -957,27 +973,6 @@ EOF
 INSTALL_DEPS() {
     local -a prerequisit=(curl crudini ncurses git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils)
     _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
-}
-
-########################################################################################################################
-
-END() {
-    local duration file
-    _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
-    _RUNSILENT "" sudo rm -fv "${SUDOTMP}"
-    duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
-    _INFO "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
-    _INFO "REDÉMARREZ pour appliquer les modifications éventuelles totalement"
-
-    # LOG
-    _INFO "Fichier log de la post-installation : ${LOG_FILE}"
-    _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
-    local url
-    url="https://temp.sh/upload"
-    file=$(curl -F file=@"${LOG_FILE}" "${url}" 2>/dev/null)
-    [[ -n "${file}" ]] &&  _INFO "Log téléversé : ${file}"
-    #
-    echo ""
 }
 
 ########################################################################################################################
@@ -1018,6 +1013,27 @@ INSTALL_FLATPAK_PACKAGES() {
     else
         _LOG "Aucun paquets Flatpak demandés"
     fi
+}
+
+########################################################################################################################
+
+END() {
+    local duration file
+    _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
+    _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
+    duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
+    _INFO "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
+    _INFO "REDÉMARREZ pour appliquer les modifications éventuelles intégralement !"
+
+    # LOG
+    _INFO "Fichier log de la post-installation : ${LOG_FILE}"
+    _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
+    local url
+    url="https://temp.sh/upload"
+    file=$(curl -F file=@"${LOG_FILE}" "${url}" 2>/dev/null)
+    [[ -n "${file}" ]] &&  _INFO "Log téléversé : ${file}"
+    #
+    echo ""
 }
 
 ########################################################################################################################

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-source post-install-common.sh   # fonctions distro-agnostique
+source ./post-install-common.sh   # fonctions distro-agnostique
 
 
 ########################################################################################################################
@@ -23,6 +23,7 @@ CHECK() {
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
     echo "Environnement valide — ${fedora_rel}, utilisateur ${USER} avec droits sudo"
+    sleep 0.5
 }
 
 ########################################################################################################################
@@ -85,14 +86,6 @@ INSTALL_REPOS() {
         fi
     done
 
-    # if ! _IS_PKG_INSTALLED rpmfusion-nonfree-release; then
-    #     _RUN "Ajout du dépôt RPM Fusion nonfree (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"${fedora_ver}".noarch.rpm
-    #     _RUN "Ajout du dépôt RPM Fusion nonfree tainted (f${fedora_ver})" _PKG_INSTALL rpmfusion-nonfree-release-tainted
-    #     cache=1
-    # else
-    #     _OK "Dépôt RPM Fusion nonfree déjà présent"
-    # fi
-
     if _IS_PKG_INSTALLED terra-release; then
         _INFO "Dépôt Terra déjà présent"
     else
@@ -124,9 +117,13 @@ INSTALL_REPOS() {
 
 ########################################################################################################################
 INSTALL_FONTS() {
-    _SECTION " Installation de polices d'affichage personnelles " "━" "${C_GREEN}"
-    _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL_SKIP "${FONTS[@]}"
-    _SETUP_VCONSOLE_FONT
+    if [[ "${FONTS[*]}" != "" ]]; then
+        _SECTION " Installation de polices d'affichage personnelles " "━" "${C_GREEN}"
+        _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL_SKIP "${FONTS[@]}"
+        _SETUP_VCONSOLE_FONT
+    else
+        _LOG "Aucune police additionnelles demandées"
+    fi
 }
 
 ########################################################################################################################
@@ -152,8 +149,8 @@ _SETUP_VCONSOLE_FONT() {
             _RUNSILENT "" echo "FONT=${font}" | sudo tee -a "${vconsole}" > /dev/null
         fi
         _LOG "Police console définie :"
-        grep "${font}" "${vconsole}" 2>/dev/null >> "${LOG_FILE}"
     fi
+    cat "${vconsole}" 2>/dev/null >> "${LOG_FILE}"
 }
 
 ########################################################################################################################
@@ -197,8 +194,12 @@ INSTALL_CODECS() {
 
 ########################################################################################################################
 INSTALL_RPM_PACKAGES() {
-    _SECTION " Installation des paquets RPM personnalisés " "━" "${C_GREEN}"
-    _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${DNF_PACKAGES[@]}"
+    if [[ "${DNF_PACKAGES[*]}" != "" ]]; then
+        _SECTION " Installation des paquets RPM personnalisés " "━" "${C_GREEN}"
+        _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${DNF_PACKAGES[@]}"
+    else
+        _LOG "Aucun paquets RPM additionnels demandés"
+    fi
 }
 
 ########################################################################################################################
@@ -216,6 +217,9 @@ SETUP_CHRONY() {
             _RUN "Configuration de chronyd (${chrony_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
            _RUNSILENT "" sudo systemctl try-restart chronyd
         fi
+    else
+        _LOG "ipv6 n'est pas activé donc on ne change rien à chrony"
+        cat "${chrony_file}" 2>/dev/null >> "${LOG_FILE}"
     fi
 }
 
@@ -228,7 +232,7 @@ SETUP_GRUB(){
 
     if [[ "${is_grub}" == "true" ]]; then
         if [[ "${ZSWAP}" = "yes" ]]; then
-            zswap="zswap.enabled=1 zswap.compressor=lz4"
+            zswap="zswap.enabled=1 zswap.compressor=zstd"
             _LOG "ZSWAP est demandé : \"${zswap}\" ajouté à GRUB"
         fi
         local luks_param="" target_cmdline="" current_cmdline="" current_default=""
@@ -237,7 +241,7 @@ SETUP_GRUB(){
             luks_param=$(grep -oP 'rd\.luks\.uuid=\S+' /etc/default/grub | head -n 1)
         fi
 
-        target_cmdline="${luks_param} rhgb ${zswap} ${CMDLINE} ${TTY_COLOR}"
+        target_cmdline="${luks_param} ${zswap} ${CMDLINE} ${TTY_COLOR}"
         target_cmdline=$(echo "${target_cmdline}" | xargs)
 
         current_cmdline=$(grep '^GRUB_CMDLINE_LINUX=' /etc/default/grub | cut -d'"' -f2 || echo "")
@@ -260,10 +264,12 @@ SETUP_GRUB(){
                 _RUN "Délai GRUB 2 sec (/etc/default/grub)" sudo bash -c "echo 'GRUB_TIMEOUT=2' >> /etc/default/grub"
             fi
 
-            _RUN "Regénération de la configuration de GRUB pour inclure les nouveaux paramètres (grub2-mkconfig)" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+            _RUN "Regénération de la configuration de GRUB" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+            _LOG "sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
         else
             _INFO "GRUB déjà correctement configuré (/etc/default/grub)"
         fi
+        cat /etc/default/grub 2>/dev/null >> "${LOG_FILE}"
     else
         _ERR "GRUB n'a pas été détecté, je ne change rien au bootloader."
     fi
@@ -306,220 +312,228 @@ SETUP_FIREWALL() {
 
 
 ########################################################################################################################
-SETUP_SWAP(){
-    _LOG "* swap *"
-    local target_size ram_total_kib
-    local recreate_swap=false
-    local swapdir="/var/swap"
+SETUP_SWAP(){ # que si zswap est demandé
+    if [[ "${ZSWAP}" = "yes" ]]; then
+        _LOG "* swap *"
+        local target_size ram_total_kib
+        local recreate_swap=false
+        local swapdir="/var/swap"
 
-    ram_total_kib=$(awk '/^MemTotal:/ { print $2; exit }' /proc/meminfo)
-    # SWAP = "2 x RAMtotal + 1Go" avec MAX 16Go
-    SWAP_SIZE=$(( 1 + ram_total_kib * 2 / 1024 / 1024 ))
-    SWAP_MAX=16
-    if [[ "${SWAP_SIZE}" -gt "${SWAP_MAX}" ]]; then
-        SWAP_SIZE=${SWAP_MAX}
-    fi
-    target_size=$(( SWAP_SIZE * 1024 * 1024 * 1024 ))
-
-
-    if [[ -f "${swapdir}/swapfile" ]]; then
-        local current_size
-        current_size=$(sudo stat -c %s "${swapdir}/swapfile" 2>/dev/null || echo 0)
-
-        if [[ "${current_size}" -ne "${target_size}" ]]; then
-            _INFO "${swapdir}/swapfile existant mais taille différente de celle demandée (${current_size} octets). Recréation..."
-            _RUNSILENT "" sudo swapoff "${swapdir}/swapfile"
-            _RUNSILENT "" sudo rm -fv "${swapdir}/swapfile"
-            recreate_swap=true
-        else
-            _LOG "${swapdir}/swapfile est déjà correctement installé"
+        ram_total_kib=$(awk '/^MemTotal:/ { print $2; exit }' /proc/meminfo)
+        # SWAP = "2 x RAMtotal + 1Go" avec MAX 16Go
+        SWAP_SIZE=$(( 1 + ram_total_kib * 2 / 1024 / 1024 ))
+        SWAP_MAX=16
+        if [[ "${SWAP_SIZE}" -gt "${SWAP_MAX}" ]]; then
+            SWAP_SIZE=${SWAP_MAX}
         fi
-    else
-        recreate_swap=true
-    fi
+        target_size=$(( SWAP_SIZE * 1024 * 1024 * 1024 ))
 
-    if [[ "${recreate_swap}" == "true" ]]; then
-        local fs_type
-        fs_type=$(stat -f -c %T /var)
 
-        if [[ "${fs_type}" == "btrfs" ]]; then
-            if [[ -e "${swapdir}" ]]; then
-                if btrfs subvolume show "${swapdir}" >/dev/null 2>&1; then
-                    _INFO "Sous-volume BTRFS ${swapdir} existe déjà"
+        if [[ -f "${swapdir}/swapfile" ]]; then
+            local current_size
+            current_size=$(sudo stat -c %s "${swapdir}/swapfile" 2>/dev/null || echo 0)
+
+            if [[ "${current_size}" -ne "${target_size}" ]]; then
+                _INFO "${swapdir}/swapfile existant mais taille différente de celle demandée (${current_size} octets). Recréation..."
+                _RUNSILENT "" sudo swapoff "${swapdir}/swapfile"
+                _RUNSILENT "" sudo rm -fv "${swapdir}/swapfile"
+                recreate_swap=true
+            else
+                _LOG "${swapdir}/swapfile est déjà correctement installé"
+            fi
+        else
+            recreate_swap=true
+        fi
+
+        if [[ "${recreate_swap}" == "true" ]]; then
+            local fs_type
+            fs_type=$(stat -f -c %T /var)
+
+            if [[ "${fs_type}" == "btrfs" ]]; then
+                if [[ -e "${swapdir}" ]]; then
+                    if btrfs subvolume show "${swapdir}" >/dev/null 2>&1; then
+                        _INFO "Sous-volume BTRFS ${swapdir} existe déjà"
+                    else
+                        _RUNSILENT "" sudo rm -rvf "${swapdir}"
+                        _RUN "Création du sous-volume BTRFS ${swapdir}" sudo btrfs subvolume create "${swapdir}"
+                    fi
                 else
-                    _RUNSILENT "" sudo rm -rvf "${swapdir}"
                     _RUN "Création du sous-volume BTRFS ${swapdir}" sudo btrfs subvolume create "${swapdir}"
                 fi
-            else
-                _RUN "Création du sous-volume BTRFS ${swapdir}" sudo btrfs subvolume create "${swapdir}"
+                _RUN "Création du swapfile BTRFS (${SWAP_SIZE}GiB)" sudo btrfs filesystem mkswapfile --size "${SWAP_SIZE}g" "${swapdir}/swapfile"
+            else # ext4, ...
+                _RUNSILENT "" sudo mkdir -vp "${swapdir}"
+                _RUN "Création du swapfile (${SWAP_SIZE}GiB)" sudo fallocate -l "${SWAP_SIZE}G" "${swapdir}/swapfile"
+                _RUNSILENT "" sudo chmod 0600 -v "${swapdir}/swapfile"
+                _RUNSILENT "" sudo mkswap "${swapdir}/swapfile"
             fi
-            _RUN "Création du swapfile BTRFS (${SWAP_SIZE}GiB)" sudo btrfs filesystem mkswapfile --size "${SWAP_SIZE}g" "${swapdir}/swapfile"
-        else # ext4, ...
-            _RUNSILENT "" sudo mkdir -vp "${swapdir}"
-            _RUN "Création du swapfile (${SWAP_SIZE}GiB)" sudo fallocate -l "${SWAP_SIZE}G" "${swapdir}/swapfile"
-            _RUNSILENT "" sudo chmod 0600 -v "${swapdir}/swapfile"
-            _RUNSILENT "" sudo mkswap "${swapdir}/swapfile"
         fi
-    fi
 
-    if ! swapon --show | grep -q "${swapdir}/swapfile"; then
-        _RUN "Activation du swap" sudo swapon "${swapdir}/swapfile"
+        if ! swapon --show | grep -q "${swapdir}/swapfile"; then
+            _RUN "Activation du swap" sudo swapon "${swapdir}/swapfile"
+        else
+            _INFO "Swap déjà actif"
+        fi
+
+
+        # --- 2.5 SELinux : Autorisation pour systemd-logind ---
+        _LOG "* SELINUX SWAP *"
+        # 1. On s'assure que le label est déclaré et appliqué (rapide et idempotent)
+        if ! sudo semanage fcontext -l | grep -q "^${swapdir}(/.*)?"; then
+            _RUN "Définition du contexte SELinux pour ${swapdir}" sudo semanage fcontext -a -t swapfile_t "${swapdir}(/.*)?"
+        fi
+        _RUNSILENT "" sudo restorecon -RF "${swapdir}"
+
+        # 2. On vérifie si notre module SELinux local est déjà installé
+        if ! sudo semodule -l | grep -q "^systemd_swap_search$"; then
+            local selinux_tmp="/tmp/systemd_swap_search"
+
+            # module SElinux pour gérer le swap
+            local selinux_content
+            selinux_content=$'module systemd_swap_search 1.0;\nrequire {\ntype swapfile_t;\ntype systemd_logind_t;\nclass dir search;\n}\n#============= systemd_logind_t ==============\nallow systemd_logind_t swapfile_t:dir search;\n'
+
+            cat <<< "${selinux_content}" > "${selinux_tmp}.te"
+            _RUNSILENT "" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
+            _RUNSILENT "" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
+            _RUN "Installation du module SELinux systemd_swap_search" sudo semodule -i "${selinux_tmp}.pp"
+
+            _RUNSILENT "" rm -fv "${selinux_tmp}.*"
+        else
+            _LOG "Le module SELinux systemd_swap_search est déjà actif"
+        fi
     else
-        _INFO "Swap déjà actif"
-    fi
-
-
-    # --- 2.5 SELinux : Autorisation pour systemd-logind ---
-    _LOG "* SELINUX SWAP *"
-    # 1. On s'assure que le label est déclaré et appliqué (rapide et idempotent)
-    if ! sudo semanage fcontext -l | grep -q "^${swapdir}(/.*)?"; then
-        _RUN "Définition du contexte SELinux pour ${swapdir}" sudo semanage fcontext -a -t swapfile_t "${swapdir}(/.*)?"
-    fi
-    _RUNSILENT "" sudo restorecon -RF "${swapdir}"
-
-    # 2. On vérifie si notre module SELinux local est déjà installé
-    if ! sudo semodule -l | grep -q "^systemd_swap_search$"; then
-        local selinux_tmp="/tmp/systemd_swap_search"
-
-        # module SElinux pour gérer le swap
-        local selinux_content
-        selinux_content=$'module systemd_swap_search 1.0;\nrequire {\ntype swapfile_t;\ntype systemd_logind_t;\nclass dir search;\n}\n#============= systemd_logind_t ==============\nallow systemd_logind_t swapfile_t:dir search;\n'
-
-        cat <<< "${selinux_content}" > "${selinux_tmp}.te"
-        _RUNSILENT "" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
-        _RUNSILENT "" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
-        _RUN "Installation du module SELinux systemd_swap_search" sudo semodule -i "${selinux_tmp}.pp"
-
-        _RUNSILENT "" rm -fv "${selinux_tmp}.*"
-    else
-        _LOG "Le module SELinux systemd_swap_search est déjà actif"
+        _LOG "zswap n'est pas demandé (variable ZSWAP = ${ZSWAP}) => on ne crée pas de swap physique."
     fi
 }
 
 ########################################################################################################################
 SETUP_SUDO_RS() {
-    _SECTION " Configuration de sudo-rs " "━" "${C_GREEN}"
-    local change=0
-    # 1. On installe sudo-rs
-    if ! _EXIST sudo-rs; then
-        _RUN "Installation de sudo-rs" _PKG_INSTALL sudo-rs
-        change=1
-    fi
-
-    # 2. Copie (sans suppression) des fichiers vers le monde sudo-rs
-    local f_sudoers_rs="/etc/sudoers-rs"
-    local d_sudoers_rs_d="/etc/sudoers-rs.d"
-
-    if [[ -f "/etc/sudoers" && ! -f "${f_sudoers_rs}" ]]; then
-        _RUN "Création du fichier ${f_sudoers_rs} depuis l'original" sudo cp -a /etc/sudoers "${f_sudoers_rs}"
-        change=1
-    fi
-
-    if [[ -d "/etc/sudoers.d" && ! -d "${d_sudoers_rs_d}" ]]; then
-        _RUN "Création du dossier ${d_sudoers_rs_d} depuis l'original" sudo cp -a /etc/sudoers.d "${d_sudoers_rs_d}"
-        change=1
-    fi
-
-    # 3. Assurer la présence stricte des inclusions dans le nouveau fichier
-    # CORRECTION : Utilisation de ~ comme délimiteur sed pour ne pas interférer avec le OU (|)
-    if ! sudo grep -q "@includedir /etc/sudoers-rs.d" "${f_sudoers_rs}"; then
-        _RUN "Configuration des includedir dans ${f_sudoers_rs}" sudo bash -c "
-            sed -i -E 's~^(@|#)includedir[[:space:]]+/etc/sudoers\.d~@includedir /etc/sudoers-rs.d~g' '${f_sudoers_rs}'
-
-            if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers-rs\.d' '${f_sudoers_rs}'; then
-                echo -e '\n@includedir /etc/sudoers-rs.d' >> '${f_sudoers_rs}'
-            fi
-
-            if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers\.d' '${f_sudoers_rs}'; then
-                echo -e '# Fallback pour les paquets Fedora\n@includedir /etc/sudoers.d' >> '${f_sudoers_rs}'
-            fi
-        "
-        change=1
-    fi
-
-    # 4. Remplacement du binaire sudo (La BASCULE CRITIQUE)
-    local sys_sudo="/usr/bin/sudo"
-    local sys_sudo_bak="/usr/bin/sudo.bak"
-    local sudo_rs_bin="/usr/bin/sudo-rs"
-    local local_bin_sudo="/usr/local/bin/sudo"
-
-     local current_link=""
-     if [[ -L "${sys_sudo}" ]]; then
-         current_link=$(readlink "${sys_sudo}" || true)
-     fi
-
-     if [[ "${current_link}" != "${sudo_rs_bin}" ]]; then
-         # CORRECTION : On regroupe le 'mv' et le 'ln' dans le même appel sudo pour ne pas bloquer le système !
-         _RUN "Remplacement radical du binaire sudo" sudo bash -c "
-             if [[ -f '${sys_sudo}' && ! -L '${sys_sudo}' ]]; then
-                 mv -f '${sys_sudo}' '${sys_sudo_bak}'
-             fi
-             ln -sf '${sudo_rs_bin}' '${sys_sudo}'
-         "
-         change=1
-    fi
-
-    _PASS
-    #_RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
-    _SYMLINK "${sudo_rs_bin}" "${local_bin_sudo}"
-    [[ "${STATUSSYMLINK}" -eq 0 ]] && change=1 # le lien a bien été crée
-    _RUNSILENT "" sudo chmod -v 4111 "${sudo_rs_bin}"
-    _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
-
-    # 5. Déploiement des règles spécifiques
-    local pattern="%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper"
-    local file="${d_sudoers_rs_d}/90-profile-sync-daemon"
-    if sudo test -f "${file}"; then
-        if ! sudo grep -q "${pattern}" "${file}" > /dev/null; then
-            _RUN "Mise à jour de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
+    if [[ "${SUDORS}" = "yes" ]]; then
+        _SECTION " Configuration de sudo-rs " "━" "${C_GREEN}"
+        local change=0
+        # 1. On installe sudo-rs
+        if ! _EXIST sudo-rs; then
+            _RUN "Installation de sudo-rs" _PKG_INSTALL sudo-rs
             change=1
         fi
-    else
-        _RUN "Création de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
-        change=1
-    fi
 
-    local pattern="Defaults pwfeedback,timestamp_timeout=60"
-    local file2="${d_sudoers_rs_d}/99-timeout"
-    if sudo test -f "${file2}"; then
-        if ! sudo grep -q "${pattern}" "${file2}" > /dev/null; then
-            _RUN "Mise à jour de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
+        # 2. Copie (sans suppression) des fichiers vers le monde sudo-rs
+        local f_sudoers_rs="/etc/sudoers-rs"
+        local d_sudoers_rs_d="/etc/sudoers-rs.d"
+
+        if [[ -f "/etc/sudoers" && ! -f "${f_sudoers_rs}" ]]; then
+            _RUN "Création du fichier ${f_sudoers_rs} depuis l'original" sudo cp -a /etc/sudoers "${f_sudoers_rs}"
             change=1
         fi
+
+        if [[ -d "/etc/sudoers.d" && ! -d "${d_sudoers_rs_d}" ]]; then
+            _RUN "Création du dossier ${d_sudoers_rs_d} depuis l'original" sudo cp -a /etc/sudoers.d "${d_sudoers_rs_d}"
+            change=1
+        fi
+
+        # 3. Assurer la présence stricte des inclusions dans le nouveau fichier
+        # CORRECTION : Utilisation de ~ comme délimiteur sed pour ne pas interférer avec le OU (|)
+        if ! sudo grep -q "@includedir /etc/sudoers-rs.d" "${f_sudoers_rs}"; then
+            _RUN "Configuration des includedir dans ${f_sudoers_rs}" sudo bash -c "
+                sed -i -E 's~^(@|#)includedir[[:space:]]+/etc/sudoers\.d~@includedir /etc/sudoers-rs.d~g' '${f_sudoers_rs}'
+
+                if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers-rs\.d' '${f_sudoers_rs}'; then
+                    echo -e '\n@includedir /etc/sudoers-rs.d' >> '${f_sudoers_rs}'
+                fi
+
+                if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers\.d' '${f_sudoers_rs}'; then
+                    echo -e '# Fallback pour les paquets Fedora\n@includedir /etc/sudoers.d' >> '${f_sudoers_rs}'
+                fi
+            "
+            change=1
+        fi
+
+        # 4. Remplacement du binaire sudo (La BASCULE CRITIQUE)
+        local sys_sudo="/usr/bin/sudo"
+        local sys_sudo_bak="/usr/bin/sudo.bak"
+        local sudo_rs_bin="/usr/bin/sudo-rs"
+        local local_bin_sudo="/usr/local/bin/sudo"
+
+        local current_link=""
+        if [[ -L "${sys_sudo}" ]]; then
+            current_link=$(readlink "${sys_sudo}" || true)
+        fi
+
+        if [[ "${current_link}" != "${sudo_rs_bin}" ]]; then
+            # CORRECTION : On regroupe le 'mv' et le 'ln' dans le même appel sudo pour ne pas bloquer le système !
+            _RUN "Remplacement radical du binaire sudo" sudo bash -c "
+                if [[ -f '${sys_sudo}' && ! -L '${sys_sudo}' ]]; then
+                    mv -f '${sys_sudo}' '${sys_sudo_bak}'
+                fi
+                ln -sf '${sudo_rs_bin}' '${sys_sudo}'
+            "
+            change=1
+        fi
+
+        _PASS
+        #_RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
+        _SYMLINK "${sudo_rs_bin}" "${local_bin_sudo}"
+        [[ "${STATUSSYMLINK}" -eq 0 ]] && change=1 # le lien a bien été crée
+        _RUNSILENT "" sudo chmod -v 4111 "${sudo_rs_bin}"
+        _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
+
+        # 5. Déploiement des règles spécifiques
+        local pattern="%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper"
+        local file="${d_sudoers_rs_d}/90-profile-sync-daemon"
+        if sudo test -f "${file}"; then
+            if ! sudo grep -q "${pattern}" "${file}" > /dev/null; then
+                _RUN "Mise à jour de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
+                change=1
+            fi
+        else
+            _RUN "Création de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
+            change=1
+        fi
+
+        local pattern="Defaults pwfeedback,timestamp_timeout=60"
+        local file2="${d_sudoers_rs_d}/99-timeout"
+        if sudo test -f "${file2}"; then
+            if ! sudo grep -q "${pattern}" "${file2}" > /dev/null; then
+                _RUN "Mise à jour de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
+                change=1
+            fi
+        else
+            _RUN "Création de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
+            change=1
+        fi
+
+        _RUNSILENT "" sudo chmod -v 0440 "${f_sudoers_rs}"
+        _RUNSILENT "" sudo chmod -v 0750 "${d_sudoers_rs_d}"
+        _RUNSILENT "" sudo chmod -v 0440 "${file}" "${file2}"
+
+        # 6. Nettoyage radical des anciens fichiers
+        if [[ -f "/etc/sudoers" && ! -L "/etc/sudoers" ]]; then
+            _RUNSILENT "" sudo mv -vf /etc/sudoers /etc/sudoers.bak
+            change=1
+        fi
+
+        if [[ -d "/etc/sudoers.d" ]]; then
+            _RUNSILENT "" sudo rm -vrf /etc/sudoers.d
+        fi
+        _RUNSILENT "" sudo mkdir -pv /etc/sudoers.d
+        _RUNSILENT "" sudo chmod -v 0750 /etc/sudoers.d
+
+        # 7. Blocage propre des futures mises à jour du vieux sudo par DNF
+        if ! sudo dnf versionlock list | grep -q sudo; then
+            _RUNSILENT "" sudo dnf versionlock add sudo
+            change=1
+        fi
+        if ! sudo grep -q sudo /etc/dnf/dnf.conf; then
+            _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
+            change=1
+        fi
+        if [[ "${change}" -eq 1 ]]; then
+            _OK "sudo-rs est en place et remplace définitivement sudo"
+        else
+            _INFO "sudo-rs déjà correctement configuré"
+        fi
     else
-        _RUN "Création de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
-        change=1
-    fi
-
-    _RUNSILENT "" sudo chmod -v 0440 "${f_sudoers_rs}"
-    _RUNSILENT "" sudo chmod -v 0750 "${d_sudoers_rs_d}"
-    _RUNSILENT "" sudo chmod -v 0440 "${file}" "${file2}"
-
-    # 6. Nettoyage radical des anciens fichiers
-    if [[ -f "/etc/sudoers" && ! -L "/etc/sudoers" ]]; then
-        _RUNSILENT "" sudo mv -vf /etc/sudoers /etc/sudoers.bak
-        change=1
-    fi
-
-    if [[ -d "/etc/sudoers.d" ]]; then
-        _RUNSILENT "" sudo rm -vrf /etc/sudoers.d
-    fi
-    _RUNSILENT "" sudo mkdir -pv /etc/sudoers.d
-    _RUNSILENT "" sudo chmod -v 0750 /etc/sudoers.d
-
-    # 7. Blocage propre des futures mises à jour du vieux sudo par DNF
-    if ! sudo dnf versionlock list | grep -q sudo; then
-        _RUNSILENT "" sudo dnf versionlock add sudo
-        change=1
-    fi
-    if ! sudo grep -q sudo /etc/dnf/dnf.conf; then
-        _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
-        change=1
-    fi
-    if [[ "${change}" -eq 1 ]]; then
-        _OK "sudo-rs est en place et remplace définitivement sudo"
-    else
-        _INFO "sudo-rs déjà correctement configuré"
+        _LOG "sudo-rs n'est pas demandé (variable SUDORS = ${SUDORS}) => on laisse sudo tel quel."
     fi
 }
 

@@ -3,26 +3,29 @@
 #   Paramètres utilisateur de post-install-fedora.sh   #
 ########################################################
 
-# nom de la machine (si vide on ne change pas le nom de l'installer) #--------------------------------------------------------
+# nom de la machine (si vide on ne change pas le nom de l'installer) ---------------------------------------------------------
 MYHOSTNAME="MyFedoraBTW"
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# paquets RPM à installer #---------------------------------------------------------------------------------------------------
+# on remplace sudo par sudo-rs ? ---------------------------------------------------------------------------------------------
+SUDORS="yes"
+#-----------------------------------------------------------------------------------------------------------------------------
+
+
+# paquets RPM à installer ----------------------------------------------------------------------------------------------------
 DNF_PACKAGES=(
     zsh fastfetch util-linux-script foot ghostty fzf bat-extras grc axel rclone procs msmtp s-nail
     wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
-    vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng
+    vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng lynis
     libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro konversation libpcap-devel
     # Ajoute tes autres paquets ici
 )
-
-
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# paquets RPM à désinstaller #------------------------------------------------------------------------------------------------
+# paquets RPM à désinstaller -------------------------------------------------------------------------------------------------
 DNF_REMOVE=(
     default-fonts-cjk-mono
     default-fonts-cjk-sans
@@ -30,9 +33,8 @@ DNF_REMOVE=(
     default-fonts-other-mono
     default-fonts-other-sans
     default-fonts-other-serif
-    PackageKit-glib rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan
+    PackageKit-glib rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan at
     plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover sudo-python-plugin sssd-common plymouth-core-libs
-    at
     # inutile sur HP EliteBook 645 14 inch G9 Notebook PC :
     nxpwireless-firmware
     tiwilink-firmware
@@ -55,7 +57,7 @@ DNF_REMOVE=(
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# polices à installer (les 2 nerd font ici sont dans le dépôt Terra qui est ajouté automatiquement) #-------------------------
+# polices à installer (les 2 nerd font ici sont dans le dépôt Terra qui est ajouté automatiquement) --------------------------
 FONTS=(
     jetbrainsmono-nerd-fonts
     iosevka-nerd-fonts
@@ -66,7 +68,7 @@ VCONSOLE_FONT="ter-v24b" # font console
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# paquets flatpak à installer #-----------------------------------------------------------------------------------------------
+# paquets flatpak à installer ------------------------------------------------------------------------------------------------
 FLATPAK_PKGS=(
     "com.ktechpit.whatsie"
     "io.github.giantpinkrobots.flatsweep"
@@ -76,7 +78,7 @@ FLATPAK_PKGS=(
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé" #--------------------------------------------
+# outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé" ---------------------------------------------
 CARGO_PACKAGES=(
     cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg
     ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina eza netwatch-tui
@@ -92,12 +94,12 @@ declare -A BIN_MAPPING=(
         ["ripgrep"]="rg"
         ["netwatch-tui"]="netwatch"
         ["cargo-update"]="cargo-install-update cargo-install-update-config"
-        # Ajoute tes autres correspondances ici
+        # Ajoute tes autres correspondances nécessaires ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# outils GO #-----------------------------------------------------------------------------------------------------------------
+# outils GO ------------------------------------------------------------------------------------------------------------------
 declare -A GO_PACKAGES=(
     ["stormy"]="github.com/ashish0kumar/stormy@latest"
     ["golazo"]="github.com/0xjuanma/golazo@latest"
@@ -108,7 +110,7 @@ declare -A GO_PACKAGES=(
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# mes repos git à installer (repo dotfiles obligatoire, autres optionnels) ---------------------------------------------------
+# Repos git à installer (repo dotfiles obligatoire, autres optionnels) -------------------------------------------------------
 MYREPOS="https://codeberg.org/jotenakis"
 DOTFILES_REPO="${MYREPOS}/dotfiles"
 DOTFILES_DIR="${HOME}/dotfiles"
@@ -122,7 +124,7 @@ GIT_REPOS=(
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# services réseaux à autoriser dans le pare-feu #-----------------------------------------------------------------------------
+# services réseaux à autoriser dans le pare-feu ------------------------------------------------------------------------------
 FIREWALL_SERVICES=(
     "mdns"
     "ipp-client"
@@ -132,27 +134,28 @@ FIREWALL_SERVICES=(
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# services systemd à désactiver #---------------------------------------------------------------------------------------------
+# services systemd à désactiver ----------------------------------------------------------------------------------------------
 declare -A SERVICES_TO_DISABLE=(
     ["ModemManager.service"]="service ModemManager (modem 4G/5G)"
     ["switcheroo-control.service"]="service switcheroo (GPU hybride)"
     ["flatpak-add-fedora-repos.service"]="service fedora flatpak repo"
     ["mdmonitor.service"]="service Software RAID monitoring and management"
-    ["lvm2-monitor.service"]="service Monitoring of LVM"
-    ["pcscd.socket"]="socket PC/SC Smart Card Daemon Activation"
-    ["accounts-daemon.service"]="service Accounts (comptes en ligne)"
+    ["lvm2-monitor.service"]="service Monitoring LVM"
+    ["pcscd.socket"]="socket PC/SC Smart Card Daemon"
     ["lm_sensors.service"]="service Hardware Monitoring Sensors (collecte)"
     ["authselect-apply-changes.service"]="service Apply authselect changes (PAM)"
     ["raid-check.timer"]="timer Weekly RAID setup health check"
     ["iscsid.socket"]="socket Open-iSCSI iscsid"
     ["iscsiuio.socket"]="socket Open-iSCSI iscsiuio"
     ["lvm2-lvmpolld.socket"]="socket LVM poll"
+    ["systemd-oomd.socket"]="socket Out of Memory Killer"
+    ["systemd-oomd.service"]="service Out of Memory Killer"
     # ajoute tes autres services systemd à désactiver ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# services systemd à activer #---------------------------------------------------------------------------------------------
+# services systemd --user à activer ------------------------------------------------------------------------------------------
 declare -A USER_SERVICES_TO_ENABLE=(
     ["psd.service"]="service profile-sync-daemon"
     # ajoute tes autres services systemd à désactiver ici
@@ -160,7 +163,7 @@ declare -A USER_SERVICES_TO_ENABLE=(
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# configuration du noyau #----------------------------------------------------------------------------------------------------
+# configuration du noyau -----------------------------------------------------------------------------------------------------
 SYSCTL_CONF='
 # optimizing
 vm.swappiness = 10
@@ -226,7 +229,7 @@ net.ipv4.conf.default.rp_filter = 1
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# configuration pour débloater brave browser #--------------------------------------------------------------------------------
+# configuration pour débloater brave browser ---------------------------------------------------------------------------------
 # shellcheck disable=SC2089
 BRAVE_POLICIES='{
     "BraveRewardsDisabled": true,
@@ -316,7 +319,7 @@ TTY_COLOR="vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# ZSWAP yes/no ? si "yes" zram sera désactivé --------------------------------------------------------------------------------
+# ZSWAP yes/no ? si "yes" zram sera désactivé et un swapfile sera ajouté (backend) -------------------------------------------
 ZSWAP="yes"
 #-----------------------------------------------------------------------------------------------------------------------------
 
@@ -326,24 +329,23 @@ CMDLINE="ipv6.disable=1"
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# paramètres additionels de la ligne de commande du noyau (zswap sera automatiquement ajouté même si non spécifié ici) -------
+# position du panneau de KDE (top, bottom, right, left) ----------------------------------------------------------------------
 KDEPANEL="top"
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# Montage NFS #---------------------------------------------------------------------------------------------------------------
+# Montage NFS ----------------------------------------------------------------------------------------------------------------
 NFS_SHARE="192.168.50.51:/mnt/usbdrive/data"
 NFS_MP="/media/NAS"
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
-# règle udev persistante #----------------------------------------------------------------------------------------------------
-UDEVDESCR="Clé NVME"
-UDEVFILE="99-nvme-key.rules"
+# règle udev persistante (par ex : clé usb) ----------------------------------------------------------------------------------
 # shellcheck disable=SC2089,SC2016
-UDEVRULE='# clé nvme
+UDEVRULE='# clé NVMe
 ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="b6fed99c-7c1a-4146-a445-f2660c01146e", ENV{UDISKS_IGNORE}="1", RUN{program}+="/usr/bin/systemd-mount --no-block --automount=yes --collect $devnode /media/cleNVME", RUN{program}+="/bin/chown -R 1000:1000 /media/cleNVME"
 '
+UDEVDESCR="Clé NVMe"
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
@@ -397,7 +399,6 @@ export CMDLINE
 export KDEPANEL
 export NFS_SHARE
 export NFS_MP
-export UDEVFILE
 # shellcheck disable=SC2090
 export UDEVRULE
 export UDEVDESCR
@@ -411,4 +412,5 @@ export ACTIVATE_SSHD
 export BANNER
 export VCONSOLE_FONT
 export ZSWAP
+export SUDORS
 ###############################################################################################################################
