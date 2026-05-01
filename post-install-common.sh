@@ -328,11 +328,11 @@ SETUP_DOTFILES() {
     fi
 
     # 1- nettoyage avant stow pour éviter erreurs.
-    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/konsolerc" ".config/user-dirs.dirs" ".config/user-dirs.locale")
+    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/konsolerc" ".config/user-dirs.dirs" ".config/user-dirs.locale")
     local file
     for file in "${skel_files[@]}"; do
         if [[ -f "${HOME}/${file}" && ! -L "${HOME}/${file}" ]]; then
-            _RUNSILENT "" rm -vf "${HOME}/${file}"
+            _RUNSILENT "" rm -f "${HOME}/${file}"
         fi
     done
 
@@ -350,7 +350,7 @@ SETUP_DOTFILES() {
         _LOG "Reconstruction du cache de bat"
         _RUNSILENT "" bash -c "bat cache --clear; bat cache --build"
     fi
-    _INFO "Les dotfiles ne sont déployés que pour l'utilisateur qui lance le script (ici : ${USER})"
+    _INFO "Dotfiles déployés que pour l'utilisateur qui lance le script (ici : ${USER})"
 
 }
 
