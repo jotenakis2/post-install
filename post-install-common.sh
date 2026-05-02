@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -Eeuo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=28.6
+readonly VER=28.7
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -328,11 +328,14 @@ SETUP_DOTFILES() {
     fi
 
     # 1- nettoyage avant stow pour éviter erreurs.
-    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/konsolerc" ".config/user-dirs.dirs" ".config/user-dirs.locale")
+    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/kglobalshortcutsrc" ".config/konsolerc" ".config/user-dirs.dirs" ".config/user-dirs.locale")
     local file
+    mkdir -p ./backup
+    _LOG "déplacement de fichiers qui seront remplacés par le dotfiles via stow dans ./backup"
     for file in "${skel_files[@]}"; do
         if [[ -f "${HOME}/${file}" && ! -L "${HOME}/${file}" ]]; then
-            _RUNSILENT "" rm -f "${HOME}/${file}"
+            #_RUNSILENT "" rm -f "${HOME}/${file}"
+            _RUNSILENT "" mv "${HOME}/${file}" ./backup/
         fi
     done
 
