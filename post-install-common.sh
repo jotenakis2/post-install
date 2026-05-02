@@ -16,51 +16,14 @@ MAIN() {
     trap 'sudo rm -f "${SUDOTMP[@]}"; _DIE "Log : ${LOG_FILE}"' ERR INT
     CHECK
     INITIALIZE
-
     if [[ "${args}" = "--shellonly" ]] || [[ "${args}" = "-s" ]]; then
-
-        _SECTION " Mode shellonly (cargo, go, git, shell, dotfiles) " "━" "${C_GREEN}"
-        INSTALL_CARGO_PACKAGES ; INSTALL_GO_PACKAGES ; INSTALL_GIT_REPOS ; SETUP_SHELL ; SETUP_DOTFILES
-
+        SHELLONLYMODE
     elif [[ "${args}" = "--check" ]] || [[ "${args}" = "-c" ]]; then
-
-        _SECTION " Mode contrôle - paramètres personnalisables de ${SCRIPTNAME} " "━" "${C_GREEN}"
-        echo "Fichier : "
-        ls -l ./settings.sh 2>/dev/null
-        echo ""
-        echo "Contenu : "
-        if _EXIST bat ; then
-            grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh | bat -pP
-        else
-            grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh
-        fi
-        echo ""
-        _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
-        exit 0
-
+        CHECKMODE
     elif [[ "${args}" = "--help" ]] || [[ "${args}" = "-h" ]]; then
-
-        _SECTION " Mode aide " "━" "${C_GREEN}"
-        _INFO "Usage : ./${SCRIPTNAME} [ --shellonly | --check | --help ]"
-        _INFO "Sans option, ${SCRIPTNAME} éxécute la post-installation complète."
-        _INFO "Les paramètres personnalisables sont stockés dans ./settings.sh."
-        _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
-        exit 0
-
+        HELPMODE
     else
-        _REFRESH_SYS_CACHE
-        _RUN "Mise à jour forcée du système" _SYS_UPDATE
-        SETUP_SUDO_RS
-        # remove/install
-        REMOVE_RPM_PACKAGES
-        INSTALL_REPOS ; INSTALL_RPM_PACKAGES ; INSTALL_FONTS ; INSTALL_CODECS
-        INSTALL_CARGO_PACKAGES ; INSTALL_GO_PACKAGES ; INSTALL_FLATPAK_PACKAGES
-        INSTALL_GIT_REPOS
-        # config
-        SETUP_SHELL ; SETUP_DOTFILES; SETUP_ETC ; SETUP_CHRONY ; SETUP_SYSTEMD ; SETUP_FIREWALL
-        SETUP_SWAP ; SETUP_SSHD ; SETUP_FSTAB ; SETUP_GRUB
-        SETUP_KDE_PLASMA ; SETUP_PLM
-        SETUP_DATA
+        MAINMODE
     fi
     END
 }
@@ -69,7 +32,74 @@ MAIN() {
 ########################################################################################################################
 # FONCTIONS DISTRO-AGNOSTIQUE                                                                                          #
 ########################################################################################################################
+MAINMODE(){
+    _REFRESH_SYS_CACHE
+    _RUN "Mise à jour forcée du système" _SYS_UPDATE
+    SETUP_SUDO_RS
+    # remove/install
+    REMOVE_RPM_PACKAGES
+    INSTALL_REPOS
+    INSTALL_RPM_PACKAGES
+    INSTALL_FONTS
+    INSTALL_CODECS
+    INSTALL_CARGO_PACKAGES
+    INSTALL_GO_PACKAGES
+    INSTALL_FLATPAK_PACKAGES
+    INSTALL_GIT_REPOS
+    # config
+    SETUP_SHELL
+    SETUP_DOTFILES
+    SETUP_ETC
+    SETUP_CHRONY
+    SETUP_SYSTEMD
+    SETUP_FIREWALL
+    SETUP_SWAP
+    SETUP_SSHD
+    SETUP_FSTAB
+    SETUP_GRUB
+    SETUP_KDE_PLASMA
+    SETUP_PLM
+    SETUP_DATA
+}
 
+########################################################################################################################
+SHELLONLYMODE(){
+    _SECTION " Mode shellonly (cargo, go, git, shell, dotfiles) " "━" "${C_GREEN}"
+    INSTALL_CARGO_PACKAGES
+    INSTALL_GO_PACKAGES
+    INSTALL_GIT_REPOS
+    SETUP_SHELL
+    SETUP_DOTFILES
+}
+
+########################################################################################################################
+CHECKMODE(){
+    _SECTION " Mode contrôle - paramètres personnalisables de ${SCRIPTNAME} " "━" "${C_GREEN}"
+    echo "Fichier : "
+    ls -l ./settings.sh 2>/dev/null
+    echo ""
+    echo "Contenu : "
+    if _EXIST bat ; then
+        grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh | bat -pP
+    else
+        grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh
+    fi
+    echo ""
+    _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
+    exit 0
+}
+
+########################################################################################################################
+HELPMODE(){
+    _SECTION " Mode aide " "━" "${C_GREEN}"
+    _INFO "Usage : ./${SCRIPTNAME} [ --shellonly | --check | --help ]"
+    _INFO "Sans option, ${SCRIPTNAME} éxécute la post-installation complète."
+    _INFO "Les paramètres personnalisables sont stockés dans ./settings.sh."
+    _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
+    exit 0
+}
+
+########################################################################################################################
 INITIALIZE() {
     local heure
     heure=$(date '+%T')
