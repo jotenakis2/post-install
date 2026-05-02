@@ -459,8 +459,8 @@ _MANAGE_TABLE(){
             ((${#present[@]})) && _INFO "Paquets à IGNORER car réussissant le test \"${test}\" : ${present_fmt}"
             _INFO "Paquets à TRAITER car échouant au test \"${test}\" : ${missing_fmt}"
             _RUN "${treat^} en cours..." "${install_cmd}" "${missing[@]}"
-            printf '\e[1A' # je remonte d'une ligne pour écraser le "en cours..."
-            _OK "${treat^} terminée."
+            printf '\e[1A\e[2K' # je remonte d'une ligne et je la vide, pour écraser le "en cours..."
+            _OK "Traitement terminé, ${treat} OK."
         else
             all_fmt=$(_FORMAT_LIST "$@")
             _INFO "Tout a été traité (${treat}) : ${all_fmt}"

@@ -112,7 +112,7 @@ INSTALL_REPOS() {
     _CLEANUP_APPSTREAM
 
     if [[ "${cache}" -eq 1 ]]; then
-        _RUN "Mise à jour du cache des métadonnées des dépôts" sudo dnf makecache
+        _RUN "Mise à jour du cache des métadonnées des dépôts" sudo dnf makecache --refresh
     fi
 }
 
@@ -606,7 +606,7 @@ _REFRESH_SYS_CACHE() {
     age=$(( now - sentinel_mtime ))
 
     if [[ ${age} -gt ${max_age} ]]; then
-        _RUN "Mise à jour du cache des métadonnées des dépôts" sudo dnf makecache
+        _RUN "Mise à jour du cache des métadonnées des dépôts" sudo dnf makecache --refresh
         sudo touch "${sentinel}"
     else
         _LOG "Cache DNF à jour (${age}s < ${max_age}s)"
