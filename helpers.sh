@@ -533,16 +533,14 @@ _PRINT_LIST() {
     width=$(tput cols 2>/dev/null) || width=81
     width=$(( width - 1 ))
     local indent="     "
-    local line=""
+    local line="${indent}"
     local word
     local -a words
 
     read -r -a words <<< "${list}"
     for word in "${words[@]}"; do
-        if [[ -z "${line}" ]]; then
-            line="${word}"
-        elif (( ${#line} + 1 + ${#word} <= width )); then
-            line="${line} ${word}"
+        if (( ${#line} + ${#word} <= width )); then
+            line="${line}${word}"
         else
             printf '%s\n' "${line}"
             line="${indent}${word}"
