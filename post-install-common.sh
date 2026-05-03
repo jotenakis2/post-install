@@ -13,7 +13,7 @@ MAIN() {
     source ./helpers.sh
     _ENABLE_COLORS
     # en cas d'erreur ou d'interruption je nettoie, affiche le LOGFILE et sort proprement.
-    trap 'sudo rm -f "${SUDOTMP[@]}"; _DIE "Log : ${LOG_FILE}"' ERR INT
+    trap 'sudo rm -f "${SUDOTMP[@]}"; _PRINT_ETC_FILES ; _DIE "Log : ${LOG_FILE}"' ERR INT
     CHECK
     INITIALIZE
     if [[ "${args}" = "--shellonly" ]] || [[ "${args}" = "-s" ]]; then
@@ -1121,16 +1121,13 @@ END() {
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
     _INFO "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
     if [[ -n "${ETC_FILES[*]}" ]]; then
-        _INFO "Fichiers système crées ou modifiés : ${ETC_FILES[*]}"
-        echo "${ETC_FILES[*]}" > "${HOME}/list-of-system-files-created-by-${SCRIPTNAME}"
-        _RUNSILENT sudo cp -f "${HOME}/list-of-system-files-created-by-${SCRIPTNAME}" "/root/list-of-system-files-created-by-${SCRIPTNAME}"
+        _PRINT_ETC_FILES
         _INFO "REDÉMARREZ pour appliquer les modifications complètement !"
     else
         _INFO "REDÉMARREZ pour appliquer les modifications éventuelles complètement !"
     fi
 
     # LOG
-    echo "Fichiers système crées ou modifiés : ${ETC_FILES[*]}" >> "${LOG_FILE}"
     _INFO "Fichier log de la post-installation : ${LOG_FILE}"
     _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
     local url
