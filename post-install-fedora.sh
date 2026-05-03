@@ -219,8 +219,8 @@ SETUP_CHRONY() {
             _RUN "Configuration de chronyd (${chrony_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
            _RUNSILENT "" sudo systemctl try-restart chronyd
            _ETC_FILES_ADD "${chrony_file}"
-           { ls -l "${chrony_file}"
-             cat "${chrony_file}"
+           { sudo ls -l "${chrony_file}"
+             sudo cat "${chrony_file}"
            } >> "${LOG_FILE}"
         fi
     else
@@ -275,8 +275,8 @@ SETUP_GRUB(){
         else
             _INFO "GRUB déjà correctement configuré (/etc/default/grub)"
         fi
-        { ls -l /etc/default/grub
-          cat /etc/default/grub
+        { sudo ls -l /etc/default/grub
+          sudo cat /etc/default/grub
         } >> "${LOG_FILE}"
     else
         _ERR "GRUB n'a pas été détecté, je ne change rien au bootloader."
@@ -376,7 +376,7 @@ SETUP_SWAP(){ # que si zswap est demandé
                 _RUNSILENT "" sudo mkswap "${swapdir}/swapfile"
             fi
             _ETC_FILES_ADD "${swapdir}/swapfile"
-            ls -l "${swapdir}/swapfile" >> "${LOG_FILE}"
+            find "${swapdir}" -ls | sudo tee -a "${LOG_FILE}" > /dev/null
         fi
 
         if ! swapon --show | grep -q "${swapdir}/swapfile"; then

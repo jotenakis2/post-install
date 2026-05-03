@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -Eeuo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=29.0
+readonly VER=29.1
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -375,7 +375,7 @@ SETUP_DOTFILES() {
 
     # 2- stow pour déployer dotfiles depuis dépôt git
     local pkg name
-    echo -en " ${C_GREEN}✓ ${C_RESET}  Stow : "
+    echo -en " ${C_GREEN}✓ ${C_RESET} Stow :"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
         echo -n " ${name}"
@@ -785,8 +785,8 @@ SystemKeepFree=2G
         _RUN "Réglage du journal système (${journald_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${journald_file}" <<< "${journald_content}"
         _ETC_FILES_ADD "/etc/systemd/journald.conf"
     fi
-    { ls -l "${journald_file}"
-      cat "${journald_file}"
+    { sudo ls -l "${journald_file}"
+      sudo cat "${journald_file}"
       echo ""
     } >> "${LOG_FILE}"
 
@@ -850,8 +850,8 @@ SystemKeepFree=2G
         _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
         _ETC_FILES_ADD "${sysctlfile}"
     fi
-    { ls -l "${sysctlfile}"
-      cat "${sysctlfile}"
+    { sudo ls -l "${sysctlfile}"
+      sudo cat "${sysctlfile}"
       echo ""
     } >> "${LOG_FILE}"
 
@@ -868,8 +868,8 @@ SystemKeepFree=2G
         _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
         _ETC_FILES_ADD "${brave_policy_file}"
     fi
-    { ls -l "${brave_policy_file}"
-      cat "${brave_policy_file}"
+    { sudo ls -l "${brave_policy_file}"
+      sudo cat "${brave_policy_file}"
       echo ""
     } >> "${LOG_FILE}"
 
@@ -896,8 +896,8 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         _RUNSILENT "" sudo udevadm trigger
         _ETC_FILES_ADD "${rules_file}"
     fi
-    { ls -l "${rules_file}"
-      cat "${rules_file}"
+    { sudo ls -l "${rules_file}"
+      sudo cat "${rules_file}"
       echo ""
     } >> "${LOG_FILE}"
 
@@ -917,8 +917,8 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
             _RUNSILENT "" sudo udevadm trigger
             _ETC_FILES_ADD "${rules_file}"
         fi
-        { ls -l "${rules_file}"
-          cat "${rules_file}"
+        { sudo ls -l "${rules_file}"
+          sudo cat "${rules_file}"
           echo ""
         } >> "${LOG_FILE}"
     else
@@ -1008,14 +1008,14 @@ ${SSHD_CONFIG}"
         else
             _RUN "Activation du service sshd" sudo systemctl --now enable sshd.service
         fi
-        { ls -l "${config_ssh_file}"
-          cat "${config_ssh_file}"
+        { sudo ls -l "${config_ssh_file}"
+          sudo cat "${config_ssh_file}"
           echo ""
-          ls -l "${config_ssh_allow}"
-          cat "${config_ssh_allow}"
+          sudo ls -l "${config_ssh_allow}"
+          sudo cat "${config_ssh_allow}"
           echo ""
-          ls -l "${banner_file}"
-          cat "${banner_file}"
+          sudo ls -l "${banner_file}"
+          sudo cat "${banner_file}"
           echo ""
         } >> "${LOG_FILE}"
     else
@@ -1057,8 +1057,8 @@ EOF
         else
             _LOG "Wallpaper PLM déjà configuré"
         fi
-        { ls -l "${configPLM}"
-          cat "${configPLM}"
+        { sudo ls -l "${configPLM}"
+          sudo cat "${configPLM}"
         } >>"${LOG_FILE}"
     else
         _LOG "Fond d'écran custo de PLM introuvable : ${src}"
