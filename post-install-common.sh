@@ -247,13 +247,13 @@ INSTALL_GO_PACKAGES() {
             done
             if [[ -z "${missing[*]}" ]]; then
                 local present_fmt
-                present_fmt=$(_FORMAT_LIST "${present[*]}")
+                present_fmt=$(_FORMAT_LIST "${present[@]}")
                 _INFO "Tout a été traité (installation) : "
                 _PRINT_LIST "${present_fmt}"
             else
                 if [[ -n "${present[*]}" ]]; then
                     local present_fmt
-                    present_fmt=$(_FORMAT_LIST "${present[*]}")
+                    present_fmt=$(_FORMAT_LIST "${present[@]}")
                     _INFO "Déjà installé : "
                     _PRINT_LIST "${present_fmt}"
                 fi
