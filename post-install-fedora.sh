@@ -582,7 +582,7 @@ _CLEANUP_APPSTREAM() {
 ########################################################################################################################
 _PKG_CONFIG() {
     local dnf="/etc/dnf/dnf.conf"
-    if ! sudo grep -q "main defaultyes true" "${dnf}" 2>/dev/null || ! sudo grep -q "main max_parallel_downloads 10" "${dnf}" 2>/dev/null || ! sudo grep -q "main countme False" "${dnf}" 2>/dev/null ; then
+    if ! sudo grep -q "defaultyes = true" "${dnf}" 2>/dev/null || ! sudo grep -q "max_parallel_downloads = 10" "${dnf}" 2>/dev/null || ! sudo grep -q "countme = False" "${dnf}" 2>/dev/null ; then
         _ETC_FILES_ADD "${dnf}"
     fi
     _RUNSILENT "" sudo crudini --verbose --set "${dnf}" main defaultyes true

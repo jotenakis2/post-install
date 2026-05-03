@@ -3,7 +3,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=29.8
+readonly VER=29.9
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -14,7 +14,7 @@ MAIN() {
     source ./helpers.sh
     _ENABLE_COLORS
     # en cas d'erreur ou d'interruption je nettoie, affiche le LOGFILE et sort proprement.
-    trap 'sudo rm -f "${SUDOTMP[@]}"; _PRINT_ETC_FILES ; _DIE "Log : ${LOG_FILE}"' ERR INT
+    trap 'echo "" ; sudo rm -f "${SUDOTMP[@]}" ; _PRINT_ETC_FILES ; _DIE "Log : ${LOG_FILE}"' ERR INT
     CHECK
     INITIALIZE
     if [[ "${args}" = "--shellonly" ]] || [[ "${args}" = "-s" ]]; then
@@ -365,18 +365,17 @@ SETUP_DOTFILES() {
     # 1- nettoyage avant stow pour éviter erreurs.
     local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/kglobalshortcutsrc" ".config/konsolerc" ".config/user-dirs.dirs" ".config/user-dirs.locale")
     local file
-    mkdir -p ./backup
-    _LOG "déplacement de fichiers qui seront remplacés par le dotfiles via stow dans ./backup"
+    mkdir -p "${HOME}/backup"
+    _LOG "déplacement de fichiers qui seront remplacés par le dotfiles via stow dans ~/backup"
     for file in "${skel_files[@]}"; do
         if [[ -f "${HOME}/${file}" && ! -L "${HOME}/${file}" ]]; then
-            #_RUNSILENT "" rm -f "${HOME}/${file}"
-            _RUNSILENT "" mv "${HOME}/${file}" ./backup/
+            _RUNSILENT "" mv -v "${HOME}/${file}" "${HOME}/backup/"
         fi
     done
 
     # 2- stow pour déployer dotfiles depuis dépôt git
     local pkg name
-    echo -en " ${C_GREEN}✓ ${C_RESET} Stow :"
+    echo -en " ${C_GREEN}✓ ${C_RESET} reStow :"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
         echo -n " ${name}"
@@ -388,7 +387,7 @@ SETUP_DOTFILES() {
         _LOG "Reconstruction du cache de bat"
         _RUNSILENT "" bash -c "bat cache --clear; bat cache --build"
     fi
-    _INFO "Dotfiles déployés que pour l'utilisateur qui lance le script (ici : ${USER})"
+    _INFO "Note : dotfiles déployés uniquement pour ${USER}"
 
 }
 
