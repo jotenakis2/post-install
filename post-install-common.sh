@@ -385,11 +385,11 @@ SETUP_DOTFILES() {
     done
 
     # 2- stow pour déployer dotfiles depuis dépôt git
-    local pkg name listdot=""
-    echo -en " ${C_GREEN}✓ ${C_RESET} reStow :"
+    local pkg name listdot=" "
+    echo -e " ${C_GREEN}✓ ${C_RESET} reStow :"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
-        listdot="${listdot} ${name}"
+        listdot="${listdot}${name} "
         #stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
     done
     _PRINT_LIST "${listdot}" | tee -a "${LOG_FILE}"
