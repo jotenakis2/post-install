@@ -530,24 +530,27 @@ _FORMAT_LIST() {
 _PRINT_LIST() {
     local list="${1:?print_list: argument manquant}"
     local width
-    width=$(tput cols 2>/dev/null) || width=81
-    width=$(( width - 1 ))
+    width=$(tput cols 2>/dev/null) || width=80
     local indent="     "
     local line="${indent}"
-    local word
-    local -a words
+    local char
+    local i
 
-    read -r -a words <<< "${list}"
-    for word in "${words[@]}"; do
-        if (( ${#line} + ${#word} <= width )); then
-            line="${line}${word}"
+    for (( i=0; i<${#list}; i++ )); do
+        char="${list:i:1}"
+        if [[ "${char}" == $'\n' ]]; then
+            printf '%s\n' "${line}"
+            line="${indent}"
+        elif (( ${#line} + 1 <= width )); then
+            line="${line}${char}"
         else
             printf '%s\n' "${line}"
-            line="${indent}${word}"
+            line="${indent}${char}"
         fi
     done
 
-    [[ -n "${line}" ]] && printf '%s\n' "${line}"
+    [[ "${line}" != "${indent}" ]] && printf '%s\n' "${line}"
+
 }
 
 
