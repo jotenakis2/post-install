@@ -541,7 +541,7 @@ _PRINT_LIST() {
     local list="${1:?print_list: argument manquant}"
     local width
     width=$(tput cols 2>/dev/null) || width=80
-    local indent="     "
+    local indent="        "
     local line="${indent}"
     local chunk=""
     local char

@@ -246,7 +246,8 @@ INSTALL_GO_PACKAGES() {
                 fi
             done
             if [[ -z "${missing[*]}" ]]; then
-                _INFO "Tout a été traité (installation) : ${present[*]}"
+                _INFO "Tout a été traité (installation) : "
+                _PRINT_LIST "${present[*]}"
             else
                 [[ -n "${present[*]}" ]] && _INFO "Déjà installé : ${present[*]}"
             fi
