@@ -3,7 +3,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=30.3
+readonly VER=30.4
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -252,13 +252,13 @@ INSTALL_GO_PACKAGES() {
                 local present_fmt
                 present_fmt=$(_FORMAT_LIST "${present[@]}")
                 _INFO "Tout a été traité (installation) : "
-                _PRINT_LIST "${present_fmt}"
+                _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE}"
             else
                 if [[ -n "${present[*]}" ]]; then
                     local present_fmt
                     present_fmt=$(_FORMAT_LIST "${present[@]}")
                     _INFO "Déjà installé : "
-                    _PRINT_LIST "${present_fmt}"
+                    _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE}" || true
                 fi
             fi
             for pkg in "${missing[@]}"; do
@@ -385,13 +385,15 @@ SETUP_DOTFILES() {
     done
 
     # 2- stow pour déployer dotfiles depuis dépôt git
-    local pkg name
+    local pkg name listdot=""
     echo -en " ${C_GREEN}✓ ${C_RESET} reStow :"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
-        echo -n " ${name}"
-        stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
+        listdot="${listdot} ${name}"
+        #stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
     done
+    _PRINT_LIST "${listdot}" | tee -a "${LOG_FILE}"
+    stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${listdot}" &>>"${LOG_FILE}"
     echo ""
 
     if _EXIST bat; then
@@ -425,13 +427,13 @@ SETUP_SYSTEMD(){
     present_fmt=$(_FORMAT_LIST "${present[@]}")
     if ((${#missing[@]})); then
         missing_fmt=$(_FORMAT_LIST "${missing[@]}")
-        ((${#present[@]})) && { _INFO "Déjà désactivés : " ; _PRINT_LIST "${present_fmt}" ; }
+        ((${#present[@]})) && { _INFO "Déjà désactivés : " ; _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE}" || true ; }
         _INFO "À désactiver : "
-        _PRINT_LIST "${missing_fmt}"
+        _PRINT_LIST "${missing_fmt}" | tee -a "${LOG_FILE}" || true
         _RUN "Désactivation des services" sudo systemctl disable --now "${missing[@]}"
     else
         _INFO "Services déjà désactivés : "
-        _PRINT_LIST "${present_fmt}"
+        _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE}" || true
     fi
 
     for service in "${!USER_SERVICES_TO_ENABLE[@]}"; do
