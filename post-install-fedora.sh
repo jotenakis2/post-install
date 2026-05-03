@@ -271,7 +271,8 @@ SETUP_GRUB(){
 
             # Application des modifications (avec gestion de l'absence)
             _RUN "Mise à jour des paramètres de GRUB (/etc/default/grub)" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
-            _INFO "Options de démarrage du noyau ajoutées à GRUB : ${target_cmdline}"
+            _INFO "Options de démarrage du noyau ajoutées à GRUB : "
+            _PRINT_LIST "${target_cmdline}"
 
             if grep -q '^GRUB_TIMEOUT=' /etc/default/grub; then
                 _RUN "Délai GRUB 2 sec (/etc/default/grub)" sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub

@@ -490,7 +490,8 @@ _PRINT_ETC_FILES(){
     file="list-of-system-files-created-or-modified-by-${SCRIPTNAME}"
     list=$(_FORMAT_LIST "${ETC_FILES[@]}")
     hr="$(date +%Y%m%d-%H%M%S)"
-    _INFO "Fichiers système crées ou modifiés : ${list}"
+    _INFO "Fichiers système crées ou modifiés : "
+    _PRINT_LIST "${list}"
     echo "${list}" | tee -a "${LOG_FILE}" > /dev/null
     if [[ -f "${HOME}/${file}" ]]; then
         echo "" >> "${HOME}/${file}"
@@ -541,7 +542,7 @@ _PRINT_LIST() {
     local list="${1:?print_list: argument manquant}"
     local width
     width=$(tput cols 2>/dev/null) || width=80
-    local indent="        "
+    local indent="         "
     local line="${indent}"
     local chunk=""
     local char
