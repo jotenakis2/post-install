@@ -213,15 +213,14 @@ SETUP_CHRONY() {
         chrony_file="/etc/sysconfig/chronyd"
         chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
         readonly chrony_file chrony_content
-        if [[ -f "${chrony_file}" ]] && echo "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
+        if [[ -f "${chrony_file}" ]] && printf '%s' "${chrony_content}" | sudo cmp -s - "${chrony_file}"; then
             _INFO "Configuration chronyd déjà à jour (${chrony_file})"
         else
-            _RUN "Configuration de chronyd (${chrony_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
-           _RUNSILENT "" sudo systemctl try-restart chronyd
-           _ETC_FILES_ADD "${chrony_file}"
-           { sudo ls -l "${chrony_file}"
-             sudo cat "${chrony_file}"
-           } >> "${LOG_FILE}"
+            _OK "Configuration de chronyd (${chrony_file})"
+            printf '%s' "${chrony_content}" | sudo tee "${chrony_file}" > /dev/null
+            _RUNSILENT "" sudo systemctl try-restart chronyd
+            _ETC_FILES_ADD "${chrony_file}"
+            { sudo ls -l "${chrony_file}"; sudo cat "${chrony_file}"; } >> "${LOG_FILE}"
         fi
     else
         _LOG "ipv6 n'est pas activé donc on ne change rien à chrony"

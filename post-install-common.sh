@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
-set -Eeuo pipefail
+set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=29.3
+readonly VER=29.5
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
