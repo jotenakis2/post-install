@@ -246,10 +246,17 @@ INSTALL_GO_PACKAGES() {
                 fi
             done
             if [[ -z "${missing[*]}" ]]; then
+                local present_fmt
+                present_fmt=$(_FORMAT_LIST "${present[*]}")
                 _INFO "Tout a été traité (installation) : "
-                _PRINT_LIST "${present[*]}"
+                _PRINT_LIST "${present_fmt}"
             else
-                [[ -n "${present[*]}" ]] && _INFO "Déjà installé : ${present[*]}"
+                if [[ -n "${present[*]}" ]]; then
+                    local present_fmt
+                    present_fmt=$(_FORMAT_LIST "${present[*]}")
+                    _INFO "Déjà installé : "
+                    _PRINT_LIST "${present_fmt}"
+                fi
             fi
             for pkg in "${missing[@]}"; do
                 _RUN "Installation de ${pkg}" go install "${pkg}"
