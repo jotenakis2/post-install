@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
+# TODO sshd : email quand conn. / fail2ban
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=29.5
+readonly VER=29.6
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -825,6 +826,7 @@ SETUP_ETC() {
       cat /etc/systemd/resolved.conf.d/10-disable-llmnr.conf
       echo ""
     } >> "${LOG_FILE}"
+
     # --- Optimisations Kernel (Sysctl) ---
     _LOG "* sysctl *"
     local sysctlfile sysctl_header full_sysctl_content
@@ -841,35 +843,38 @@ SETUP_ETC() {
     full_sysctl_content="${sysctl_header}
     ${SYSCTL_CONF}"
 
-    if [[ -f "${sysctlfile}" ]] && echo "${full_sysctl_content}" | sudo cmp -s - "${sysctlfile}"; then
+    if [[ -f "${sysctlfile}" ]] && printf '%s' "${full_sysctl_content}" | sudo cmp -s - "${sysctlfile}"; then
         _INFO "Configuration noyau déjà à jour (${sysctlfile})"
     else
-        _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -v -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
+        _OK "Déploiement de la configuration du noyau (${sysctlfile})"
+        printf '%s' "${full_sysctl_content}" | sudo tee "${sysctlfile}" > /dev/null
+        _RUNSILENT "" sudo chmod -v 644 "${sysctlfile}"
         _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
         _ETC_FILES_ADD "${sysctlfile}"
     fi
-    { sudo ls -l "${sysctlfile}"
-      sudo cat "${sysctlfile}"
-      echo ""
-    } >> "${LOG_FILE}"
+    { sudo ls -l "${sysctlfile}" ; sudo cat "${sysctlfile}" ; echo "" ; } >> "${LOG_FILE}"
 
     # --- Configuration Brave Browser (Policies debloat) ---
-    _LOG "* brave debloat *"
-    local brave_policy_file full_brave_policies
-    brave_policy_file="/etc/brave/policies/managed/brave_debullshitinator-policies.json"
-    full_brave_policies=$(echo "${BRAVE_POLICIES}" | sed "1s/{/{\n    \"_warning\": \"Do not modify this file! It is managed by ${SCRIPTNAME}.\",/")
-    readonly brave_policy_file full_brave_policies
+    if [[ -n "${BRAVE_POLICIES}" ]]; then
+        _LOG "* brave debloat *"
+        local brave_policy_file full_brave_policies
+        brave_policy_file="/etc/brave/policies/managed/brave_debullshitinator-policies.json"
+        full_brave_policies=$(echo "${BRAVE_POLICIES}" | sed "1s/{/{\n    \"_warning\": \"Do not modify this file! It is managed by ${SCRIPTNAME}.\",/")
+        readonly brave_policy_file full_brave_policies
 
-    if [[ -f "${brave_policy_file}" ]] && echo "${full_brave_policies}" | sudo cmp -s - "${brave_policy_file}"; then
-        _INFO "Configuration Brave déjà à jour (${brave_policy_file})"
+        if [[ -f "${brave_policy_file}" ]] && printf '%s' "${full_brave_policies}" | sudo cmp -s - "${brave_policy_file}"; then
+            _INFO "Configuration des politiques de Brave déjà à jour (${brave_policy_file})"
+        else
+            _OK "Déploiement des politiques pour \"débloater\" Brave (${brave_policy_file})"
+            printf '%s' "${full_brave_policies}" | sudo tee "${brave_policy_file}" > /dev/null
+            _RUNSILENT "" sudo chmod -v 644 "${brave_policy_file}"
+            #sudo install -v -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
+            _ETC_FILES_ADD "${brave_policy_file}"
+        fi
+        { sudo ls -l "${brave_policy_file}" ; sudo cat "${brave_policy_file}" ; echo "" ; } >> "${LOG_FILE}"
     else
-        _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
-        _ETC_FILES_ADD "${brave_policy_file}"
+        _LOG "Aucune politique de Brave demandée"
     fi
-    { sudo ls -l "${brave_policy_file}"
-      sudo cat "${brave_policy_file}"
-      echo ""
-    } >> "${LOG_FILE}"
 
     # IO scheduler
     _LOG "* udev *"
@@ -886,18 +891,18 @@ ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="
 # HDD rotatif
 ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
 '
-    if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
-        _INFO "Règle IO scheduler déjà à jour (${rules_file})"
+    if [[ -f "${rules_file}" ]] && printf '%s' "${rules_content}" | sudo cmp -s - "${rules_file}"; then
+        _INFO "Règles d'ordonnancement des E/S déjà à jour (${rules_file})"
     else
-        _RUN "Règle IO scheduler créée (${rules_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
+        _OK "Règles d'ordonnancement des E/S créées (${rules_file})"
+        printf '%s' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
+        _RUNSILENT "" sudo chmod -v 644 "${rules_file}"
+        #sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
         _ETC_FILES_ADD "${rules_file}"
     fi
-    { sudo ls -l "${rules_file}"
-      sudo cat "${rules_file}"
-      echo ""
-    } >> "${LOG_FILE}"
+    { sudo ls -l "${rules_file}" ; sudo cat "${rules_file}" ; echo "" ; } >> "${LOG_FILE}"
 
     # --- udev static custom rule
     if [[ -n "${UDEVRULE}" ]]; then
@@ -907,18 +912,18 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         rules_content="${UDEVRULE}"
         current=$(cat "${rules_file}" 2>/dev/null || true)
 
-        if [[ -f "${rules_file}" ]] &&  echo "${rules_content}" | sudo cmp -s - "${rules_file}"; then
+        if [[ -f "${rules_file}" ]] && printf '%s' "${rules_content}" | sudo cmp -s - "${rules_file}"; then
             _INFO "Règle udev persistante (${UDEVDESCR}) à jour (${rules_file})"
         else
-            _RUN "Règle udev persistante (${UDEVDESCR}) créée (${rules_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
+            _OK "Règle udev persistante (${UDEVDESCR}) créée (${rules_file})"
+            printf '%s' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
+            _RUNSILENT "" sudo chmod -v 644 "${rules_file}"
+            #sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
             _RUNSILENT "" sudo udevadm control --reload-rules
             _RUNSILENT "" sudo udevadm trigger
             _ETC_FILES_ADD "${rules_file}"
         fi
-        { sudo ls -l "${rules_file}"
-          sudo cat "${rules_file}"
-          echo ""
-        } >> "${LOG_FILE}"
+        { sudo ls -l "${rules_file}" ; sudo cat "${rules_file}" ; echo "" ; } >> "${LOG_FILE}"
     else
         _LOG "Aucune règle udev persistante demandée"
     fi
@@ -936,10 +941,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
             _ETC_FILES_ADD "/etc/group"
         fi
     fi
-    { ls -l /etc/group
-      grep libvirt /etc/group
-      echo ""
-    } >> "${LOG_FILE}"
+    { ls -l /etc/group ; grep libvirt /etc/group ; echo "" ; } >> "${LOG_FILE}"
 
 }
 
@@ -970,10 +972,13 @@ SETUP_SSHD(){
 ${SSHD_CONFIG}"
 
         # config sshd custo
-        if sudo test -f "${config_ssh_file}" && echo "${full_ssh_content}" | sudo cmp -s - "${config_ssh_file}"; then
+        if sudo test -f "${config_ssh_file}" && printf '%s' "${full_ssh_content}" | sudo cmp -s - "${config_ssh_file}"; then
             _INFO "Configuration sshd déjà à jour (${config_ssh_file})"
         else
-            _RUN "Configuration sshd créée (${config_ssh_file})" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_file}" <<< "${full_ssh_content}"
+            _OK "Configuration sshd créée (${config_ssh_file})"
+            printf '%s' "${full_ssh_content}" | sudo tee "${config_ssh_file}" > /dev/null
+            _RUNSILENT "" sudo chmod -v 600 "${config_ssh_file}"
+            #sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_file}" <<< "${full_ssh_content}"
             _ETC_FILES_ADD "${config_ssh_file}"
         fi
 
@@ -981,17 +986,21 @@ ${SSHD_CONFIG}"
         if sudo test -f "${config_ssh_allow}"; then
             _INFO "Fichier ${config_ssh_allow} déjà présent"
         else
-            _RUN "Configuration ${config_ssh_allow} créée" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_allow}" <<< "${content_ssh_allow}"
+            _OK "Configuration ${config_ssh_allow} créée"
+            printf '%s' "${content_ssh_allow}" | sudo tee "${config_ssh_allow}" > /dev/null
+            _RUNSILENT "" sudo chmod -v 600 "${config_ssh_allow}"
+            #sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_allow}" <<< "${content_ssh_allow}"
             _ETC_FILES_ADD "${config_ssh_allow}"
         fi
 
         # banière /etc/issue.net
-        if sudo test -f "${banner_file}" && echo "${BANNER}" | sudo cmp -s - "${banner_file}"; then
-            _LOG "Bannière sshd à jour (${banner_file})"
+        if sudo test -f "${banner_file}" && printf '%s' "${BANNER}" | sudo cmp -s - "${banner_file}"; then
+            _INFO "Bannière sshd à jour (${banner_file})"
         else
-            _LOG "Création banière ssh (${banner_file})"
+            _LOG "Création banière sshd (${banner_file})"
             _RUNSILENT "" sudo rm -f "${banner_file}"
-            _RUNSILENT "" sudo install -v -m 644 -o root -g root /dev/stdin "${banner_file}" <<< "${BANNER}"
+            printf '%s' "${BANNER}" | sudo tee "${banner_file}" > /dev/null
+            _RUNSILENT "" sudo chmod -v 644 "${banner_file}"
             _ETC_FILES_ADD "${banner_file}"
         fi
 
@@ -1006,21 +1015,14 @@ ${SSHD_CONFIG}"
         else
             _RUN "Activation du service sshd" sudo systemctl --now enable sshd.service
         fi
-        { sudo ls -l "${config_ssh_file}"
-          sudo cat "${config_ssh_file}"
-          echo ""
-          sudo ls -l "${config_ssh_allow}"
-          sudo cat "${config_ssh_allow}"
-          echo ""
-          sudo ls -l "${banner_file}"
-          sudo cat "${banner_file}"
-          echo ""
-        } >> "${LOG_FILE}"
+        { sudo ls -l "${config_ssh_file}" ; sudo cat "${config_ssh_file}" ; echo ""
+          sudo ls -l "${config_ssh_allow}" ; sudo cat "${config_ssh_allow}" ; echo ""
+          sudo ls -l "${banner_file}" ; sudo cat "${banner_file}" ; echo "" ; } >> "${LOG_FILE}"
     else
         if _IS_ENABLED sshd; then
             _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
             _LOG "pas de service sshd demandé"
-            _RUN "Désactivation du service sshd" sudo systemctl --now disable sshd.service sshd.socket
+            _RUN "Désactivation du service sshd" sudo systemctl --now disable sshd.service sshd.socket ssh.service ssh.socket
         else
             _LOG "pas de service sshd détecté ni demandé"
         fi

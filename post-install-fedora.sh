@@ -218,6 +218,7 @@ SETUP_CHRONY() {
         else
             _OK "Configuration de chronyd (${chrony_file})"
             printf '%s' "${chrony_content}" | sudo tee "${chrony_file}" > /dev/null
+            _RUNSILENT "" sudo -v 644 "${chrony_file}"
             _RUNSILENT "" sudo systemctl try-restart chronyd
             _ETC_FILES_ADD "${chrony_file}"
             { sudo ls -l "${chrony_file}"; sudo cat "${chrony_file}"; } >> "${LOG_FILE}"
