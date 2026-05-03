@@ -23,7 +23,7 @@ CHECK() {
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
     echo "Environnement valide — ${fedora_rel}, utilisateur ${USER} avec droits sudo"
-    sleep 0.5
+    sleep 1
 }
 
 ########################################################################################################################
@@ -149,9 +149,10 @@ _SETUP_VCONSOLE_FONT() {
         else
             _RUNSILENT "" echo "FONT=${font}" | sudo tee -a "${vconsole}" > /dev/null
         fi
+        _ETC_FILES_ADD "${vconsole}"
         _LOG "Police console définie :"
+        cat "${vconsole}" 2>/dev/null >> "${LOG_FILE}"
     fi
-    cat "${vconsole}" 2>/dev/null >> "${LOG_FILE}"
 }
 
 ########################################################################################################################
@@ -217,10 +218,13 @@ SETUP_CHRONY() {
         else
             _RUN "Configuration de chronyd (${chrony_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${chrony_file}" <<< "${chrony_content}"
            _RUNSILENT "" sudo systemctl try-restart chronyd
+           _ETC_FILES_ADD "${chrony_file}"
+           { ls -l "${chrony_file}"
+             cat "${chrony_file}"
+           } >> "${LOG_FILE}"
         fi
     else
         _LOG "ipv6 n'est pas activé donc on ne change rien à chrony"
-        cat "${chrony_file}" 2>/dev/null >> "${LOG_FILE}"
     fi
 }
 
@@ -267,10 +271,13 @@ SETUP_GRUB(){
 
             _RUN "Regénération de la configuration de GRUB" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
             _LOG "sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
+            _ETC_FILES_ADD "/etc/default/grub"
         else
             _INFO "GRUB déjà correctement configuré (/etc/default/grub)"
         fi
-        cat /etc/default/grub 2>/dev/null >> "${LOG_FILE}"
+        { ls -l /etc/default/grub
+          cat /etc/default/grub
+        } >> "${LOG_FILE}"
     else
         _ERR "GRUB n'a pas été détecté, je ne change rien au bootloader."
     fi
@@ -368,6 +375,8 @@ SETUP_SWAP(){ # que si zswap est demandé
                 _RUNSILENT "" sudo chmod 0600 -v "${swapdir}/swapfile"
                 _RUNSILENT "" sudo mkswap "${swapdir}/swapfile"
             fi
+            _ETC_FILES_ADD "${swapdir}/swapfile"
+            ls -l "${swapdir}/swapfile" >> "${LOG_FILE}"
         fi
 
         if ! swapon --show | grep -q "${swapdir}/swapfile"; then
@@ -424,11 +433,13 @@ SETUP_SUDO_RS() {
 
         if [[ -f "/etc/sudoers" && ! -f "${f_sudoers_rs}" ]]; then
             _RUN "Création du fichier ${f_sudoers_rs} depuis l'original" sudo cp -a /etc/sudoers "${f_sudoers_rs}"
+            _ETC_FILES_ADD "${f_sudoers_rs}"
             change=1
         fi
 
         if [[ -d "/etc/sudoers.d" && ! -d "${d_sudoers_rs_d}" ]]; then
             _RUN "Création du dossier ${d_sudoers_rs_d} depuis l'original" sudo cp -a /etc/sudoers.d "${d_sudoers_rs_d}"
+            _ETC_FILES_ADD "${d_sudoers_rs_d}"
             change=1
         fi
 
@@ -468,12 +479,15 @@ SETUP_SUDO_RS() {
                 fi
                 ln -sf '${sudo_rs_bin}' '${sys_sudo}'
             "
+            _ETC_FILES_ADD "${sys_sudo_bak}"
+
             change=1
         fi
 
         _PASS
         #_RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
         _SYMLINK "${sudo_rs_bin}" "${local_bin_sudo}"
+        _ETC_FILES_ADD "${local_bin_sudo}"
         [[ "${STATUSSYMLINK}" -eq 0 ]] && change=1 # le lien a bien été crée
         _RUNSILENT "" sudo chmod -v 4111 "${sudo_rs_bin}"
         _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
@@ -485,10 +499,12 @@ SETUP_SUDO_RS() {
             if ! sudo grep -q "${pattern}" "${file}" > /dev/null; then
                 _RUN "Mise à jour de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
                 change=1
+                _ETC_FILES_ADD "${file}"
             fi
         else
             _RUN "Création de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
             change=1
+            _ETC_FILES_ADD "${file}"
         fi
 
         local pattern="Defaults pwfeedback,timestamp_timeout=60"
@@ -497,10 +513,12 @@ SETUP_SUDO_RS() {
             if ! sudo grep -q "${pattern}" "${file2}" > /dev/null; then
                 _RUN "Mise à jour de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
                 change=1
+                _ETC_FILES_ADD "${file2}"
             fi
         else
             _RUN "Création de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
             change=1
+            _ETC_FILES_ADD "${file2}"
         fi
 
         _RUNSILENT "" sudo chmod -v 0440 "${f_sudoers_rs}"
@@ -514,7 +532,7 @@ SETUP_SUDO_RS() {
         fi
 
         if [[ -d "/etc/sudoers.d" ]]; then
-            _RUNSILENT "" sudo rm -vrf /etc/sudoers.d
+            _RUNSILENT "" sudo rm -rf /etc/sudoers.d
         fi
         _RUNSILENT "" sudo mkdir -pv /etc/sudoers.d
         _RUNSILENT "" sudo chmod -v 0750 /etc/sudoers.d
@@ -527,6 +545,7 @@ SETUP_SUDO_RS() {
         if ! sudo grep -q sudo /etc/dnf/dnf.conf; then
             _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
             change=1
+            _ETC_FILES_ADD "/etc/dnf/dnf.conf"
         fi
         if [[ "${change}" -eq 1 ]]; then
             _OK "sudo-rs en place, remplace définitivement sudo"
@@ -558,6 +577,7 @@ _PKG_CONFIG() {
     _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main defaultyes true
     _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main max_parallel_downloads 10
     _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main countme False
+    _ETC_FILES_ADD "/etc/dnf/dnf.conf"
 }
 
 _PKG_INSTALL_SKIP() {

@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -Eeuo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=28.8
+readonly VER=29.0
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -149,6 +149,9 @@ INITIALIZE() {
     # PATH
     export PATH="${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
     #
+
+    # liste des fichiers système crées ou modifiés par le script
+    declare -ga ETC_FILES=()
 }
 
 ########################################################################################################################
@@ -301,6 +304,7 @@ SETUP_SHELL() {
             current_shell=$(getent passwd "${user}" | cut -d: -f7)
             if [[ "${current_shell}" != "${zsh_bin}" ]]; then
                 _RUN "chsh ${user} → zsh" sudo chsh -s "${zsh_bin}" "${user}"
+                ETC_FILES+=("/etc/passwd")
             else
                 _INFO "${user} utilise déjà zsh"
             fi
@@ -440,6 +444,7 @@ SETUP_FSTAB(){
             fi
             _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.swap
             _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap defaults,nofail 0 0 | sudo tee -a /etc/fstab"
+            ETC_FILES_ADD "/etc/fstab"
         else
             _INFO "Swap déjà présent dans /etc/fstab"
         fi
@@ -487,6 +492,7 @@ SETUP_FSTAB(){
         _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.optimizations
         _RUN "Optimisations des systèmes de fichier" sudo cp -av "${tmp_dir}/fstab.new" /etc/fstab
         _RUNSILENT "" sudo systemctl daemon-reload
+        ETC_FILES_ADD "/etc/fstab"
     else
         _INFO "Options d'optimisations déjà présentes dans /etc/fstab"
     fi
@@ -504,6 +510,7 @@ SETUP_FSTAB(){
                 _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
                 _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
                 echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a /etc/fstab >/dev/null
+                ETC_FILES_ADD "/etc/fstab"
                 _RUNSILENT "" sudo systemctl daemon-reload
                 _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
             fi
@@ -749,6 +756,7 @@ SETUP_ETC() {
     if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
         _LOG "config log msmtp car paquet présent"
         _RUNSILENT "" sudo bash -c "touch /var/log/msmtp.log && chmod -v 600 /var/log/msmtp.log"
+        ETC_FILES_ADD "/var/log/msmtp.log"
     fi
 
     # --- Hostname ---
@@ -758,6 +766,7 @@ SETUP_ETC() {
         _RUN "Changement du nom de la machine (de ${currenthost} vers ${MYHOSTNAME})" sudo hostnamectl set-hostname "${MYHOSTNAME}"
         newhost=$(hostnamectl hostname)
         _LOG "nouveau hostname : ${newhost}"
+        _ETC_FILES_ADD "/etc/hostname"
     fi
 
     # --- journald ---
@@ -774,7 +783,12 @@ SystemKeepFree=2G
         _INFO "Réglage du journal système déjà fait (${journald_file})"
     else
         _RUN "Réglage du journal système (${journald_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${journald_file}" <<< "${journald_content}"
+        _ETC_FILES_ADD "/etc/systemd/journald.conf"
     fi
+    { ls -l "${journald_file}"
+      cat "${journald_file}"
+      echo ""
+    } >> "${LOG_FILE}"
 
     # --- NetworkManager & systemd-resolved ---
     _LOG "* réseau *"
@@ -788,6 +802,7 @@ SystemKeepFree=2G
         echo '${nm_dns_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/NetworkManager/conf.d/99-global-dns.conf
         "
         restart=1
+        _ETC_FILES_ADD "/etc/NetworkManager/conf.d/99-global-dns.conf"
     else
         _INFO "NetworkManager déjà configuré (/etc/NetworkManager/conf.d/99-global-dns.conf)"
     fi
@@ -797,13 +812,21 @@ SystemKeepFree=2G
     if [[ ! -f /etc/systemd/resolved.conf.d/dns_servers.conf ]] || [[ ! -f /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ]]; then
         _RUN "Déploiement de la configuration DNS (dans /etc/systemd/resolved.conf.d/)" sudo bash -c "echo '${RESOLVED_DNS_SERVERS}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf ; echo '${resolved_10_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
         restart=1
+        _ETC_FILES_ADD "/etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
+        _ETC_FILES_ADD "/etc/systemd/resolved.conf.d/dns_servers.conf"
     else
         _INFO "Configuration DNS déjà présente (dans /etc/systemd/resolved.conf.d/)"
     fi
     if [[ ${restart} -eq 1 ]]; then
         _RUN "Redémarrage des services NetworkManager et systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
     fi
-
+    { cat /etc/NetworkManager/conf.d/99-global-dns.conf
+      echo ""
+      cat /etc/systemd/resolved.conf.d/dns_servers.conf
+      echo ""
+      cat /etc/systemd/resolved.conf.d/10-disable-llmnr.conf
+      echo ""
+    } >> "${LOG_FILE}"
     # --- Optimisations Kernel (Sysctl) ---
     _LOG "* sysctl *"
     local sysctlfile sysctl_header full_sysctl_content
@@ -825,7 +848,12 @@ SystemKeepFree=2G
     else
         _RUN "Déploiement de la configuration du noyau (${sysctlfile})" sudo install -v -m 644 -o root -g root /dev/stdin "${sysctlfile}" <<< "${full_sysctl_content}"
         _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
+        _ETC_FILES_ADD "${sysctlfile}"
     fi
+    { ls -l "${sysctlfile}"
+      cat "${sysctlfile}"
+      echo ""
+    } >> "${LOG_FILE}"
 
     # --- Configuration Brave Browser (Policies debloat) ---
     _LOG "* brave debloat *"
@@ -838,7 +866,12 @@ SystemKeepFree=2G
         _INFO "Configuration Brave déjà à jour (${brave_policy_file})"
     else
         _RUN "Déploiement des policies pour débloater Brave (${brave_policy_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
+        _ETC_FILES_ADD "${brave_policy_file}"
     fi
+    { ls -l "${brave_policy_file}"
+      cat "${brave_policy_file}"
+      echo ""
+    } >> "${LOG_FILE}"
 
     # IO scheduler
     _LOG "* udev *"
@@ -861,7 +894,12 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         _RUN "Règle IO scheduler créée (${rules_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
+        _ETC_FILES_ADD "${rules_file}"
     fi
+    { ls -l "${rules_file}"
+      cat "${rules_file}"
+      echo ""
+    } >> "${LOG_FILE}"
 
     # --- udev static custom rule
     if [[ -n "${UDEVRULE}" ]]; then
@@ -877,7 +915,12 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
             _RUN "Règle udev persistante (${UDEVDESCR}) créée (${rules_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
             _RUNSILENT "" sudo udevadm control --reload-rules
             _RUNSILENT "" sudo udevadm trigger
+            _ETC_FILES_ADD "${rules_file}"
         fi
+        { ls -l "${rules_file}"
+          cat "${rules_file}"
+          echo ""
+        } >> "${LOG_FILE}"
     else
         _LOG "Aucune règle udev persistante demandée"
     fi
@@ -892,8 +935,13 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
             _INFO "Utilisateur ${main_user} déjà dans libvirt"
         else
             _RUN "Ajout de l'utilisateur ${main_user} au groupe libvirt" sudo usermod -aG libvirt "${main_user}"
+            _ETC_FILES_ADD "/etc/group"
         fi
     fi
+    { ls -l /etc/group
+      grep libvirt /etc/group
+      echo ""
+    } >> "${LOG_FILE}"
 
 }
 
@@ -928,6 +976,7 @@ ${SSHD_CONFIG}"
             _INFO "Configuration sshd déjà à jour (${config_ssh_file})"
         else
             _RUN "Configuration sshd créée (${config_ssh_file})" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_file}" <<< "${full_ssh_content}"
+            _ETC_FILES_ADD "${config_ssh_file}"
         fi
 
         # config sshd AllowUsers
@@ -935,6 +984,7 @@ ${SSHD_CONFIG}"
             _INFO "Fichier ${config_ssh_allow} déjà présent"
         else
             _RUN "Configuration ${config_ssh_allow} créée" sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_allow}" <<< "${content_ssh_allow}"
+            _ETC_FILES_ADD "${config_ssh_allow}"
         fi
 
         # banière /etc/issue.net
@@ -944,6 +994,7 @@ ${SSHD_CONFIG}"
             _LOG "Création banière ssh (${banner_file})"
             _RUNSILENT "" sudo rm -f "${banner_file}"
             _RUNSILENT "" sudo install -v -m 644 -o root -g root /dev/stdin "${banner_file}" <<< "${BANNER}"
+            _ETC_FILES_ADD "${banner_file}"
         fi
 
         # gestion service
@@ -957,7 +1008,16 @@ ${SSHD_CONFIG}"
         else
             _RUN "Activation du service sshd" sudo systemctl --now enable sshd.service
         fi
-
+        { ls -l "${config_ssh_file}"
+          cat "${config_ssh_file}"
+          echo ""
+          ls -l "${config_ssh_allow}"
+          cat "${config_ssh_allow}"
+          echo ""
+          ls -l "${banner_file}"
+          cat "${banner_file}"
+          echo ""
+        } >> "${LOG_FILE}"
     else
         if _IS_ENABLED sshd; then
             _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
@@ -993,9 +1053,13 @@ SET_PLM_WALLPAPER() {
 Image=file://${dest_file}
 # /added by post-install-script jotenakis ------------------------
 EOF
+            _ETC_FILES_ADD "${configPLM}"
         else
             _LOG "Wallpaper PLM déjà configuré"
         fi
+        { ls -l "${configPLM}"
+          cat "${configPLM}"
+        } >>"${LOG_FILE}"
     else
         _LOG "Fond d'écran custo de PLM introuvable : ${src}"
     fi
@@ -1056,9 +1120,17 @@ END() {
     _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
     _INFO "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
-    _INFO "REDÉMARREZ pour appliquer les modifications éventuelles intégralement !"
+    if [[ -n "${ETC_FILES[*]}" ]]; then
+        _INFO "Fichiers système crées ou modifiés : ${ETC_FILES[*]}"
+        echo "${ETC_FILES[*]}" > "${HOME}/list-of-system-files-created-by-${SCRIPTNAME}"
+        _RUNSILENT sudo cp -f "${HOME}/list-of-system-files-created-by-${SCRIPTNAME}" "/root/list-of-system-files-created-by-${SCRIPTNAME}"
+        _INFO "REDÉMARREZ pour appliquer les modifications complètement !"
+    else
+        _INFO "REDÉMARREZ pour appliquer les modifications éventuelles complètement !"
+    fi
 
     # LOG
+    echo "Fichiers système crées ou modifiés : ${ETC_FILES[*]}" >> "${LOG_FILE}"
     _INFO "Fichier log de la post-installation : ${LOG_FILE}"
     _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
     local url
