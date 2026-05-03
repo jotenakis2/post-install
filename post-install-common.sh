@@ -3,7 +3,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=29.7
+readonly VER=29.8
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -756,8 +756,11 @@ SETUP_ETC() {
     # par défaut msmtp ne crée pas le log system !
     if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
         _LOG "config log msmtp car paquet présent"
-        _RUNSILENT "" sudo bash -c "touch /var/log/msmtp.log && chmod -v 600 /var/log/msmtp.log"
-        _ETC_FILES_ADD "/var/log/msmtp.log"
+        if [[ ! -f /var/log/msmtp.log ]]; then
+            sudo touch /var/log/msmtp.log
+            _RUNSILENT "" sudo chmod -v 600 /var/log/msmtp.log >> "${LOG_FILE}"
+            _ETC_FILES_ADD "/var/log/msmtp.log"
+        fi
     fi
 
     # --- Hostname ---

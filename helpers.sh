@@ -474,7 +474,7 @@ _MANAGE_TABLE(){
 
 _ETC_FILES_ADD() {
     local entry="$1"
-    local item
+    local item=""
     for item in "${ETC_FILES[@]}"; do
         [[ "${item}" == "${entry}" ]] && return 0
     done
@@ -489,9 +489,14 @@ _PRINT_ETC_FILES(){
     list=$(_FORMAT_LIST "${ETC_FILES[@]}")
     hr="$(date +%Y%m%d-%H%M%S)"
     _INFO "Fichiers système crées ou modifiés : ${list}"
-    #echo "${list}" | tee -a "${LOG_FILE}" > /dev/null
+    echo "${list}" | tee -a "${LOG_FILE}" > /dev/null
+    if [[ -f "${HOME}/${file}" ]]; then
+        echo "" >> "${HOME}/${file}"
+    else
+        true > "${HOME}/${file}" # création fichier vide
+    fi
     for item in "${ETC_FILES[@]}"; do
-        echo "${hr} : ${item}" > "${HOME}/${file}"
+        echo "${hr} : ${item}" >> "${HOME}/${file}"
     done
     _RUNSILENT sudo cp -f "${HOME}/${file}" "/root/${file}"
 }

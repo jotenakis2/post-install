@@ -145,13 +145,23 @@ _SETUP_VCONSOLE_FONT() {
         _LOG "Police console '${font}' introuvable — vérifier le paquet terminus-fonts"
     else
         if grep -q "^FONT=" "${vconsole}" 2>/dev/null; then
-            grep -q "^FONT=${font}" "${vconsole}" 2>/dev/null || _RUNSILENT "" sudo sed -i "s/^FONT=.*/FONT=${font}/" "${vconsole}"
+            if grep -q "^FONT=${font}" "${vconsole}" 2>/dev/null ; then
+                _INFO "Police console TTY déjà à jour"
+                grep FONT "${vconsole}" >> "${LOG_FILE}"
+            else
+                _RUNSILENT "" sudo sed -i "s/^FONT=.*/FONT=${font}/" "${vconsole}"
+                _OK "Modification de la police console TTY"
+                _ETC_FILES_ADD "${vconsole}"
+                _LOG "Police console définie :"
+                cat "${vconsole}" 2>/dev/null >> "${LOG_FILE}"
+            fi
         else
-            _RUNSILENT "" echo "FONT=${font}" | sudo tee -a "${vconsole}" > /dev/null
+            printf '%s' "FONT=${font}" | sudo tee -a "${vconsole}" > /dev/null
+            _OK "Ajout de la police console TTY"
+            _ETC_FILES_ADD "${vconsole}"
+            _LOG "Police console définie :"
+            cat "${vconsole}" 2>/dev/null >> "${LOG_FILE}"
         fi
-        _ETC_FILES_ADD "${vconsole}"
-        _LOG "Police console définie :"
-        cat "${vconsole}" 2>/dev/null >> "${LOG_FILE}"
     fi
 }
 
@@ -479,16 +489,13 @@ SETUP_SUDO_RS() {
                 fi
                 ln -sf '${sudo_rs_bin}' '${sys_sudo}'
             "
-            _ETC_FILES_ADD "${sys_sudo_bak}"
-
             change=1
         fi
 
         _PASS
         #_RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
         _SYMLINK "${sudo_rs_bin}" "${local_bin_sudo}"
-        _ETC_FILES_ADD "${local_bin_sudo}"
-        [[ "${STATUSSYMLINK}" -eq 0 ]] && change=1 # le lien a bien été crée
+        [[ "${STATUSSYMLINK}" -eq 0 ]] && { change=1 ; _ETC_FILES_ADD "${local_bin_sudo}" ; } # le lien a bien été crée
         _RUNSILENT "" sudo chmod -v 4111 "${sudo_rs_bin}"
         _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
 
