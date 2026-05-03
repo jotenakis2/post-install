@@ -377,9 +377,9 @@ SETUP_DOTFILES() {
     local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/kglobalshortcutsrc" ".config/konsolerc" ".config/user-dirs.dirs" ".config/user-dirs.locale")
     local file
     mkdir -p "${HOME}/backup"
-    _LOG "déplacement de fichiers qui seront remplacés par le dotfiles via stow dans ~/backup"
     for file in "${skel_files[@]}"; do
         if [[ -f "${HOME}/${file}" && ! -L "${HOME}/${file}" ]]; then
+            _LOG "déplacement de fichiers qui seront remplacés par le dotfiles via stow dans ~/backup : "
             _RUNSILENT "" mv -v "${HOME}/${file}" "${HOME}/backup/"
         fi
     done
@@ -390,14 +390,12 @@ SETUP_DOTFILES() {
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
         listdot="${listdot}${name} "
-        #stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
     done
     _PRINT_LIST "${listdot}" | tee -a "${LOG_FILE}"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
         stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
     done
-    echo ""
 
     if _EXIST bat; then
         _LOG "Reconstruction du cache de bat"
