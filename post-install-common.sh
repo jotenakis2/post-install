@@ -375,7 +375,7 @@ SETUP_DOTFILES() {
 
     # 2- stow pour déployer dotfiles depuis dépôt git
     local pkg name
-    echo -en " ${C_GREEN}✓ ${C_RESET}"
+    echo -en " ${C_GREEN}✓ ${C_RESET}  Stow : "
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
         echo -n " ${name}"
@@ -444,7 +444,7 @@ SETUP_FSTAB(){
             fi
             _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.swap
             _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap defaults,nofail 0 0 | sudo tee -a /etc/fstab"
-            ETC_FILES_ADD "/etc/fstab"
+            _ETC_FILES_ADD "/etc/fstab"
         else
             _INFO "Swap déjà présent dans /etc/fstab"
         fi
@@ -492,7 +492,7 @@ SETUP_FSTAB(){
         _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.optimizations
         _RUN "Optimisations des systèmes de fichier" sudo cp -av "${tmp_dir}/fstab.new" /etc/fstab
         _RUNSILENT "" sudo systemctl daemon-reload
-        ETC_FILES_ADD "/etc/fstab"
+        _ETC_FILES_ADD "/etc/fstab"
     else
         _INFO "Options d'optimisations déjà présentes dans /etc/fstab"
     fi
@@ -510,7 +510,7 @@ SETUP_FSTAB(){
                 _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
                 _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
                 echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a /etc/fstab >/dev/null
-                ETC_FILES_ADD "/etc/fstab"
+                _ETC_FILES_ADD "/etc/fstab"
                 _RUNSILENT "" sudo systemctl daemon-reload
                 _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
             fi
@@ -756,7 +756,7 @@ SETUP_ETC() {
     if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
         _LOG "config log msmtp car paquet présent"
         _RUNSILENT "" sudo bash -c "touch /var/log/msmtp.log && chmod -v 600 /var/log/msmtp.log"
-        ETC_FILES_ADD "/var/log/msmtp.log"
+        _ETC_FILES_ADD "/var/log/msmtp.log"
     fi
 
     # --- Hostname ---
