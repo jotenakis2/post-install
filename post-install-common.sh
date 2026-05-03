@@ -422,11 +422,13 @@ SETUP_SYSTEMD(){
     present_fmt=$(_FORMAT_LIST "${present[@]}")
     if ((${#missing[@]})); then
         missing_fmt=$(_FORMAT_LIST "${missing[@]}")
-        ((${#present[@]})) && _INFO "Déjà désactivés : ${present_fmt}"
-        _INFO "À désactiver : ${missing_fmt}"
+        ((${#present[@]})) && { _INFO "Déjà désactivés : " ; _PRINT_LIST "${present_fmt}" ; }
+        _INFO "À désactiver : "
+        _PRINT_LIST "${missing_fmt}"
         _RUN "Désactivation des services" sudo systemctl disable --now "${missing[@]}"
     else
-        _INFO "Services déjà désactivés : ${present_fmt}"
+        _INFO "Services déjà désactivés : "
+        _PRINT_LIST "${present_fmt}"
     fi
 
     for service in "${!USER_SERVICES_TO_ENABLE[@]}"; do
