@@ -122,6 +122,9 @@ INITIALIZE() {
     _INFO "Distribution : ${PRETTY_NAME}"
     _INFO "Heure de démarrage du script : ${heure}"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
+    printf '%s' "Paramètres utilisateur retenus : " >> "${LOG_FILE}"
+    grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh >> "${LOG_FILE}"
+
     INSTALL_DEPS
 
     # RUST
