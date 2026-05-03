@@ -527,33 +527,61 @@ _FORMAT_LIST() {
 
 ########################################################################################################################
 
+# print_list STRING
+# Affiche STRING sur stdout en wrappant à la largeur du terminal.
+# Toutes les lignes sont indentées de 5 espaces.
+# Les coupures se font uniquement sur les espaces (jamais en plein mot).
+# Les espaces multiples sont préservés.
 _PRINT_LIST() {
     local list="${1:?print_list: argument manquant}"
     local width
     width=$(tput cols 2>/dev/null) || width=80
     local indent="     "
     local line="${indent}"
+    local chunk=""
     local char
     local i
+    local in_space=0
 
     for (( i=0; i<${#list}; i++ )); do
         char="${list:i:1}"
-        if [[ "${char}" == $'\n' ]]; then
-            printf '%s\n' "${line}"
-            line="${indent}"
-        elif (( ${#line} + 1 <= width )); then
-            line="${line}${char}"
+        if [[ "${char}" == ' ' ]]; then
+            if (( ! in_space )); then
+                # Fin d'un mot : on tente de l'ajouter à la ligne courante
+                if [[ "${line}" == "${indent}" ]]; then
+                    line="${indent}${chunk}"
+                elif (( ${#line} + ${#chunk} <= width )); then
+                    line="${line}${chunk}"
+                else
+                    printf '%s\n' "${line}"
+                    line="${indent}${chunk}"
+                fi
+                chunk=""
+                in_space=1
+            fi
+            chunk="${chunk}${char}"
         else
-            printf '%s\n' "${line}"
-            line="${indent}${char}"
+            if (( in_space )); then
+                in_space=0
+            fi
+            chunk="${chunk}${char}"
         fi
     done
 
+    # Dernier token (sans espace final)
+    if [[ -n "${chunk}" ]]; then
+        if [[ "${line}" == "${indent}" ]]; then
+            line="${indent}${chunk}"
+        elif (( ${#line} + ${#chunk} <= width )); then
+            line="${line}${chunk}"
+        else
+            printf '%s\n' "${line}"
+            line="${indent}${chunk}"
+        fi
+    fi
+
     [[ "${line}" != "${indent}" ]] && printf '%s\n' "${line}"
-
 }
-
-
 ########################################################################################################################
 
 _IS_FPPKG_INSTALLED() {
