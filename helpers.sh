@@ -485,13 +485,13 @@ _ETC_FILES_ADD() {
 
 _PRINT_ETC_FILES(){
     local item list file hr
-    file="list-of-system-files-created-by-${SCRIPTNAME}"
+    file="list-of-system-files-created-or-modified-by-${SCRIPTNAME}"
     list=$(_FORMAT_LIST "${ETC_FILES[@]}")
     hr="$(date +%Y%m%d-%H%M%S)"
     _INFO "Fichiers système crées ou modifiés : ${list}"
     #echo "${list}" | tee -a "${LOG_FILE}" > /dev/null
     for item in "${ETC_FILES[@]}"; do
-        echo "${hr} : ${item}" >> "${HOME}/${file}"
+        echo "${hr} : ${item}" > "${HOME}/${file}"
     done
     _RUNSILENT sudo cp -f "${HOME}/${file}" "/root/${file}"
 }
