@@ -456,16 +456,16 @@ _MANAGE_TABLE(){
         if ((${#missing[@]})); then
             missing_fmt=$(_FORMAT_LIST "${missing[@]}")
             present_fmt=$(_FORMAT_LIST "${present[@]}")
-            ((${#present[@]})) && { _INFO "Paquets à IGNORER car réussissant le test \"${test}\" : " ; _PRINT_LIST "${present_fmt}" ; }
+            ((${#present[@]})) && { _INFO "Paquets à IGNORER car réussissant le test \"${test}\" : " ; _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE}" || true ; }
             _INFO "Paquets à TRAITER car échouant au test \"${test}\" : "
-            _PRINT_LIST "${missing_fmt}"
+            _PRINT_LIST "${missing_fmt}" | tee -a "${LOG_FILE}" || true
             _RUN "${treat^} en cours..." "${install_cmd}" "${missing[@]}"
             printf '\e[1A\e[2K' # je remonte d'une ligne et je la vide, pour écraser le "en cours..."
             _OK "Traitement terminé, ${treat} OK."
         else
             all_fmt=$(_FORMAT_LIST "$@")
             _INFO "Tout a été traité (${treat}) : "
-            _PRINT_LIST "${all_fmt}"
+            _PRINT_LIST "${all_fmt}" | tee -a "${LOG_FILE}" || true
         fi
     else
         _INFO "Rien à traiter (${treat}), liste transmise vide..."
@@ -491,8 +491,7 @@ _PRINT_ETC_FILES(){
     list=$(_FORMAT_LIST "${ETC_FILES[@]}")
     hr="$(date +%Y%m%d-%H%M%S)"
     _INFO "Fichiers système crées ou modifiés : "
-    _PRINT_LIST "${list}"
-    echo "${list}" | tee -a "${LOG_FILE}" > /dev/null
+    echo "${list}" | tee -a "${LOG_FILE}"
     if [[ -f "${HOME}/${file}" ]]; then
         echo "" >> "${HOME}/${file}"
     else
