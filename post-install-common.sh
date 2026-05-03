@@ -767,8 +767,8 @@ SETUP_ETC() {
 
     # par défaut msmtp ne crée pas le log system !
     if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
-        _LOG "config log msmtp car paquet présent"
         if [[ ! -f /var/log/msmtp.log ]]; then
+            _LOG "config log msmtp car paquet présent"
             sudo touch /var/log/msmtp.log
             _RUNSILENT "" sudo chmod -v 600 /var/log/msmtp.log >> "${LOG_FILE}"
             _ETC_FILES_ADD "/var/log/msmtp.log"
