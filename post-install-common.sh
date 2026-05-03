@@ -778,9 +778,9 @@ SETUP_ETC() {
     readonly journald_file journald_content
 
     if [[ -f "${journald_file}" ]] && printf '%s' "${journald_content}" | sudo cmp -s - "${journald_file}"; then
-        _INFO "Réglage du journal système déjà fait (${journald_file})"
+        _INFO "Journal système déjà configuré (${journald_file})"
     else
-        _OK "Réglage du journal système (${journald_file})"
+        _OK "Configuration du journal système (${journald_file})"
         #sudo install -v -m 644 -o root -g root /dev/stdin "${journald_file}" <<< "${journald_content}"
         printf '%s' "${journald_content}" | sudo tee "${journald_file}" > /dev/null
         _RUNSILENT "" sudo chmod -v 644 "${journald_file}"
@@ -957,7 +957,7 @@ SETUP_SSHD(){
         banner_file="/etc/issue.net"
         #sudo touch "${config_ssh_file}" "${banner_file}" "${config_ssh_allow}"
 
-        content_ssh_allow="AllowUsers ${USER}" # on autorise l'utilisateur qui a lancé le script à se connecter en ssh et c'est tout
+        content_ssh_allow="AllowUsers ${USER}\n" # on autorise l'utilisateur qui a lancé le script à se connecter en ssh et c'est tout
         ssh_header="# =======================================================================
 # WARNING: Do not modify this file!
 # It is automatically generated and managed by ${SCRIPTNAME}.
@@ -968,8 +968,7 @@ SETUP_SSHD(){
         readonly ssh_header content_ssh_allow
 
         # on concatène le header et la variable globale SSHD_CONFIG
-        full_ssh_content="${ssh_header}
-${SSHD_CONFIG}"
+        full_ssh_content="${ssh_header}\n${SSHD_CONFIG}"
 
         # config sshd custo
         if sudo test -f "${config_ssh_file}" && printf '%s' "${full_ssh_content}" | sudo cmp -s - "${config_ssh_file}"; then
@@ -978,7 +977,6 @@ ${SSHD_CONFIG}"
             _OK "Configuration sshd créée (${config_ssh_file})"
             printf '%s' "${full_ssh_content}" | sudo tee "${config_ssh_file}" > /dev/null
             _RUNSILENT "" sudo chmod -v 600 "${config_ssh_file}"
-            #sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_file}" <<< "${full_ssh_content}"
             _ETC_FILES_ADD "${config_ssh_file}"
         fi
 
@@ -989,7 +987,6 @@ ${SSHD_CONFIG}"
             _OK "Configuration ${config_ssh_allow} créée"
             printf '%s' "${content_ssh_allow}" | sudo tee "${config_ssh_allow}" > /dev/null
             _RUNSILENT "" sudo chmod -v 600 "${config_ssh_allow}"
-            #sudo install -v -m 600 -o root -g root /dev/stdin "${config_ssh_allow}" <<< "${content_ssh_allow}"
             _ETC_FILES_ADD "${config_ssh_allow}"
         fi
 
