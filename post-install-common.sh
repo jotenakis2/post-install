@@ -151,7 +151,7 @@ INITIALIZE() {
     #
 
     # liste des fichiers système crées ou modifiés par le script
-    declare -ga ETC_FILES=()
+    declare -a ETC_FILES=()
 }
 
 ########################################################################################################################
@@ -1121,7 +1121,7 @@ END() {
     duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
     _INFO "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
     if [[ -n "${ETC_FILES[*]}" ]]; then
-        _PRINT_ETC_FILES
+        #_PRINT_ETC_FILES
         _INFO "REDÉMARREZ pour appliquer les modifications complètement !"
     else
         _INFO "REDÉMARREZ pour appliquer les modifications éventuelles complètement !"
