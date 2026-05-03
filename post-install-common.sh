@@ -121,7 +121,7 @@ INITIALIZE() {
     _SECTION " Préparation de la post-installation " "━" "${C_GREEN}"
     _INFO "Distribution : ${PRETTY_NAME}"
     _INFO "Heure de démarrage du script : ${heure}"
-    _INFO "Fichier log de la post-installation : ${LOG_FILE}"
+    _OK "Fichier log de la post-installation : ${LOG_FILE}"
     INSTALL_DEPS
 
     # RUST

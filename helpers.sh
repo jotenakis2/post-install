@@ -498,7 +498,7 @@ _PRINT_ETC_FILES(){
     for item in "${ETC_FILES[@]}"; do
         echo "${hr} : ${item}" >> "${HOME}/${file}"
     done
-    _RUNSILENT sudo cp -f "${HOME}/${file}" "/root/${file}"
+    _RUNSILENT "" sudo cp -f "${HOME}/${file}" "/root/${file}"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
