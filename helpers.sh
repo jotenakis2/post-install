@@ -456,14 +456,16 @@ _MANAGE_TABLE(){
         if ((${#missing[@]})); then
             missing_fmt=$(_FORMAT_LIST "${missing[@]}")
             present_fmt=$(_FORMAT_LIST "${present[@]}")
-            ((${#present[@]})) && _INFO "Paquets à IGNORER car réussissant le test \"${test}\" : ${present_fmt}"
-            _INFO "Paquets à TRAITER car échouant au test \"${test}\" : ${missing_fmt}"
+            ((${#present[@]})) && { _INFO "Paquets à IGNORER car réussissant le test \"${test}\" : " ; _PRINT_LIST "${present_fmt}" ; }
+            _INFO "Paquets à TRAITER car échouant au test \"${test}\" : "
+            _PRINT_LIST "${missing_fmt}"
             _RUN "${treat^} en cours..." "${install_cmd}" "${missing[@]}"
             printf '\e[1A\e[2K' # je remonte d'une ligne et je la vide, pour écraser le "en cours..."
             _OK "Traitement terminé, ${treat} OK."
         else
             all_fmt=$(_FORMAT_LIST "$@")
-            _INFO "Tout a été traité (${treat}) : ${all_fmt}"
+            _INFO "Tout a été traité (${treat}) : "
+            _PRINT_LIST "${all_fmt}"
         fi
     else
         _INFO "Rien à traiter (${treat}), liste transmise vide..."
@@ -521,6 +523,33 @@ _FORMAT_LIST() {
             echo "${result} et ${items[-1]}"
             ;;
     esac
+}
+
+########################################################################################################################
+
+_PRINT_LIST() {
+    local list="${1:?print_list: argument manquant}"
+    local width
+    width=$(tput cols 2>/dev/null) || width=81
+    width=$(( width - 1 ))
+    local indent="     "
+    local line=""
+    local word
+    local -a words
+
+    read -r -a words <<< "${list}"
+    for word in "${words[@]}"; do
+        if [[ -z "${line}" ]]; then
+            line="${word}"
+        elif (( ${#line} + 1 + ${#word} <= width )); then
+            line="${line} ${word}"
+        else
+            printf '%s\n' "${line}"
+            line="${indent}${word}"
+        fi
+    done
+
+    [[ -n "${line}" ]] && printf '%s\n' "${line}"
 }
 
 
