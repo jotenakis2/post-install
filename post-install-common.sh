@@ -3,7 +3,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=29.6
+readonly VER=29.7
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -781,10 +781,8 @@ SETUP_ETC() {
         _INFO "Journal système déjà configuré (${journald_file})"
     else
         _OK "Configuration du journal système (${journald_file})"
-        #sudo install -v -m 644 -o root -g root /dev/stdin "${journald_file}" <<< "${journald_content}"
         printf '%s' "${journald_content}" | sudo tee "${journald_file}" > /dev/null
         _RUNSILENT "" sudo chmod -v 644 "${journald_file}"
-        #printf '%s' "${chrony_content}" | sudo tee "${chrony_file}" > /dev/null
         _ETC_FILES_ADD "/etc/systemd/journald.conf"
     fi
     { sudo ls -l "${journald_file}" ; sudo cat "${journald_file}" ; echo "" ; } >> "${LOG_FILE}"
@@ -797,9 +795,9 @@ SETUP_ETC() {
     readonly nm_dns_conf resolved_10_conf
 
     if ! grep -rq "dns=systemd-resolved" /etc/NetworkManager/conf.d; then
-        _RUN "Configuration de NetworkManager pour systemd-resolved (/etc/NetworkManager/conf.d/99-global-dns.conf)" sudo bash -c "
-        echo '${nm_dns_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/NetworkManager/conf.d/99-global-dns.conf
-        "
+        _OK "Configuration de NetworkManager avec systemd-resolved (/etc/NetworkManager/conf.d/99-global-dns.conf)"
+        printf '%s' "${nm_dns_conf}" | sudo tee /etc/NetworkManager/conf.d/99-global-dns.conf >/dev/null
+        _RUNSILENT "" sudo chmod -v 644 /etc/NetworkManager/conf.d/99-global-dns.conf
         restart=1
         _ETC_FILES_ADD "/etc/NetworkManager/conf.d/99-global-dns.conf"
     else
@@ -809,7 +807,10 @@ SETUP_ETC() {
     _RUNSILENT "" _SYMLINK /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
     if [[ ! -f /etc/systemd/resolved.conf.d/dns_servers.conf ]] || [[ ! -f /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ]]; then
-        _RUN "Déploiement de la configuration DNS (dans /etc/systemd/resolved.conf.d/)" sudo bash -c "echo '${RESOLVED_DNS_SERVERS}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/dns_servers.conf ; echo '${resolved_10_conf}' | install -v -m 644 -o root -g root /dev/stdin /etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
+        _OK "Déploiement de la configuration DNS (dans /etc/systemd/resolved.conf.d/)"
+        printf '%s' "${RESOLVED_DNS_SERVERS}" | sudo tee /etc/systemd/resolved.conf.d/dns_servers.conf >/dev/null
+        printf '%s' "${resolved_10_conf}" | sudo tee /etc/systemd/resolved.conf.d/10-disable-llmnr.conf >/dev/null
+        _RUNSILENT "" sudo chmod -v 644 /etc/systemd/resolved.conf.d/dns_servers.conf /etc/systemd/resolved.conf.d/10-disable-llmnr.conf
         restart=1
         _ETC_FILES_ADD "/etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
         _ETC_FILES_ADD "/etc/systemd/resolved.conf.d/dns_servers.conf"
@@ -819,13 +820,9 @@ SETUP_ETC() {
     if [[ ${restart} -eq 1 ]]; then
         _RUN "Redémarrage des services NetworkManager et systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
     fi
-    { cat /etc/NetworkManager/conf.d/99-global-dns.conf
-      echo ""
-      cat /etc/systemd/resolved.conf.d/dns_servers.conf
-      echo ""
-      cat /etc/systemd/resolved.conf.d/10-disable-llmnr.conf
-      echo ""
-    } >> "${LOG_FILE}"
+    { ls -l /etc/NetworkManager/conf.d/99-global-dns.conf ; cat /etc/NetworkManager/conf.d/99-global-dns.conf ; echo ""
+      ls -l /etc/systemd/resolved.conf.d/dns_servers.conf ; cat /etc/systemd/resolved.conf.d/dns_servers.conf ; echo ""
+      ls -l /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ; cat /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ; echo "" ; } >> "${LOG_FILE}"
 
     # --- Optimisations Kernel (Sysctl) ---
     _LOG "* sysctl *"
@@ -841,7 +838,7 @@ SETUP_ETC() {
     readonly sysctlfile sysctl_header
     # on concatène le header et la variable globale SYSCTL_CONF
     full_sysctl_content="${sysctl_header}
-    ${SYSCTL_CONF}"
+${SYSCTL_CONF}"
 
     if [[ -f "${sysctlfile}" ]] && printf '%s' "${full_sysctl_content}" | sudo cmp -s - "${sysctlfile}"; then
         _INFO "Configuration noyau déjà à jour (${sysctlfile})"
@@ -868,7 +865,6 @@ SETUP_ETC() {
             _OK "Déploiement des politiques pour \"débloater\" Brave (${brave_policy_file})"
             printf '%s' "${full_brave_policies}" | sudo tee "${brave_policy_file}" > /dev/null
             _RUNSILENT "" sudo chmod -v 644 "${brave_policy_file}"
-            #sudo install -v -m 644 -o root -g root /dev/stdin "${brave_policy_file}" <<< "${full_brave_policies}"
             _ETC_FILES_ADD "${brave_policy_file}"
         fi
         { sudo ls -l "${brave_policy_file}" ; sudo cat "${brave_policy_file}" ; echo "" ; } >> "${LOG_FILE}"
@@ -957,7 +953,7 @@ SETUP_SSHD(){
         banner_file="/etc/issue.net"
         content_ssh_allow="# automatically generated and managed by ${SCRIPTNAME} - can be modified to allow other users ======
 AllowUsers ${USER}
-# ==================================================================================================
+# ===========================================================================================================
 "
         ssh_header="# =======================================================================
 # WARNING: Do not modify this file!
