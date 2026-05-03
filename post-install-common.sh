@@ -955,8 +955,9 @@ SETUP_SSHD(){
         config_ssh_file="/etc/ssh/sshd_config.d/90-jotenakis.conf"
         config_ssh_allow="/etc/ssh/sshd_config.d/92-AllowUsers.conf"
         banner_file="/etc/issue.net"
-        content_ssh_allow="# automatically generated and managed by ${SCRIPTNAME} - can be modified to allow other users
+        content_ssh_allow="# automatically generated and managed by ${SCRIPTNAME} - can be modified to allow other users ======
 AllowUsers ${USER}
+# ==================================================================================================
 "
         ssh_header="# =======================================================================
 # WARNING: Do not modify this file!
