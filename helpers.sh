@@ -532,6 +532,11 @@ _FORMAT_LIST() {
 # Toutes les lignes sont indentées de 5 espaces.
 # Les coupures se font uniquement sur les espaces (jamais en plein mot).
 # Les espaces multiples sont préservés.
+# print_list STRING
+# Affiche STRING sur stdout en wrappant à la largeur du terminal.
+# Toutes les lignes sont indentées de 5 espaces.
+# Les coupures se font uniquement sur les espaces (jamais en plein mot).
+# Les espaces multiples sont préservés sur la même ligne, ignorés en début de continuation.
 _PRINT_LIST() {
     local list="${1:?print_list: argument manquant}"
     local width
@@ -547,28 +552,27 @@ _PRINT_LIST() {
         char="${list:i:1}"
         if [[ "${char}" == ' ' ]]; then
             if (( ! in_space )); then
-                # Fin d'un mot : on tente de l'ajouter à la ligne courante
                 if [[ "${line}" == "${indent}" ]]; then
                     line="${indent}${chunk}"
                 elif (( ${#line} + ${#chunk} <= width )); then
                     line="${line}${chunk}"
                 else
                     printf '%s\n' "${line}"
-                    line="${indent}${chunk}"
+                    line="${indent}"
+                    chunk=""
+                    in_space=1
                 fi
                 chunk=""
                 in_space=1
             fi
-            chunk="${chunk}${char}"
+            [[ "${line}" != "${indent}" ]] && chunk="${chunk}${char}"
         else
-            if (( in_space )); then
-                in_space=0
-            fi
+            in_space=0
             chunk="${chunk}${char}"
         fi
     done
 
-    # Dernier token (sans espace final)
+    # Dernier token
     if [[ -n "${chunk}" ]]; then
         if [[ "${line}" == "${indent}" ]]; then
             line="${indent}${chunk}"
@@ -582,6 +586,7 @@ _PRINT_LIST() {
 
     [[ "${line}" != "${indent}" ]] && printf '%s\n' "${line}"
 }
+
 ########################################################################################################################
 
 _IS_FPPKG_INSTALLED() {
