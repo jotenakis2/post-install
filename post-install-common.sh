@@ -1121,7 +1121,8 @@ END() {
         _PRINT_ETC_FILES
         _INFO "REDÉMARREZ pour appliquer les modifications complètement !"
     else
-        _INFO "REDÉMARREZ pour appliquer les modifications éventuelles complètement !"
+        _INFO "Aucun fichier système crée ou modifié"
+        _INFO "Il est plus prudent néanmoins de redémarrer"
     fi
 
     # LOG
