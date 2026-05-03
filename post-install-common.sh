@@ -773,22 +773,20 @@ SETUP_ETC() {
     _LOG "* journald *"
     local journald_content journald_file
     journald_file="/etc/systemd/journald.conf"
-    journald_content='[Journal]
-SystemMaxUse=900M
-SystemKeepFree=2G
-'
+    journald_content=$'[Journal]\nSystemMaxUse=900M\nSystemKeepFree=2G\n'
     readonly journald_file journald_content
 
-    if [[ -f "${journald_file}" ]] &&  echo "${journald_content}" | sudo cmp -s - "${journald_file}"; then
+    if [[ -f "${journald_file}" ]] && printf '%s' "${journald_content}" | sudo cmp -s - "${journald_file}"; then
         _INFO "Réglage du journal système déjà fait (${journald_file})"
     else
-        _RUN "Réglage du journal système (${journald_file})" sudo install -v -m 644 -o root -g root /dev/stdin "${journald_file}" <<< "${journald_content}"
+        _OK "Réglage du journal système (${journald_file})"
+        #sudo install -v -m 644 -o root -g root /dev/stdin "${journald_file}" <<< "${journald_content}"
+        printf '%s' "${journald_content}" | sudo tee "${journald_file}" > /dev/null
+        _RUNSILENT "" sudo chmod -v 644 "${journald_file}"
+        #printf '%s' "${chrony_content}" | sudo tee "${chrony_file}" > /dev/null
         _ETC_FILES_ADD "/etc/systemd/journald.conf"
     fi
-    { sudo ls -l "${journald_file}"
-      sudo cat "${journald_file}"
-      echo ""
-    } >> "${LOG_FILE}"
+    { sudo ls -l "${journald_file}" ; sudo cat "${journald_file}" ; echo "" ; } >> "${LOG_FILE}"
 
     # --- NetworkManager & systemd-resolved ---
     _LOG "* réseau *"
