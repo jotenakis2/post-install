@@ -393,7 +393,10 @@ SETUP_DOTFILES() {
         #stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
     done
     _PRINT_LIST "${listdot}" | tee -a "${LOG_FILE}"
-    stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${listdot}" &>>"${LOG_FILE}"
+    for pkg in "${DOTFILES_DIR}"/*/; do
+        name=$(basename "${pkg}")
+        stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
+    done
     echo ""
 
     if _EXIST bat; then
