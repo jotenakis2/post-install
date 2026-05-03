@@ -549,7 +549,7 @@ SETUP_SUDO_RS() {
             _RUNSILENT "" sudo dnf versionlock add sudo
             change=1
         fi
-        if ! sudo grep -q sudo /etc/dnf/dnf.conf; then
+        if ! sudo grep -q sudo /etc/dnf/dnf.conf 2>/dev/null; then
             _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
             change=1
             _ETC_FILES_ADD "/etc/dnf/dnf.conf"
@@ -581,10 +581,13 @@ _CLEANUP_APPSTREAM() {
 
 ########################################################################################################################
 _PKG_CONFIG() {
-    _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main defaultyes true
-    _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main max_parallel_downloads 10
-    _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main countme False
-    _ETC_FILES_ADD "/etc/dnf/dnf.conf"
+    local dnf="/etc/dnf/dnf.conf"
+    if ! sudo grep -q "main defaultyes true" "${dnf}" 2>/dev/null || ! sudo grep -q "main max_parallel_downloads 10" "${dnf}" 2>/dev/null || ! sudo grep -q "main countme False" "${dnf}" 2>/dev/null ; then
+        _ETC_FILES_ADD "${dnf}"
+    fi
+    _RUNSILENT "" sudo crudini --verbose --set "${dnf}" main defaultyes true
+    _RUNSILENT "" sudo crudini --verbose --set "${dnf}" main max_parallel_downloads 10
+    _RUNSILENT "" sudo crudini --verbose --set "${dnf}" main countme False
 }
 
 _PKG_INSTALL_SKIP() {
