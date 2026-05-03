@@ -955,9 +955,9 @@ SETUP_SSHD(){
         config_ssh_file="/etc/ssh/sshd_config.d/90-jotenakis.conf"
         config_ssh_allow="/etc/ssh/sshd_config.d/92-AllowUsers.conf"
         banner_file="/etc/issue.net"
-        #sudo touch "${config_ssh_file}" "${banner_file}" "${config_ssh_allow}"
-
-        content_ssh_allow=$'AllowUsers ${USER}\n' # on autorise l'utilisateur qui a lancé le script à se connecter en ssh et c'est tout
+        content_ssh_allow="# automatically generated and managed by ${SCRIPTNAME} - can be modified to allow other users
+AllowUsers ${USER}
+"
         ssh_header="# =======================================================================
 # WARNING: Do not modify this file!
 # It is automatically generated and managed by ${SCRIPTNAME}.
@@ -968,7 +968,8 @@ SETUP_SSHD(){
         readonly ssh_header content_ssh_allow
 
         # on concatène le header et la variable globale SSHD_CONFIG
-        full_ssh_content=$'\n${ssh_header}\n${SSHD_CONFIG}'
+        full_ssh_content="${ssh_header}
+${SSHD_CONFIG}"
 
         # config sshd custo
         if sudo test -f "${config_ssh_file}" && printf '%s' "${full_ssh_content}" | sudo cmp -s - "${config_ssh_file}"; then
