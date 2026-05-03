@@ -145,7 +145,7 @@ _SETUP_VCONSOLE_FONT() {
         _LOG "Police console '${font}' introuvable — vérifier le paquet terminus-fonts"
     else
         if grep -q "^FONT=" "${vconsole}" 2>/dev/null; then
-            _RUNSILENT "" sudo sed -i "s/^FONT=.*/FONT=${font}/" "${vconsole}"
+            grep -q "^FONT=${font}" 2>/dev/null || _RUNSILENT "" sudo sed -i "s/^FONT=.*/FONT=${font}/" "${vconsole}"
         else
             _RUNSILENT "" echo "FONT=${font}" | sudo tee -a "${vconsole}" > /dev/null
         fi
