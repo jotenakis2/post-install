@@ -135,9 +135,9 @@ _ENABLE_COLORS() {
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _INSTALL_ETC_FILES() {
-    msg="$1:-"
-    content="$2"
-    file="$3"
+    local msg="$1:-"
+    local content="$2"
+    local file="$3"
     readonly msg content file
     _LOG "${msg^^}"
     if [[ -f "${file}" ]] && printf '%s' "${content}" | sudo cmp -s - "${file}"; then
