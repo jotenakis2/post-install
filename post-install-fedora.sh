@@ -235,7 +235,9 @@ SETUP_CHRONY() {
         chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
         readonly chrony_file chrony_content
         _INSTALL_ETC_FILES "chronyd" "${chrony_content}" "${chrony_file}" "644"
-        [[ "${STATUS}" -eq 0 ]] && _RUNSILENT "" sudo systemctl try-restart chronyd
+        if [[ "${STATUS}" -eq 0 ]]; then
+            _RUNSILENT "" sudo systemctl try-restart chronyd
+        fi
     else
         _LOG "ipv6 n'est pas activé donc on ne change rien à chrony"
     fi
