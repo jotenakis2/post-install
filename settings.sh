@@ -7,11 +7,9 @@
 MYHOSTNAME="MyFedoraBTW"
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # on remplace sudo par sudo-rs ? ---------------------------------------------------------------------------------------------
 SUDORS="yes"
 #-----------------------------------------------------------------------------------------------------------------------------
-
 
 # paquets RPM à installer ----------------------------------------------------------------------------------------------------
 DNF_PACKAGES=(
@@ -23,7 +21,6 @@ DNF_PACKAGES=(
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
-
 
 # paquets RPM à désinstaller -------------------------------------------------------------------------------------------------
 DNF_REMOVE=(
@@ -56,7 +53,6 @@ DNF_REMOVE=(
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # polices à installer (les 2 nerd font ici sont dans le dépôt Terra qui est ajouté automatiquement) --------------------------
 FONTS=(
     jetbrainsmono-nerd-fonts
@@ -67,7 +63,6 @@ FONTS=(
 VCONSOLE_FONT="ter-v24b" # font console
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # paquets flatpak à installer ------------------------------------------------------------------------------------------------
 FLATPAK_PKGS=(
     "com.ktechpit.whatsie"
@@ -77,27 +72,25 @@ FLATPAK_PKGS=(
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé" ---------------------------------------------
 CARGO_PACKAGES=(
     cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg
-    ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina eza netwatch-tui
+    ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina eza netwatch-tui syswatch poshbuddy
     # Ajoute tes autres paquets ici
 )
 declare -A BIN_MAPPING=(
-        ["yazi-fm"]="yazi"
-        ["yazi-cli"]="ya"
-        ["tealdeer"]="tldr"
-        ["parallel-disk-usage"]="pdu"
-        ["fd-find"]="fd"
-        ["bottom"]="btm"
-        ["ripgrep"]="rg"
-        ["netwatch-tui"]="netwatch"
-        ["cargo-update"]="cargo-install-update cargo-install-update-config"
-        # Ajoute tes autres correspondances nécessaires ici
+    ["yazi-fm"]="yazi"
+    ["yazi-cli"]="ya"
+    ["tealdeer"]="tldr"
+    ["parallel-disk-usage"]="pdu"
+    ["fd-find"]="fd"
+    ["bottom"]="btm"
+    ["ripgrep"]="rg"
+    ["netwatch-tui"]="netwatch"
+    ["cargo-update"]="cargo-install-update cargo-install-update-config"
+    # Ajoute tes autres correspondances nécessaires ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
-
 
 # outils GO ------------------------------------------------------------------------------------------------------------------
 declare -A GO_PACKAGES=(
@@ -108,7 +101,6 @@ declare -A GO_PACKAGES=(
     # Ajoute tes autres paquets ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
-
 
 # Repos git à installer (repo dotfiles obligatoire, autres optionnels) -------------------------------------------------------
 MYREPOS="https://codeberg.org/jotenakis"
@@ -123,7 +115,6 @@ GIT_REPOS=(
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # services réseaux à autoriser dans le pare-feu ------------------------------------------------------------------------------
 FIREWALL_SERVICES=(
     "mdns"
@@ -132,7 +123,6 @@ FIREWALL_SERVICES=(
     # ajoute tes autres services réseaux à autoriser ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
-
 
 # services systemd à désactiver ----------------------------------------------------------------------------------------------
 declare -A SERVICES_TO_DISABLE=(
@@ -155,14 +145,12 @@ declare -A SERVICES_TO_DISABLE=(
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # services systemd --user à activer ------------------------------------------------------------------------------------------
 declare -A USER_SERVICES_TO_ENABLE=(
     ["psd.service"]="service profile-sync-daemon"
     # ajoute tes autres services systemd à désactiver ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
-
 
 # configuration du noyau -----------------------------------------------------------------------------------------------------
 SYSCTL_CONF='
@@ -229,7 +217,6 @@ net.ipv4.conf.default.rp_filter = 1
 '
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # configuration pour débloater brave browser ---------------------------------------------------------------------------------
 # shellcheck disable=SC2089
 BRAVE_POLICIES='{
@@ -243,7 +230,6 @@ BRAVE_POLICIES='{
 }'
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # conf DNS #------------------------------------------------------------------------------------------------------------------
 RESOLVED_DNS_SERVERS='[Resolve]
 DNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net
@@ -253,7 +239,6 @@ DNSOverTLS=yes
 DNSSEC=yes
 ' # dot quad9, fallback dot cloudflare, DNSSEC on, pour toutes les résolutions externes.
 #-----------------------------------------------------------------------------------------------------------------------------
-
 
 # conf SSH #------------------------------------------------------------------------------------------------------------------
 ACTIVATE_SSHD="yes" # no ou "" pour ne pas activer.
@@ -293,7 +278,6 @@ Subsystem sftp internal-sftp
 '
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # Banner /etc/issue.net #-----------------------------------------------------------------------------------------------------
 # shellcheck disable=SC2089
 BANNER='#################################################################
@@ -314,32 +298,26 @@ BANNER='#################################################################
 '
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # Couleur du TTY (console virtuelle non graphique) #--------------------------------------------------------------------------
 TTY_COLOR="vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200" #catppuccin mocha
 #-----------------------------------------------------------------------------------------------------------------------------
-
 
 # ZSWAP yes/no ? si "yes" zram sera désactivé et un swapfile sera ajouté (backend) -------------------------------------------
 ZSWAP="yes"
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # paramètres additionels de la ligne de commande du noyau --------------------------------------------------------------------
 CMDLINE="ipv6.disable=1"
 #-----------------------------------------------------------------------------------------------------------------------------
-
 
 # position du panneau de KDE (top, bottom, right, left) ----------------------------------------------------------------------
 KDEPANEL="top"
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # Montage NFS ----------------------------------------------------------------------------------------------------------------
 NFS_SHARE="192.168.50.51:/mnt/usbdrive/data"
 NFS_MP="/media/NAS"
 #-----------------------------------------------------------------------------------------------------------------------------
-
 
 # règle udev persistante (par ex : clé usb) ----------------------------------------------------------------------------------
 # shellcheck disable=SC2089,SC2016
@@ -349,30 +327,28 @@ ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="b6fed99c-7c1a-4146-a445-f26
 UDEVDESCR="Clé NVMe"
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # Données privées à restaurer #-----------------------------------------------------------------------------------------------
 SOURCE="/media/NAS/backup/data2restore"
 declare -A COMMANDS=(
-   ["FIREFOX"]="firefox"
-   ["BRAVE"]="brave"
-   ["SSH"]=""
-   ["IPTVNATOR"]="iptvnator.bin"
-   ["SSHMANAGER"]=""
-   ["HELIUM"]="helium"
-   ["MSMTP"]=""
-        # Ajoute les liens binaires à tuer avant de restaurer pour chaque PROFIL (important pour les navigateurs)
+    ["FIREFOX"]="firefox"
+    ["BRAVE"]="brave"
+    ["SSH"]=""
+    ["IPTVNATOR"]="iptvnator.bin"
+    ["SSHMANAGER"]=""
+    ["HELIUM"]="helium"
+    ["MSMTP"]=""
+    # Ajoute les liens binaires à tuer avant de restaurer pour chaque PROFIL (important pour les navigateurs)
 )
 declare -A DESTINATIONS=(
-   ["FIREFOX"]="${HOME}/.mozilla/firefox/"
-   ["BRAVE"]="${HOME}/.config/BraveSoftware/Brave-Browser/"
-   ["SSH"]="${HOME}/.ssh/"
-   ["IPTVNATOR"]="${HOME}/.config/iptvnator/"
-   ["SSHMANAGER"]="${HOME}/.local/share/sshmanager/"
-   ["HELIUM"]="${HOME}/.config/net.imput.helium/"
-   ["MSMTP"]="${HOME}/.config/msmtp"
+    ["FIREFOX"]="${HOME}/.mozilla/firefox/"
+    ["BRAVE"]="${HOME}/.config/BraveSoftware/Brave-Browser/"
+    ["SSH"]="${HOME}/.ssh/"
+    ["IPTVNATOR"]="${HOME}/.config/iptvnator/"
+    ["SSHMANAGER"]="${HOME}/.local/share/sshmanager/"
+    ["HELIUM"]="${HOME}/.config/net.imput.helium/"
+    ["MSMTP"]="${HOME}/.config/msmtp"
 )
 #-----------------------------------------------------------------------------------------------------------------------------
-
 
 ###############################################################################################################################
 ###############################################################################################################################

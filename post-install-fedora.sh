@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-source ./post-install-common.sh   # fonctions distro-agnostique
-
+source ./post-install-common.sh # fonctions distro-agnostique
 
 ########################################################################################################################
 # FONCTIONS SPECIFIQUES FEDORA                                                                                         #
@@ -10,14 +9,27 @@ source ./post-install-common.sh   # fonctions distro-agnostique
 
 ########################################################################################################################
 CHECK() {
-    [[ -n "${BASH_VERSION:-}" ]]       || { echo "Ce script requiert bash."; exit 1 ; }
-    [[ "${BASH_VERSINFO[0]}" -ge 5 ]]  || { echo "Bash >= 5 requis (actuel : ${BASH_VERSION})."; exit 1 ; }
-    [[ "${EUID}" -ne 0 ]]              || { echo "Ne pas lancer en root. Le script gère sudo lui-même."; exit 1 ; }
-    [[ -f /etc/fedora-release ]]       || { echo "Fedora uniquement."; exit 1 ; }
+    [[ -n "${BASH_VERSION:-}" ]] || {
+        echo "Ce script requiert bash."
+        exit 1
+    }
+    [[ "${BASH_VERSINFO[0]}" -ge 5 ]] || {
+        echo "Bash >= 5 requis (actuel : ${BASH_VERSION})."
+        exit 1
+    }
+    [[ "${EUID}" -ne 0 ]] || {
+        echo "Ne pas lancer en root. Le script gère sudo lui-même."
+        exit 1
+    }
+    [[ -f /etc/fedora-release ]] || {
+        echo "Fedora uniquement."
+        exit 1
+    }
 
     # Vérification explicite des droits sudo (groupe wheel)
     if ! id -nG "${USER}" | grep -qw "wheel"; then
-        echo "L'utilisateur ${USER} n'appartient pas au groupe 'wheel' (sudo). Abandon." ; exit 1
+        echo "L'utilisateur ${USER} n'appartient pas au groupe 'wheel' (sudo). Abandon."
+        exit 1
     fi
     #
     local fedora_rel
@@ -50,7 +62,7 @@ REMOVE_RPM_PACKAGES() {
         _LOG "ZSWAP est demandé : zram est supprimé"
     fi
 
-    if (( wants_systemd_networkd_removal )); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
+    if ((wants_systemd_networkd_removal)); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
         if _IS_ACTIVE NetworkManager; then
             if _IS_PKG_INSTALLED systemd-networkd; then
                 _RUN "Suppression systemd-networkd (NetworkManager actif)" _PKG_REMOVE systemd-networkd
@@ -61,7 +73,7 @@ REMOVE_RPM_PACKAGES() {
             _INFO "NetworkManager inactif — systemd-networkd conservé"
         fi
     fi
-    if (( wants_akonadi_removal )); then
+    if ((wants_akonadi_removal)); then
         _RUNSILENT "" rm -rf "${HOME}/.local/share/akonadi"*
         _RUNSILENT "" rm -rf "${HOME}/.config/akonadi"*
         _RUNSILENT "" rm -rf "${HOME}/.cache/akonadi"*
@@ -131,7 +143,7 @@ INSTALL_FONTS() {
 _SETUP_VCONSOLE_FONT() {
     local font="${VCONSOLE_FONT:-ter-v24b}"
     local vconsole="/etc/vconsole.conf"
-    local font_dirs=( "/usr/lib/kbd/consolefonts" "/usr/share/kbd/consolefonts" )
+    local font_dirs=("/usr/lib/kbd/consolefonts" "/usr/share/kbd/consolefonts")
     local found=0
 
     for dir in "${font_dirs[@]}"; do
@@ -141,26 +153,26 @@ _SETUP_VCONSOLE_FONT() {
         fi
     done
 
-    if (( found == 0 )); then
+    if ((found == 0)); then
         _LOG "Police console '${font}' introuvable — vérifier le paquet terminus-fonts"
     else
         if grep -q "^FONT=" "${vconsole}" 2>/dev/null; then
-            if grep -q "^FONT=${font}" "${vconsole}" 2>/dev/null ; then
+            if grep -q "^FONT=${font}" "${vconsole}" 2>/dev/null; then
                 _INFO "Police console TTY déjà à jour"
-                grep FONT "${vconsole}" >> "${LOG_FILE}"
+                grep FONT "${vconsole}" >>"${LOG_FILE}"
             else
                 _RUNSILENT "" sudo sed -i "s/^FONT=.*/FONT=${font}/" "${vconsole}"
                 _OK "Modification de la police console TTY"
                 _ETC_FILES_ADD "${vconsole}"
                 _LOG "Police console définie :"
-                cat "${vconsole}" 2>/dev/null >> "${LOG_FILE}"
+                cat "${vconsole}" 2>/dev/null >>"${LOG_FILE}"
             fi
         else
-            printf '%s' "FONT=${font}" | sudo tee -a "${vconsole}" > /dev/null
+            printf '%s' "FONT=${font}" | sudo tee -a "${vconsole}" >/dev/null
             _OK "Ajout de la police console TTY"
             _ETC_FILES_ADD "${vconsole}"
             _LOG "Police console définie :"
-            cat "${vconsole}" 2>/dev/null >> "${LOG_FILE}"
+            cat "${vconsole}" 2>/dev/null >>"${LOG_FILE}"
         fi
     fi
 }
@@ -227,11 +239,14 @@ SETUP_CHRONY() {
             _INFO "Configuration chronyd déjà à jour (${chrony_file})"
         else
             _OK "Configuration de chronyd (${chrony_file})"
-            printf '%s' "${chrony_content}" | sudo tee "${chrony_file}" > /dev/null
+            printf '%s' "${chrony_content}" | sudo tee "${chrony_file}" >/dev/null
             _RUNSILENT "" sudo chmod -v 644 "${chrony_file}"
             _RUNSILENT "" sudo systemctl try-restart chronyd
             _ETC_FILES_ADD "${chrony_file}"
-            { sudo ls -l "${chrony_file}"; sudo cat "${chrony_file}"; } >> "${LOG_FILE}"
+            {
+                sudo ls -l "${chrony_file}"
+                sudo cat "${chrony_file}"
+            } >>"${LOG_FILE}"
         fi
     else
         _LOG "ipv6 n'est pas activé donc on ne change rien à chrony"
@@ -239,7 +254,7 @@ SETUP_CHRONY() {
 }
 
 ########################################################################################################################
-SETUP_GRUB(){
+SETUP_GRUB() {
     local is_grub zswap=""
     is_grub=$(_DETECT_GRUB)
 
@@ -286,9 +301,10 @@ SETUP_GRUB(){
         else
             _INFO "GRUB déjà correctement configuré (/etc/default/grub)"
         fi
-        { sudo ls -l /etc/default/grub
-          sudo cat /etc/default/grub
-        } >> "${LOG_FILE}"
+        {
+            sudo ls -l /etc/default/grub
+            sudo cat /etc/default/grub
+        } >>"${LOG_FILE}"
     else
         _ERR "GRUB n'a pas été détecté, je ne change rien au bootloader."
     fi
@@ -329,9 +345,8 @@ SETUP_FIREWALL() {
     fi
 }
 
-
 ########################################################################################################################
-SETUP_SWAP(){ # que si zswap est demandé
+SETUP_SWAP() { # que si zswap est demandé
     if [[ "${ZSWAP}" = "yes" ]]; then
         _LOG "* swap *"
         local target_size ram_total_kib
@@ -340,13 +355,12 @@ SETUP_SWAP(){ # que si zswap est demandé
 
         ram_total_kib=$(awk '/^MemTotal:/ { print $2; exit }' /proc/meminfo)
         # SWAP = "2 x RAMtotal + 1Go" avec MAX 16Go
-        SWAP_SIZE=$(( 1 + ram_total_kib * 2 / 1024 / 1024 ))
+        SWAP_SIZE=$((1 + ram_total_kib * 2 / 1024 / 1024))
         SWAP_MAX=16
         if [[ "${SWAP_SIZE}" -gt "${SWAP_MAX}" ]]; then
             SWAP_SIZE=${SWAP_MAX}
         fi
-        target_size=$(( SWAP_SIZE * 1024 * 1024 * 1024 ))
-
+        target_size=$((SWAP_SIZE * 1024 * 1024 * 1024))
 
         if [[ -f "${swapdir}/swapfile" ]]; then
             local current_size
@@ -387,7 +401,7 @@ SETUP_SWAP(){ # que si zswap est demandé
                 _RUNSILENT "" sudo mkswap "${swapdir}/swapfile"
             fi
             _ETC_FILES_ADD "${swapdir}/swapfile"
-            find "${swapdir}" -ls | sudo tee -a "${LOG_FILE}" > /dev/null
+            find "${swapdir}" -ls | sudo tee -a "${LOG_FILE}" >/dev/null
         fi
 
         if ! swapon --show | grep -q "${swapdir}/swapfile"; then
@@ -395,7 +409,6 @@ SETUP_SWAP(){ # que si zswap est demandé
         else
             _INFO "Swap déjà actif"
         fi
-
 
         # --- 2.5 SELinux : Autorisation pour systemd-logind ---
         _LOG "* SELINUX SWAP *"
@@ -413,7 +426,7 @@ SETUP_SWAP(){ # que si zswap est demandé
             local selinux_content
             selinux_content=$'module systemd_swap_search 1.0;\nrequire {\ntype swapfile_t;\ntype systemd_logind_t;\nclass dir search;\n}\n#============= systemd_logind_t ==============\nallow systemd_logind_t swapfile_t:dir search;\n'
 
-            cat <<< "${selinux_content}" > "${selinux_tmp}.te"
+            cat <<<"${selinux_content}" >"${selinux_tmp}.te"
             _RUNSILENT "" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
             _RUNSILENT "" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
             _RUN "Installation du module SELinux systemd_swap_search" sudo semodule -i "${selinux_tmp}.pp"
@@ -496,7 +509,10 @@ SETUP_SUDO_RS() {
         _PASS
         #_RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
         _SYMLINK "${sudo_rs_bin}" "${local_bin_sudo}"
-        [[ "${STATUSSYMLINK}" -eq 0 ]] && { change=1 ; _ETC_FILES_ADD "${local_bin_sudo}" ; } # le lien a bien été crée
+        [[ "${STATUSSYMLINK}" -eq 0 ]] && {
+            change=1
+            _ETC_FILES_ADD "${local_bin_sudo}"
+        } # le lien a bien été crée
         _RUNSILENT "" sudo chmod -v 4111 "${sudo_rs_bin}"
         _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
 
@@ -504,7 +520,7 @@ SETUP_SUDO_RS() {
         local pattern="%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper"
         local file="${d_sudoers_rs_d}/90-profile-sync-daemon"
         if sudo test -f "${file}"; then
-            if ! sudo grep -q "${pattern}" "${file}" > /dev/null; then
+            if ! sudo grep -q "${pattern}" "${file}" >/dev/null; then
                 _RUN "Mise à jour de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
                 change=1
                 _ETC_FILES_ADD "${file}"
@@ -518,7 +534,7 @@ SETUP_SUDO_RS() {
         local pattern="Defaults pwfeedback,timestamp_timeout=60"
         local file2="${d_sudoers_rs_d}/99-timeout"
         if sudo test -f "${file2}"; then
-            if ! sudo grep -q "${pattern}" "${file2}" > /dev/null; then
+            if ! sudo grep -q "${pattern}" "${file2}" >/dev/null; then
                 _RUN "Mise à jour de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
                 change=1
                 _ETC_FILES_ADD "${file2}"
@@ -565,13 +581,12 @@ SETUP_SUDO_RS() {
     fi
 }
 
-
 ########################################################################################################################
 
 _CLEANUP_APPSTREAM() {
     if ! _IS_PKG_INSTALLED plasma-discover && ! _IS_PKG_INSTALLED gnome-software; then
         local -a appstream=()
-        _IS_PKG_INSTALLED rpmfusion-free-appstream-data    && appstream+=("rpmfusion-free-appstream-data")
+        _IS_PKG_INSTALLED rpmfusion-free-appstream-data && appstream+=("rpmfusion-free-appstream-data")
         _IS_PKG_INSTALLED rpmfusion-nonfree-appstream-data && appstream+=("rpmfusion-nonfree-appstream-data")
         if [[ ${#appstream[@]} -gt 0 ]]; then
             _RUN "Suppression métadonnées appstream RPMFusion" _PKG_REMOVE "${appstream[@]}"
@@ -579,11 +594,10 @@ _CLEANUP_APPSTREAM() {
     fi
 }
 
-
 ########################################################################################################################
 _PKG_CONFIG() {
     local dnf="/etc/dnf/dnf.conf"
-    if ! sudo grep -q "defaultyes = true" "${dnf}" 2>/dev/null || ! sudo grep -q "max_parallel_downloads = 10" "${dnf}" 2>/dev/null || ! sudo grep -q "countme = False" "${dnf}" 2>/dev/null ; then
+    if ! sudo grep -q "defaultyes = true" "${dnf}" 2>/dev/null || ! sudo grep -q "max_parallel_downloads = 10" "${dnf}" 2>/dev/null || ! sudo grep -q "countme = False" "${dnf}" 2>/dev/null; then
         _ETC_FILES_ADD "${dnf}"
     fi
     _RUNSILENT "" sudo crudini --verbose --set "${dnf}" main defaultyes true
@@ -610,7 +624,6 @@ _PKG_DOWNLOAD_THEN_INSTALL() {
     _RUNSILENT "" sudo rm -rvf "${download_dir}"
 }
 
-
 _SYS_UPDATE() {
     sudo dnf upgrade -y
 }
@@ -634,7 +647,7 @@ _REFRESH_SYS_CACHE() {
 
     now=$(date +%s)
     sentinel_mtime=$(stat -c %Y "${sentinel}" 2>/dev/null || echo 0)
-    age=$(( now - sentinel_mtime ))
+    age=$((now - sentinel_mtime))
 
     if [[ ${age} -gt ${max_age} ]]; then
         _RUN "Mise à jour du cache des métadonnées des dépôts" sudo dnf makecache --refresh
@@ -645,8 +658,6 @@ _REFRESH_SYS_CACHE() {
 }
 
 ########################################################################################################################
-
-
 
 ######################
 MAIN "$@"

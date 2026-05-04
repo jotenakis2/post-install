@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # TODO sshd : email quand conn. / fail2ban
+#      cachyos kernel
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
 readonly VER=30.5
 # paramètres customisables définis dans settings.sh. ###############################
-source ./settings.sh                                                               #
+source ./settings.sh #
 ####################################################################################
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -33,7 +34,7 @@ MAIN() {
 ########################################################################################################################
 # FONCTIONS DISTRO-AGNOSTIQUE                                                                                          #
 ########################################################################################################################
-MAINMODE(){
+MAINMODE() {
     _REFRESH_SYS_CACHE
     _RUN "Mise à jour forcée du système" _SYS_UPDATE
     SETUP_SUDO_RS
@@ -64,7 +65,7 @@ MAINMODE(){
 }
 
 ########################################################################################################################
-SHELLONLYMODE(){
+SHELLONLYMODE() {
     _SECTION " Mode shellonly (cargo, go, git, shell, dotfiles) " "━" "${C_GREEN}"
     INSTALL_CARGO_PACKAGES
     INSTALL_GO_PACKAGES
@@ -74,13 +75,13 @@ SHELLONLYMODE(){
 }
 
 ########################################################################################################################
-CHECKMODE(){
+CHECKMODE() {
     _SECTION " Mode contrôle - paramètres personnalisables de ${SCRIPTNAME} " "━" "${C_GREEN}"
     echo "Fichier : "
     ls -l ./settings.sh 2>/dev/null
     echo ""
     echo "Contenu : "
-    if _EXIST bat ; then
+    if _EXIST bat; then
         grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh | bat -pP
     else
         grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh
@@ -91,7 +92,7 @@ CHECKMODE(){
 }
 
 ########################################################################################################################
-HELPMODE(){
+HELPMODE() {
     _SECTION " Mode aide " "━" "${C_GREEN}"
     _INFO "Usage : ./${SCRIPTNAME} [ --shellonly | --check | --help ]"
     _INFO "Sans option, ${SCRIPTNAME} éxécute la post-installation complète."
@@ -122,8 +123,8 @@ INITIALIZE() {
     _INFO "Distribution : ${PRETTY_NAME}"
     _INFO "Heure de démarrage du script : ${heure}"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
-    printf '%s' "Paramètres utilisateur retenus : " >> "${LOG_FILE}"
-    grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh >> "${LOG_FILE}"
+    printf '%s' "Paramètres utilisateur retenus : " >>"${LOG_FILE}"
+    grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh >>"${LOG_FILE}"
 
     INSTALL_DEPS
 
@@ -168,7 +169,7 @@ INSTALL_CARGO_PACKAGES() {
         if _EXIST rustup; then
             check=$(rustup check 2>/dev/null)
             if echo "${check}" | grep -q "update available"; then
-                version=$(echo "${check}"| awk -F ":" '{print $2}' | xargs)
+                version=$(echo "${check}" | awk -F ":" '{print $2}' | xargs)
                 _RUN "Mise à jour de la toolchain RUST (${version})" rustup update stable
             else
                 _LOG "la toolchain rust est à jour"
@@ -209,7 +210,7 @@ INSTALL_CARGO_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_GO_PACKAGES() {
-     if [[ -n "${GO_PACKAGES[*]}" ]]; then
+    if [[ -n "${GO_PACKAGES[*]}" ]]; then
         _SECTION " Installation des paquets GO personnalisés " "━" "${C_GREEN}"
 
         local pkg current="" latest="" arch="" os="" gofile=""
@@ -307,12 +308,12 @@ SETUP_SHELL() {
     zsh_bin=$(command -v zsh)
 
     if ! grep -qxF "${zsh_bin}" /etc/shells; then
-        echo "${zsh_bin}" | sudo tee -a /etc/shells > /dev/null
+        echo "${zsh_bin}" | sudo tee -a /etc/shells >/dev/null
     fi
 
     local user uid current_shell
     while IFS=: read -r user _ uid _ _ _ _; do
-        if [[ ( "${uid}" -ge 1000 && "${uid}" -lt 2000 ) || "${uid}" -eq 0 ]]; then # root et users normaux
+        if [[ ("${uid}" -ge 1000 && "${uid}" -lt 2000) || "${uid}" -eq 0 ]]; then # root et users normaux
             current_shell=$(getent passwd "${user}" | cut -d: -f7)
             if [[ "${current_shell}" != "${zsh_bin}" ]]; then
                 _RUN "chsh ${user} → zsh" sudo chsh -s "${zsh_bin}" "${user}"
@@ -321,7 +322,7 @@ SETUP_SHELL() {
                 _INFO "${user} utilise déjà zsh"
             fi
         fi
-    done < /etc/passwd
+    done </etc/passwd
 
     # 2- Oh-my-posh prompt
     local arch
@@ -329,18 +330,18 @@ SETUP_SHELL() {
     local omp_target=""
 
     case "${arch}" in
-        x86_64|amd64)
-            omp_target="posh-linux-amd64"
-            ;;
-        aarch64|arm64)
-            omp_target="posh-linux-arm64"
-            ;;
-        armv7l)
-            omp_target="posh-linux-arm"
-            ;;
-        *)
-            _DIE "Architecture non supportée pour Oh My Posh : ${arch}"
-            ;;
+    x86_64 | amd64)
+        omp_target="posh-linux-amd64"
+        ;;
+    aarch64 | arm64)
+        omp_target="posh-linux-arm64"
+        ;;
+    armv7l)
+        omp_target="posh-linux-arm"
+        ;;
+    *)
+        _DIE "Architecture non supportée pour Oh My Posh : ${arch}"
+        ;;
     esac
 
     local omp_url="https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/${omp_target}"
@@ -406,7 +407,7 @@ SETUP_DOTFILES() {
 }
 
 ########################################################################################################################
-SETUP_SYSTEMD(){
+SETUP_SYSTEMD() {
     _LOG "* systemd *"
     local service
     local description
@@ -428,7 +429,10 @@ SETUP_SYSTEMD(){
     present_fmt=$(_FORMAT_LIST "${present[@]}")
     if ((${#missing[@]})); then
         missing_fmt=$(_FORMAT_LIST "${missing[@]}")
-        ((${#present[@]})) && { _INFO "Déjà désactivés : " ; _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE}" || true ; }
+        ((${#present[@]})) && {
+            _INFO "Déjà désactivés : "
+            _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE}" || true
+        }
         _INFO "À désactiver : "
         _PRINT_LIST "${missing_fmt}" | tee -a "${LOG_FILE}" || true
         _RUN "Désactivation des services" sudo systemctl disable --now "${missing[@]}"
@@ -448,7 +452,7 @@ SETUP_SYSTEMD(){
 }
 
 ########################################################################################################################
-SETUP_FSTAB(){
+SETUP_FSTAB() {
     _SECTION " Configuration du fichier FSTAB " "━" "${C_GREEN}"
 
     # SWAPFILE
@@ -471,16 +475,16 @@ SETUP_FSTAB(){
     # --- Optimisations Fstab (noatime, lazytime) ---
     local fstab_changed=false tmp_dir
     tmp_dir=$(mktemp -d)
-    true > "${tmp_dir}/fstab.new" # on crée un fichier vide temporaire
+    true >"${tmp_dir}/fstab.new" # on crée un fichier vide temporaire
 
     while IFS= read -r line || [[ -n "${line}" ]]; do
         if [[ "${line}" =~ ^[[:space:]]*# ]] || [[ -z "${line}" ]]; then # commentaire ou ligne vide ajouté "as is"
-            echo "${line}" >> "${tmp_dir}/fstab.new"
+            echo "${line}" >>"${tmp_dir}/fstab.new"
             continue
         fi
 
         local dev mp fs opts dump pass
-        read -r dev mp fs opts dump pass <<< "${line}"
+        read -r dev mp fs opts dump pass <<<"${line}"
 
         if [[ "${fs}" =~ ^(btrfs|ext4|xfs)$ ]]; then # si FS btrfs,ext4,xfs on va ajouter noatime/lazytime si absent
             local orig_opts="${opts}"
@@ -496,13 +500,13 @@ SETUP_FSTAB(){
             fi
             if [[ "${orig_opts}" != "${opts}" ]]; then
                 fstab_changed=true
-                printf "%-40s %-24s %-8s %-32s %-2s %s\n" "${dev}" "${mp}" "${fs}" "${opts}" "${dump}" "${pass}" >> "${tmp_dir}/fstab.new"
+                printf "%-40s %-24s %-8s %-32s %-2s %s\n" "${dev}" "${mp}" "${fs}" "${opts}" "${dump}" "${pass}" >>"${tmp_dir}/fstab.new"
                 continue
             fi
         fi
 
-        echo "${line}" >> "${tmp_dir}/fstab.new"
-    done < /etc/fstab
+        echo "${line}" >>"${tmp_dir}/fstab.new"
+    done </etc/fstab
 
     if [[ "${fstab_changed}" == "true" ]]; then
         _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.optimizations
@@ -548,7 +552,7 @@ SETUP_FSTAB(){
         else
             _RUN "Activation flag \"fast_commit\" sur ${dev} (montée en ${mp})" sudo tune2fs -O fast_commit "${dev}"
         fi
-    done <<< "${mounts}"
+    done <<<"${mounts}"
 
     # Nettoyage
     rm -rf "${tmp_dir}"
@@ -562,22 +566,22 @@ SETUP_DATA() {
             local profil file cmd ffile
             for profil in "${!DESTINATIONS[@]}"; do
                 cmd=${COMMANDS["${profil}"]}
-                    # on récupère la sauvegarde la plus récente dans le dossier SOURCE pour le profil ${profil}
-                    file=$(find "${SOURCE}" -maxdepth 1 -name "${profil}_*.tar.gz" -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2- || true)
-                    if [[ -n "${cmd}" ]] && pgrep -x "${cmd}" >/dev/null; then
-                        _ERR "Ferme ${cmd} d'abord !"
-                    else
-                        if [[ -n "${file}" ]]; then
-                            if _DIR_IS_SAFE_TO_RESTORE "${DESTINATIONS[${profil}]}"; then
-                                ffile=$(basename "${file}")
-                                _RUN "Restauration de ${profil} (de ${ffile} vers ${HOME})" tar -xzf "${file}" -C "${HOME}"
-                            else
-                                _ERR "Le dossier de restauration de ${profil} contient déjà des données, on ne fait rien"
-                            fi
+                # on récupère la sauvegarde la plus récente dans le dossier SOURCE pour le profil ${profil}
+                file=$(find "${SOURCE}" -maxdepth 1 -name "${profil}_*.tar.gz" -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2- || true)
+                if [[ -n "${cmd}" ]] && pgrep -x "${cmd}" >/dev/null; then
+                    _ERR "Ferme ${cmd} d'abord !"
+                else
+                    if [[ -n "${file}" ]]; then
+                        if _DIR_IS_SAFE_TO_RESTORE "${DESTINATIONS[${profil}]}"; then
+                            ffile=$(basename "${file}")
+                            _RUN "Restauration de ${profil} (de ${ffile} vers ${HOME})" tar -xzf "${file}" -C "${HOME}"
                         else
-                            _INFO "Aucun fichier de sauvegarde trouvé pour le profil ${profil}"
+                            _ERR "Le dossier de restauration de ${profil} contient déjà des données, on ne fait rien"
                         fi
+                    else
+                        _INFO "Aucun fichier de sauvegarde trouvé pour le profil ${profil}"
                     fi
+                fi
             done
         else
             echo ""
@@ -590,8 +594,8 @@ SETUP_DATA() {
 
 ########################################################################################################################
 SETUP_KDE_PLASMA() {
-# on check KDE est lancé
-    if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
+    # on check KDE est lancé
+    if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b' >/dev/null; then
         _SECTION " Personnalisation de l'interface KDE Plasma 6 de l'utilisateur ${USER} " "━" "${C_GREEN}"
         local change=0
 
@@ -649,12 +653,12 @@ SETUP_KDE_PLASMA() {
 
         # Pointeur par défaut pour compatibilité GTK
         if [[ ! -f "${HOME}/.local/share/icons/default/index.theme" ]] || ! grep -q "catppuccin-mocha-lavender-cursors" "${HOME}/.local/share/icons/default/index.theme"; then
-            echo -e "[Icon Theme]\nInherits=catppuccin-mocha-lavender-cursors" > "${HOME}/.local/share/icons/default/index.theme"
+            echo -e "[Icon Theme]\nInherits=catppuccin-mocha-lavender-cursors" >"${HOME}/.local/share/icons/default/index.theme"
         fi
 
         # Baloo
         if _EXIST balooctl6; then
-            if balooctl6 status > /dev/null 2>&1; then
+            if balooctl6 status >/dev/null 2>&1; then
                 _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
             else
                 _INFO "Service d'indexation déjà désactivé"
@@ -667,14 +671,14 @@ SETUP_KDE_PLASMA() {
         local target_pos="${KDEPANEL:-bottom}" # fallback en bas
         local display_pos
         case "${target_pos}" in
-            bottom) display_pos="basse";;
-            top) display_pos="haute";;
-            right) display_pos="droite";;
-            left) display_pos="gauche";;
-            *) display_pos="inconnue";;
+        bottom) display_pos="basse" ;;
+        top) display_pos="haute" ;;
+        right) display_pos="droite" ;;
+        left) display_pos="gauche" ;;
+        *) display_pos="inconnue" ;;
         esac
 
-        if ! pgrep plasmashell > /dev/null 2>&1; then
+        if ! pgrep plasmashell >/dev/null 2>&1; then
             _INFO "plasmashell n'est pas lancée, déplacement du panneau annulé"
         else
             local current_positions
@@ -700,7 +704,7 @@ SETUP_KDE_PLASMA() {
         [[ -f /var/lib/AccountsService/icons/"${USER}" ]] || _RUN "Avatar (Cocktail) pour ${USER}" sudo cp -v "${avatar}" /var/lib/AccountsService/icons/"${USER}"
 
         # on redémarre l'interface pour appliquer de suite.
-        if pgrep plasmashell > /dev/null 2>&1; then
+        if pgrep plasmashell >/dev/null 2>&1; then
             if [[ "${change}" -eq 1 ]]; then
                 _RUN "Redémarrage de l'interface de KDE Plasma 6" bash -c "\
                 kwriteconfig6 --file kdeglobals --group Icons --key Theme Tela-dracula-dark ;\
@@ -735,9 +739,9 @@ SETUP_KDE_PLASMA() {
 ########################################################################################################################
 SETUP_PLM() {
     _LOG "* Login Manager KDE *"
-# on teste si KDE tourne
+    # on teste si KDE tourne
     local change=0
-    if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b'> /dev/null; then
+    if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b' >/dev/null; then
         if ! _EXIST plasmalogin; then
             _RUN "Installation de plasma-login-manager" _PKG_INSTALL plasma-login-manager kcm-plasmalogin
             change=1
@@ -763,7 +767,6 @@ SETUP_PLM() {
     fi
 }
 
-
 ########################################################################################################################
 SETUP_ETC() {
     _SECTION " Configuration générale du système " "━" "${C_GREEN}"
@@ -773,7 +776,7 @@ SETUP_ETC() {
         if [[ ! -f /var/log/msmtp.log ]]; then
             _LOG "config log msmtp car paquet présent"
             sudo touch /var/log/msmtp.log
-            _RUNSILENT "" sudo chmod -v 600 /var/log/msmtp.log >> "${LOG_FILE}"
+            _RUNSILENT "" sudo chmod -v 600 /var/log/msmtp.log >>"${LOG_FILE}"
             _ETC_FILES_ADD "/var/log/msmtp.log"
         fi
     fi
@@ -789,21 +792,22 @@ SETUP_ETC() {
     fi
 
     # --- journald ---
-    _LOG "* journald *"
+    # _LOG "* journald *"
     local journald_content journald_file
     journald_file="/etc/systemd/journald.conf"
     journald_content=$'[Journal]\nSystemMaxUse=900M\nSystemKeepFree=2G\n'
     readonly journald_file journald_content
+    _INSTALL_ETC_FILES "journal système" "${journald_content}" "${journald_file}"
 
-    if [[ -f "${journald_file}" ]] && printf '%s' "${journald_content}" | sudo cmp -s - "${journald_file}"; then
-        _INFO "Journal système déjà configuré (${journald_file})"
-    else
-        _OK "Configuration du journal système (${journald_file})"
-        printf '%s' "${journald_content}" | sudo tee "${journald_file}" > /dev/null
-        _RUNSILENT "" sudo chmod -v 644 "${journald_file}"
-        _ETC_FILES_ADD "/etc/systemd/journald.conf"
-    fi
-    { sudo ls -l "${journald_file}" ; sudo cat "${journald_file}" ; echo "" ; } >> "${LOG_FILE}"
+    # if [[ -f "${journald_file}" ]] && printf '%s' "${journald_content}" | sudo cmp -s - "${journald_file}"; then
+    #     _INFO "Journal système déjà configuré (${journald_file})"
+    # else
+    #     _OK "Configuration du journal système (${journald_file})"
+    #     printf '%s' "${journald_content}" | sudo tee "${journald_file}" > /dev/null
+    #     _RUNSILENT "" sudo chmod -v 644 "${journald_file}"
+    #     _ETC_FILES_ADD "/etc/systemd/journald.conf"
+    # fi
+    # { sudo ls -l "${journald_file}" ; sudo cat "${journald_file}" ; echo "" ; } >> "${LOG_FILE}"
 
     # --- NetworkManager & systemd-resolved ---
     _LOG "* réseau *"
@@ -838,9 +842,17 @@ SETUP_ETC() {
     if [[ ${restart} -eq 1 ]]; then
         _RUN "Redémarrage des services NetworkManager et systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
     fi
-    { ls -l /etc/NetworkManager/conf.d/99-global-dns.conf ; cat /etc/NetworkManager/conf.d/99-global-dns.conf ; echo ""
-      ls -l /etc/systemd/resolved.conf.d/dns_servers.conf ; cat /etc/systemd/resolved.conf.d/dns_servers.conf ; echo ""
-      ls -l /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ; cat /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ; echo "" ; } >> "${LOG_FILE}"
+    {
+        ls -l /etc/NetworkManager/conf.d/99-global-dns.conf
+        cat /etc/NetworkManager/conf.d/99-global-dns.conf
+        echo ""
+        ls -l /etc/systemd/resolved.conf.d/dns_servers.conf
+        cat /etc/systemd/resolved.conf.d/dns_servers.conf
+        echo ""
+        ls -l /etc/systemd/resolved.conf.d/10-disable-llmnr.conf
+        cat /etc/systemd/resolved.conf.d/10-disable-llmnr.conf
+        echo ""
+    } >>"${LOG_FILE}"
 
     # --- Optimisations Kernel (Sysctl) ---
     _LOG "* sysctl *"
@@ -862,12 +874,16 @@ ${SYSCTL_CONF}"
         _INFO "Configuration noyau déjà à jour (${sysctlfile})"
     else
         _OK "Déploiement de la configuration du noyau (${sysctlfile})"
-        printf '%s' "${full_sysctl_content}" | sudo tee "${sysctlfile}" > /dev/null
+        printf '%s' "${full_sysctl_content}" | sudo tee "${sysctlfile}" >/dev/null
         _RUNSILENT "" sudo chmod -v 644 "${sysctlfile}"
         _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
         _ETC_FILES_ADD "${sysctlfile}"
     fi
-    { sudo ls -l "${sysctlfile}" ; sudo cat "${sysctlfile}" ; echo "" ; } >> "${LOG_FILE}"
+    {
+        sudo ls -l "${sysctlfile}"
+        sudo cat "${sysctlfile}"
+        echo ""
+    } >>"${LOG_FILE}"
 
     # --- Configuration Brave Browser (Policies debloat) ---
     if [[ -n "${BRAVE_POLICIES}" ]]; then
@@ -881,11 +897,15 @@ ${SYSCTL_CONF}"
             _INFO "Configuration des politiques de Brave déjà à jour (${brave_policy_file})"
         else
             _OK "Déploiement des politiques pour \"débloater\" Brave (${brave_policy_file})"
-            printf '%s' "${full_brave_policies}" | sudo tee "${brave_policy_file}" > /dev/null
+            printf '%s' "${full_brave_policies}" | sudo tee "${brave_policy_file}" >/dev/null
             _RUNSILENT "" sudo chmod -v 644 "${brave_policy_file}"
             _ETC_FILES_ADD "${brave_policy_file}"
         fi
-        { sudo ls -l "${brave_policy_file}" ; sudo cat "${brave_policy_file}" ; echo "" ; } >> "${LOG_FILE}"
+        {
+            sudo ls -l "${brave_policy_file}"
+            sudo cat "${brave_policy_file}"
+            echo ""
+        } >>"${LOG_FILE}"
     else
         _LOG "Aucune politique de Brave demandée"
     fi
@@ -909,14 +929,18 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         _INFO "Règles d'ordonnancement des E/S déjà à jour (${rules_file})"
     else
         _OK "Règles d'ordonnancement des E/S créées (${rules_file})"
-        printf '%s' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
+        printf '%s' "${rules_content}" | sudo tee "${rules_file}" >/dev/null
         _RUNSILENT "" sudo chmod -v 644 "${rules_file}"
         #sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
         _ETC_FILES_ADD "${rules_file}"
     fi
-    { sudo ls -l "${rules_file}" ; sudo cat "${rules_file}" ; echo "" ; } >> "${LOG_FILE}"
+    {
+        sudo ls -l "${rules_file}"
+        sudo cat "${rules_file}"
+        echo ""
+    } >>"${LOG_FILE}"
 
     # --- udev static custom rule
     if [[ -n "${UDEVRULE}" ]]; then
@@ -930,14 +954,18 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
             _INFO "Règle udev persistante (${UDEVDESCR}) à jour (${rules_file})"
         else
             _OK "Règle udev persistante (${UDEVDESCR}) créée (${rules_file})"
-            printf '%s' "${rules_content}" | sudo tee "${rules_file}" > /dev/null
+            printf '%s' "${rules_content}" | sudo tee "${rules_file}" >/dev/null
             _RUNSILENT "" sudo chmod -v 644 "${rules_file}"
             #sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
             _RUNSILENT "" sudo udevadm control --reload-rules
             _RUNSILENT "" sudo udevadm trigger
             _ETC_FILES_ADD "${rules_file}"
         fi
-        { sudo ls -l "${rules_file}" ; sudo cat "${rules_file}" ; echo "" ; } >> "${LOG_FILE}"
+        {
+            sudo ls -l "${rules_file}"
+            sudo cat "${rules_file}"
+            echo ""
+        } >>"${LOG_FILE}"
     else
         _LOG "Aucune règle udev persistante demandée"
     fi
@@ -955,12 +983,16 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
             _ETC_FILES_ADD "/etc/group"
         fi
     fi
-    { ls -l /etc/group ; grep libvirt /etc/group ; echo "" ; } >> "${LOG_FILE}"
+    {
+        ls -l /etc/group
+        grep libvirt /etc/group
+        echo ""
+    } >>"${LOG_FILE}"
 
 }
 
 ########################################################################################################################
-SETUP_SSHD(){
+SETUP_SSHD() {
     if [[ "${ACTIVATE_SSHD}" = "yes" ]]; then
         _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
         _RUNSILENT "" sudo mkdir -pv /etc/ssh/sshd_config.d
@@ -991,7 +1023,7 @@ ${SSHD_CONFIG}"
             _INFO "Configuration sshd déjà à jour (${config_ssh_file})"
         else
             _OK "Configuration sshd créée (${config_ssh_file})"
-            printf '%s' "${full_ssh_content}" | sudo tee "${config_ssh_file}" > /dev/null
+            printf '%s' "${full_ssh_content}" | sudo tee "${config_ssh_file}" >/dev/null
             _RUNSILENT "" sudo chmod -v 600 "${config_ssh_file}"
             _ETC_FILES_ADD "${config_ssh_file}"
         fi
@@ -1001,7 +1033,7 @@ ${SSHD_CONFIG}"
             _INFO "Fichier ${config_ssh_allow} déjà présent"
         else
             _OK "Configuration ${config_ssh_allow} créée"
-            printf '%s' "${content_ssh_allow}" | sudo tee "${config_ssh_allow}" > /dev/null
+            printf '%s' "${content_ssh_allow}" | sudo tee "${config_ssh_allow}" >/dev/null
             _RUNSILENT "" sudo chmod -v 600 "${config_ssh_allow}"
             _ETC_FILES_ADD "${config_ssh_allow}"
         fi
@@ -1012,7 +1044,7 @@ ${SSHD_CONFIG}"
         else
             _LOG "Création banière sshd (${banner_file})"
             _RUNSILENT "" sudo rm -f "${banner_file}"
-            printf '%s' "${BANNER}" | sudo tee "${banner_file}" > /dev/null
+            printf '%s' "${BANNER}" | sudo tee "${banner_file}" >/dev/null
             _RUNSILENT "" sudo chmod -v 644 "${banner_file}"
             _ETC_FILES_ADD "${banner_file}"
         fi
@@ -1028,9 +1060,17 @@ ${SSHD_CONFIG}"
         else
             _RUN "Activation du service sshd" sudo systemctl --now enable sshd.service
         fi
-        { sudo ls -l "${config_ssh_file}" ; sudo cat "${config_ssh_file}" ; echo ""
-          sudo ls -l "${config_ssh_allow}" ; sudo cat "${config_ssh_allow}" ; echo ""
-          sudo ls -l "${banner_file}" ; sudo cat "${banner_file}" ; echo "" ; } >> "${LOG_FILE}"
+        {
+            sudo ls -l "${config_ssh_file}"
+            sudo cat "${config_ssh_file}"
+            echo ""
+            sudo ls -l "${config_ssh_allow}"
+            sudo cat "${config_ssh_allow}"
+            echo ""
+            sudo ls -l "${banner_file}"
+            sudo cat "${banner_file}"
+            echo ""
+        } >>"${LOG_FILE}"
     else
         if _IS_ENABLED sshd; then
             _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
@@ -1070,8 +1110,9 @@ EOF
         else
             _LOG "Wallpaper PLM déjà configuré"
         fi
-        { sudo ls -l "${configPLM}"
-          sudo cat "${configPLM}"
+        {
+            sudo ls -l "${configPLM}"
+            sudo cat "${configPLM}"
         } >>"${LOG_FILE}"
     else
         _LOG "Fond d'écran custo de PLM introuvable : ${src}"
@@ -1131,7 +1172,7 @@ END() {
     local duration file
     _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
     _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
-    duration=$(_CONVERT_SECONDS "$(( SECONDS - START ))")
+    duration=$(_CONVERT_SECONDS "$((SECONDS - START))")
     _INFO "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
     if [[ -n "${ETC_FILES[*]}" ]]; then
         _PRINT_ETC_FILES
@@ -1147,7 +1188,7 @@ END() {
     local url
     url="https://temp.sh/upload"
     file=$(curl -F file=@"${LOG_FILE}" "${url}" 2>/dev/null)
-    [[ -n "${file}" ]] &&  _INFO "Log téléversé : ${file}"
+    [[ -n "${file}" ]] && _INFO "Log téléversé : ${file}"
     #
     echo ""
 }
