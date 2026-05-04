@@ -858,9 +858,8 @@ SETUP_ETC() {
     full_sysctl_content="${sysctl_header}
 ${SYSCTL_CONF}"
 
-    if _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"; then
-        _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
-    fi
+    _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"
+    [[ "${STATUS}" -eq 0 ]] && _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
 
     # --- Configuration Brave Browser (Policies debloat) ---
     if [[ -n "${BRAVE_POLICIES}" ]]; then
@@ -887,10 +886,11 @@ ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="
 # HDD rotatif
 ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
 '
-    if _INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644"; then
+    _INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644"
+    [[ "${STATUS}" -eq 0 ]] && {
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
-    fi
+    }
 
     # --- udev static custom rule
     if [[ -n "${UDEVRULE}" ]]; then
@@ -900,11 +900,11 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
         rules_content="${UDEVRULE}"
         current=$(cat "${rules_file}" 2>/dev/null || true)
 
-        if _INSTALL_ETC_FILES "règle udev persistante (${UDEVDESCR})" "${rules_content}" "${rules_file}" "644"; then
+        _INSTALL_ETC_FILES "règle udev persistante (${UDEVDESCR})" "${rules_content}" "${rules_file}" "644"
+        [[ "${STATUS}" -eq 0 ]] && {
             _RUNSILENT "" sudo udevadm control --reload-rules
             _RUNSILENT "" sudo udevadm trigger
-        fi
-
+        }
     else
         _LOG "Aucune règle udev persistante demandée"
     fi
