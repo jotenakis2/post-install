@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=30.8
+readonly VER=30.9
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh #
 ####################################################################################
@@ -792,22 +792,11 @@ SETUP_ETC() {
     fi
 
     # --- journald ---
-    # _LOG "* journald *"
     local journald_content journald_file
     journald_file="/etc/systemd/journald.conf"
     journald_content=$'[Journal]\nSystemMaxUse=900M\nSystemKeepFree=2G\n'
     readonly journald_file journald_content
-    _INSTALL_ETC_FILES "journal système" "${journald_content}" "${journald_file}"
-
-    # if [[ -f "${journald_file}" ]] && printf '%s' "${journald_content}" | sudo cmp -s - "${journald_file}"; then
-    #     _INFO "Journal système déjà configuré (${journald_file})"
-    # else
-    #     _OK "Configuration du journal système (${journald_file})"
-    #     printf '%s' "${journald_content}" | sudo tee "${journald_file}" > /dev/null
-    #     _RUNSILENT "" sudo chmod -v 644 "${journald_file}"
-    #     _ETC_FILES_ADD "/etc/systemd/journald.conf"
-    # fi
-    # { sudo ls -l "${journald_file}" ; sudo cat "${journald_file}" ; echo "" ; } >> "${LOG_FILE}"
+    _INSTALL_ETC_FILES "journal système" "${journald_content}" "${journald_file}" "644"
 
     # --- NetworkManager & systemd-resolved ---
     _LOG "* réseau *"
@@ -855,7 +844,6 @@ SETUP_ETC() {
     } >>"${LOG_FILE}"
 
     # --- Optimisations Kernel (Sysctl) ---
-    _LOG "* sysctl *"
     local sysctlfile sysctl_header full_sysctl_content
     sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
     sysctl_header="# =======================================================================
@@ -870,48 +858,22 @@ SETUP_ETC() {
     full_sysctl_content="${sysctl_header}
 ${SYSCTL_CONF}"
 
-    if [[ -f "${sysctlfile}" ]] && printf '%s' "${full_sysctl_content}" | sudo cmp -s - "${sysctlfile}"; then
-        _INFO "Configuration noyau déjà à jour (${sysctlfile})"
-    else
-        _OK "Déploiement de la configuration du noyau (${sysctlfile})"
-        printf '%s' "${full_sysctl_content}" | sudo tee "${sysctlfile}" >/dev/null
-        _RUNSILENT "" sudo chmod -v 644 "${sysctlfile}"
+    if _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"; then
         _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
-        _ETC_FILES_ADD "${sysctlfile}"
     fi
-    {
-        sudo ls -l "${sysctlfile}"
-        sudo cat "${sysctlfile}"
-        echo ""
-    } >>"${LOG_FILE}"
 
     # --- Configuration Brave Browser (Policies debloat) ---
     if [[ -n "${BRAVE_POLICIES}" ]]; then
-        _LOG "* brave debloat *"
         local brave_policy_file full_brave_policies
         brave_policy_file="/etc/brave/policies/managed/brave_debullshitinator-policies.json"
         full_brave_policies=$(echo "${BRAVE_POLICIES}" | sed "1s/{/{\n    \"_warning\": \"Do not modify this file! It is managed by ${SCRIPTNAME}.\",/")
         readonly brave_policy_file full_brave_policies
-
-        if [[ -f "${brave_policy_file}" ]] && printf '%s' "${full_brave_policies}" | sudo cmp -s - "${brave_policy_file}"; then
-            _INFO "Configuration des politiques de Brave déjà à jour (${brave_policy_file})"
-        else
-            _OK "Déploiement des politiques pour \"débloater\" Brave (${brave_policy_file})"
-            printf '%s' "${full_brave_policies}" | sudo tee "${brave_policy_file}" >/dev/null
-            _RUNSILENT "" sudo chmod -v 644 "${brave_policy_file}"
-            _ETC_FILES_ADD "${brave_policy_file}"
-        fi
-        {
-            sudo ls -l "${brave_policy_file}"
-            sudo cat "${brave_policy_file}"
-            echo ""
-        } >>"${LOG_FILE}"
+        _INSTALL_ETC_FILES "politiques de Brave" "${full_brave_policies}" "${brave_policy_file}" "644"
     else
         _LOG "Aucune politique de Brave demandée"
     fi
 
     # IO scheduler
-    _LOG "* udev *"
     local rules_file rules_content current
     rules_file="/etc/udev/rules.d/60-ioschedulers.rules"
     sudo touch "${rules_file}"
@@ -925,47 +887,24 @@ ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="
 # HDD rotatif
 ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
 '
-    if [[ -f "${rules_file}" ]] && printf '%s' "${rules_content}" | sudo cmp -s - "${rules_file}"; then
-        _INFO "Règles d'ordonnancement des E/S déjà à jour (${rules_file})"
-    else
-        _OK "Règles d'ordonnancement des E/S créées (${rules_file})"
-        printf '%s' "${rules_content}" | sudo tee "${rules_file}" >/dev/null
-        _RUNSILENT "" sudo chmod -v 644 "${rules_file}"
-        #sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
+    if _INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644"; then
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
-        _ETC_FILES_ADD "${rules_file}"
     fi
-    {
-        sudo ls -l "${rules_file}"
-        sudo cat "${rules_file}"
-        echo ""
-    } >>"${LOG_FILE}"
 
     # --- udev static custom rule
     if [[ -n "${UDEVRULE}" ]]; then
         local udevfilename="99-persist-key.rules"
-        rules_file="/etc/udev/rules.d/${udevfilename}"
+        local rules_file="/etc/udev/rules.d/${udevfilename}"
         sudo touch "${rules_file}"
         rules_content="${UDEVRULE}"
         current=$(cat "${rules_file}" 2>/dev/null || true)
 
-        if [[ -f "${rules_file}" ]] && printf '%s' "${rules_content}" | sudo cmp -s - "${rules_file}"; then
-            _INFO "Règle udev persistante (${UDEVDESCR}) à jour (${rules_file})"
-        else
-            _OK "Règle udev persistante (${UDEVDESCR}) créée (${rules_file})"
-            printf '%s' "${rules_content}" | sudo tee "${rules_file}" >/dev/null
-            _RUNSILENT "" sudo chmod -v 644 "${rules_file}"
-            #sudo install -v -m 644 -o root -g root /dev/stdin "${rules_file}" <<< "${rules_content}"
+        if _INSTALL_ETC_FILES "règle udev persistante (${UDEVDESCR})" "${rules_content}" "${rules_file}" "644"; then
             _RUNSILENT "" sudo udevadm control --reload-rules
             _RUNSILENT "" sudo udevadm trigger
-            _ETC_FILES_ADD "${rules_file}"
         fi
-        {
-            sudo ls -l "${rules_file}"
-            sudo cat "${rules_file}"
-            echo ""
-        } >>"${LOG_FILE}"
+
     else
         _LOG "Aucune règle udev persistante demandée"
     fi
@@ -1018,15 +957,7 @@ AllowUsers ${USER}
         full_ssh_content="${ssh_header}
 ${SSHD_CONFIG}"
 
-        # config sshd custo
-        if sudo test -f "${config_ssh_file}" && printf '%s' "${full_ssh_content}" | sudo cmp -s - "${config_ssh_file}"; then
-            _INFO "Configuration sshd déjà à jour (${config_ssh_file})"
-        else
-            _OK "Configuration sshd créée (${config_ssh_file})"
-            printf '%s' "${full_ssh_content}" | sudo tee "${config_ssh_file}" >/dev/null
-            _RUNSILENT "" sudo chmod -v 600 "${config_ssh_file}"
-            _ETC_FILES_ADD "${config_ssh_file}"
-        fi
+        _INSTALL_ETC_FILES "sshd" "${full_ssh_content}" "${config_ssh_file}" "600"
 
         # config sshd AllowUsers
         if sudo test -f "${config_ssh_allow}"; then
@@ -1037,17 +968,14 @@ ${SSHD_CONFIG}"
             _RUNSILENT "" sudo chmod -v 600 "${config_ssh_allow}"
             _ETC_FILES_ADD "${config_ssh_allow}"
         fi
+        {
+            sudo ls -l "${config_ssh_allow}"
+            sudo cat "${config_ssh_allow}"
+            echo ""
+        } >>"${LOG_FILE}"
 
         # banière /etc/issue.net
-        if sudo test -f "${banner_file}" && printf '%s' "${BANNER}" | sudo cmp -s - "${banner_file}"; then
-            _INFO "Bannière sshd à jour (${banner_file})"
-        else
-            _LOG "Création banière sshd (${banner_file})"
-            _RUNSILENT "" sudo rm -f "${banner_file}"
-            printf '%s' "${BANNER}" | sudo tee "${banner_file}" >/dev/null
-            _RUNSILENT "" sudo chmod -v 644 "${banner_file}"
-            _ETC_FILES_ADD "${banner_file}"
-        fi
+        _INSTALL_ETC_FILES "bannière sshd" "${BANNER}" "${banner_file}" "644"
 
         # gestion service
         if _IS_ENABLED sshd; then
@@ -1060,17 +988,7 @@ ${SSHD_CONFIG}"
         else
             _RUN "Activation du service sshd" sudo systemctl --now enable sshd.service
         fi
-        {
-            sudo ls -l "${config_ssh_file}"
-            sudo cat "${config_ssh_file}"
-            echo ""
-            sudo ls -l "${config_ssh_allow}"
-            sudo cat "${config_ssh_allow}"
-            echo ""
-            sudo ls -l "${banner_file}"
-            sudo cat "${banner_file}"
-            echo ""
-        } >>"${LOG_FILE}"
+
     else
         if _IS_ENABLED sshd; then
             _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
