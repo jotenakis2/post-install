@@ -135,7 +135,7 @@ _ENABLE_COLORS() {
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _INSTALL_ETC_FILES() {
-    local msg="$1:-"
+    local msg="$1"
     local content="$2"
     local file="$3"
     readonly msg content file
