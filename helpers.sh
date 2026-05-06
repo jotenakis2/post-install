@@ -461,20 +461,20 @@ _MANAGE_TABLE() {
 
         local test
         case "${test_cmd}" in
-        _IS_PKG_INSTALLED) test="paquet présent ?" ;;
-        _IS_PKG_REMOVED) test="paquet absent ?" ;;
-        _IS_FPPKG_INSTALLED) test="paquet présent ?" ;;
-        _IS_CARGOPKG_INSTALLED) test="paquet présent ?" ;;
-        *) test="${test_cmd}" ;;
+            _IS_PKG_INSTALLED) test="paquet présent" ;;
+            _IS_PKG_REMOVED) test="paquet absent" ;;
+            _IS_FPPKG_INSTALLED) test="paquet présent" ;;
+            _IS_CARGOPKG_INSTALLED) test="paquet présent" ;;
+            *) test="${test_cmd}" ;;
         esac
         local treat
         case "${install_cmd}" in
-        _PKG_INSTALL*) treat="installation" ;;
-        _PKG_DOWNLOAD_THEN_INSTALL) treat="installation" ;;
-        _PKG_REMOVE) treat="suppression" ;;
-        _CARGOPKG_INSTALL) treat="installation" ;;
-        _FPPKG_INSTALL) treat="installation" ;;
-        *) treat="${install_cmd}" ;;
+            _PKG_INSTALL*) treat="installation" ;;
+            _PKG_DOWNLOAD_THEN_INSTALL) treat="installation" ;;
+            _PKG_REMOVE) treat="suppression" ;;
+            _CARGOPKG_INSTALL) treat="installation" ;;
+            _FPPKG_INSTALL) treat="installation" ;;
+            *) treat="${install_cmd}" ;;
         esac
 
         local all_fmt
