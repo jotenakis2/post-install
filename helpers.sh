@@ -139,7 +139,8 @@ _INSTALL_ETC_FILES() {
     local content="$2"
     local file="$3"
     local rights="$4"
-    export STATUS=1
+    declare STATUS
+    STATUS=1
     readonly msg content file rights
     _LOG "${msg^^}"
     if sudo test -f "${file}" && printf '%s' "${content}" | sudo cmp -s - "${file}"; then
@@ -149,13 +150,14 @@ _INSTALL_ETC_FILES() {
         printf '%s' "${content}" | sudo tee "${file}" >/dev/null
         _RUNSILENT "" sudo chmod -v "${rights}" "${file}"
         _ETC_FILES_ADD "${file}"
-        export STATUS=0
+        STATUS=0
     fi
     {
         sudo ls -l "${file}"
         sudo cat "${file}"
         echo ""
     } >>"${LOG_FILE}"
+    export STATUS
 }
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

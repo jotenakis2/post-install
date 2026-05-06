@@ -1101,8 +1101,7 @@ ${SYSCTL_CONF}"
 
 _BRAVEPOLICIES() {
     # --- Configuration Brave Browser (Policies debloat) ---
-    #_LOG "* Brave debloat *"
-    echo "brave"
+    _LOG "* Brave debloat *"
     if [[ -n "${BRAVE_POLICIES}" ]]; then
         local brave_policy_file full_brave_policies
         brave_policy_file="/etc/brave/policies/managed/brave_debullshitinator-policies.json"
