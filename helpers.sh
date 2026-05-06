@@ -628,7 +628,7 @@ _FPPKG_INSTALL() {
 }
 
 _IS_CARGOPKG_INSTALLED() {
-    echo "${installed_list}" | grep -q "$@"
+    echo "${INSTALLED_LIST}" | grep -q "$@"
 }
 
 _CARGOPKG_INSTALL() {

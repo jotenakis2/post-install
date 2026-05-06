@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=31.1
+readonly VER=31.2
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh #
 ####################################################################################
@@ -187,6 +187,9 @@ INSTALL_CARGO_PACKAGES() {
         _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/cargo-binstall"
 
         # 2. Installation des paquets via Cargo (binstall)
+        declare -g INSTALLED_LIST
+        INSTALLED_LIST=$(cargo install --list 2>/dev/null)
+        export INSTALLED_LIST
         _MANAGE_TABLE _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
 
         # 3. symlinks globaux
@@ -316,7 +319,7 @@ SETUP_SHELL() {
             current_shell=$(getent passwd "${user}" | cut -d: -f7)
             if [[ "${current_shell}" != "${zsh_bin}" ]]; then
                 _RUN "Shell zsh pour ${user}" sudo chsh -s "${zsh_bin}" "${user}"
-                ETC_FILES+=("/etc/passwd")
+                _ETC_FILES_ADD "/etc/passwd"
             else
                 _INFO "${user} a déjà zsh par défaut"
             fi
@@ -889,7 +892,7 @@ EOF
 ########################################################################################################################
 
 INSTALL_DEPS() {
-    local -a prerequisit=(curl crudini ncurses git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils)
+    local -a prerequisit=(zsh curl crudini ncurses git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils)
     _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
 }
 
