@@ -1094,7 +1094,7 @@ ${SYSCTL_CONF}"
 
     _LOG "* sysctl *"
     _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"
-    [[ "${STATUS}" -eq 0 ]] && _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
+    [[ "${STATUS}" -eq 0 ]] && sudo sysctl -p "${sysctlfile}"
 }
 
 ########################################################################################################################
