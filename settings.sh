@@ -142,6 +142,7 @@ declare -A SERVICES_TO_DISABLE=(
     ["systemd-oomd.socket"]="socket Out of Memory Killer"
     ["systemd-oomd.service"]="service Out of Memory Killer"
     ["thermald.service"]="service thermald"
+    ["NetworkManager-wait-online.service"]="service d'attente réseau"
     # ajoute tes autres services systemd à désactiver ici
 )
 #-----------------------------------------------------------------------------------------------------------------------------
