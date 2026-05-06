@@ -1095,7 +1095,7 @@ ${SYSCTL_CONF}"
 
     _LOG "* sysctl *"
     _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"
-    grep -qxF 0 "/tmp/status" && _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
+    grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
 }
 
 ########################################################################################################################
