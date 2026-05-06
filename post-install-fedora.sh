@@ -230,16 +230,13 @@ INSTALL_RPM_PACKAGES() {
 SETUP_CHRONY() {
     # --- Configuration Chrony (IPv4 only si IPv6 désactivé) ---
     if echo "${CMDLINE}" | grep -q 'ipv6.disable=1'; then
-        local chrony_file chrony_content status
+        local chrony_file chrony_content
         chrony_file="/etc/sysconfig/chronyd"
         chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
         readonly chrony_file chrony_content
 
         _INSTALL_ETC_FILES "chronyd" "${chrony_content}" "${chrony_file}" "644"
-        status="$(cat /tmp/status || true)"
-        if [[ "${status}" -eq 0 ]]; then
-            _RUNSILENT "" sudo systemctl try-restart chronyd
-        fi
+        grep -qxF 0 "/tmp/status" && _RUNSILENT "" sudo systemctl try-restart chronyd
     else
         _LOG "ipv6 n'est pas activé donc on ne change rien à chrony"
     fi

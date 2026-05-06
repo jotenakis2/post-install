@@ -15,7 +15,7 @@ MAIN() {
     source ./helpers.sh
     _ENABLE_COLORS
     # en cas d'erreur ou d'interruption je nettoie, affiche le LOGFILE et sort proprement.
-    trap 'echo "" ; sudo rm -f "${SUDOTMP[@]}" ; _PRINT_ETC_FILES ; _DIE "Log : ${LOG_FILE}"' ERR INT
+    trap 'echo "" ; sudo rm -f "${SUDOTMP[@]}" /tmp/status ; _PRINT_ETC_FILES ; _DIE "Log : ${LOG_FILE}"' ERR INT
     CHECK
     INITIALIZE
     if [[ "${args}" = "--shellonly" ]] || [[ "${args}" = "-s" ]]; then
@@ -940,6 +940,7 @@ INSTALL_FLATPAK_PACKAGES() {
 
 END() {
     local duration file
+    rm -f /tmp/status 2>/dev/null
     _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
     _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
     duration=$(_CONVERT_SECONDS "$((SECONDS - START))")
@@ -1079,7 +1080,7 @@ _SYSTEMD_RESOLVED() {
 
 _KERNEL() {
     # --- Optimisations Kernel (Sysctl) ---
-    local sysctlfile sysctl_header full_sysctl_content status
+    local sysctlfile sysctl_header full_sysctl_content
     sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
     sysctl_header="# =======================================================================
 # WARNING: Do not modify this file!
@@ -1094,8 +1095,7 @@ ${SYSCTL_CONF}"
 
     _LOG "* sysctl *"
     _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"
-    status=$(cat /tmp/status || true)
-    [[ "${status}" -eq 0 ]] && sudo sysctl -p "${sysctlfile}" >/dev/null
+    grep -qxF 0 "/tmp/status" && _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
 }
 
 ########################################################################################################################
@@ -1120,7 +1120,7 @@ _IOSCHEDULER() {
     # IO scheduler NVMe = none, SSD = mq-deadline, HDD = bfq
     # Some may prefer kyber for nvme
     #
-    local rules_file rules_content status
+    local rules_file rules_content
     rules_file="/etc/udev/rules.d/60-ioschedulers.rules"
     rules_content='# NVMe
 ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
@@ -1133,8 +1133,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 '
     _LOG "* IO scheduler *"
     _INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644"
-    status=$(cat /tmp/status || true)
-    [[ "${status}" -eq 0 ]] && {
+    grep -qxF 0 "/tmp/status" && {
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
     }
@@ -1146,13 +1145,12 @@ _UDEVPERSIST() {
     # --- udev static custom rule, par exemple clé usb
     _LOG "* udev persist custom *"
     if [[ -n "${UDEVRULE}" ]]; then
-        local udevfilename rules_file status
+        local udevfilename rules_file
         udevfilename="99-persist-key.rules"
         rules_file="/etc/udev/rules.d/${udevfilename}"
 
         _INSTALL_ETC_FILES "règle udev persistante (${UDEVDESCR})" "${UDEVRULE}" "${rules_file}" "644"
-        status=$(cat /tmp/status || true)
-        [[ "${status}" -eq 0 ]] && {
+        grep -qxF 0 "/tmp/status" && {
             _RUNSILENT "" sudo udevadm control --reload-rules
             _RUNSILENT "" sudo udevadm trigger
         }
