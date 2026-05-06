@@ -1212,7 +1212,7 @@ _DISABLE_COREDUMP(){
 
     file="${dir}/disable.conf"
     content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
-    _INSTALL_ETC_FILES "coredump systemd" "${content}" "${file}"
+    _INSTALL_ETC_FILES "coredump systemd" "${content}" "${file}" "644"
     grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo systemctl daemon-reload || true
 
     limits_file="${dirlimits}/disable-coredump.conf"
