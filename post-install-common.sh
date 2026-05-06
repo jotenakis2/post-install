@@ -1094,15 +1094,15 @@ ${SYSCTL_CONF}"
 
     _LOG "* sysctl *"
     _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"
-    echo "${STATUS}"
-    [[ "${STATUS}" -eq 0 ]] && sudo sysctl -p "${sysctlfile}"
+    [[ "${STATUS}" -eq 0 ]] && sudo sysctl -p "${sysctlfile}" >/dev/null
 }
 
 ########################################################################################################################
 
 _BRAVEPOLICIES() {
     # --- Configuration Brave Browser (Policies debloat) ---
-    _LOG "* Brave debloat *"
+    #_LOG "* Brave debloat *"
+    echo "brave"
     if [[ -n "${BRAVE_POLICIES}" ]]; then
         local brave_policy_file full_brave_policies
         brave_policy_file="/etc/brave/policies/managed/brave_debullshitinator-policies.json"
