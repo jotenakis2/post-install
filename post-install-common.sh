@@ -831,6 +831,8 @@ ${SSHD_CONFIG}"
 
         # banière /etc/issue.net
         _INSTALL_ETC_FILES "bannière sshd" "${BANNER}" "${banner_file}" "644"
+        sudo rm -f /etc/issue
+        _SYMLINK "/etc/issue.net" "/etc/issue"
 
         # gestion service
         if _IS_ENABLED sshd; then
@@ -1210,6 +1212,8 @@ _DISABLE_COREDUMP(){
     dirlimits="/etc/security/limits.d"
     dirprofile="/etc/profile.d"
     mkdir -p "${dir}" "${dirlimits}" "${dirprofile}"
+
+    _LOG "* coredump disable *"
 
     file="${dir}/disable.conf"
     content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
