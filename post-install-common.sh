@@ -4,9 +4,9 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=31.4
+readonly VER=31.5
 # paramètres customisables définis dans settings.sh. ###############################
-source ./settings.sh #
+source ./settings.sh                                                               #
 ####################################################################################
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -1095,7 +1095,7 @@ ${SYSCTL_CONF}"
 
     _LOG "* sysctl *"
     _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"
-    grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
+    grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo sysctl -p "${sysctlfile}" || true
 }
 
 ########################################################################################################################
