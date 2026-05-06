@@ -187,7 +187,7 @@ INSTALL_CARGO_PACKAGES() {
 
         # 2. Installation des paquets via Cargo (binstall)
         declare -g INSTALLED_LIST
-        _RUN "Listing des paquets cargo" cargo install --list 2>/dev/null > /tmp/cargolist
+        _RUN "Listing des paquets cargo" bash -c "cargo install --list 2>/dev/null > /tmp/cargolist"
         INSTALLED_LIST="$(cat /tmp/cargolist 2>/dev/null || true)"
         export INSTALLED_LIST
         _MANAGE_TABLE _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
