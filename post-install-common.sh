@@ -187,9 +187,11 @@ INSTALL_CARGO_PACKAGES() {
 
         # 2. Installation des paquets via Cargo (binstall)
         declare -g INSTALLED_LIST
-        INSTALLED_LIST=$(cargo install --list 2>/dev/null)
+        _RUN "Listing des paquets cargo" cargo install --list 2>/dev/null > /tmp/cargolist
+        INSTALLED_LIST="$(cat /tmp/cargolist 2>/dev/null || true)"
         export INSTALLED_LIST
         _MANAGE_TABLE _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
+        rm -f /tmp/cargolist 2>/dev/null
 
         # 3. symlinks globaux
         local cmd
@@ -586,7 +588,7 @@ SETUP_DATA() {
             _INFO "Aucune données privées à restaurer"
         fi
     else
-        _ERR "Le dossier de restauration (${SOURCE}) n'existe pas"
+        _ERR "Dossier de restauration (${SOURCE}) absent"
     fi
 }
 
@@ -714,7 +716,7 @@ SETUP_KDE_PLASMA() {
                 sleep 1 ;\
                 systemctl --user restart plasma-plasmashell.service"
             else
-                _INFO "Aucune modification de configuration effectuée, je ne redémarre pas l'interface de KDE Plasma 6"
+                _INFO "Aucune modification de configuration effectuée, pas de redémarrage de KDE Plasma"
             fi
         fi
 
@@ -731,7 +733,7 @@ SETUP_KDE_PLASMA() {
         fi
     else
         echo
-        _INFO "KDE n'a pas été détecté, pas de personnalisation"
+        _INFO "KDE Plasma non détectée, pas de personnalisation"
     fi
 }
 
@@ -762,7 +764,7 @@ SETUP_PLM() {
         SET_PLM_WALLPAPER
     else
         echo
-        _INFO "KDE n'a pas été détecté, pas de changement du login-manager"
+        _INFO "KDE Plasma non détectée, pas de changement du login-manager"
     fi
 }
 
