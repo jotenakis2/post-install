@@ -52,7 +52,6 @@ MAINMODE() {
     SETUP_SHELL
     SETUP_DOTFILES
     SETUP_ETC
-    SETUP_CHRONY
     SETUP_SYSTEMD
     SETUP_FIREWALL
     SETUP_SWAP
@@ -780,6 +779,7 @@ SETUP_ETC() {
     _IOSCHEDULER
     _UDEVPERSIST
     _LIBVIRT
+    _CHRONY
 }
 
 ########################################################################################################################
@@ -1133,10 +1133,10 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 '
     _LOG "* IO scheduler *"
     _INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644"
-    grep -qxF 0 "/tmp/status" && {
+    if grep -qxF 0 "/tmp/status" 2>/dev/null; then
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
-    }
+    fi
 }
 
 ########################################################################################################################
@@ -1150,10 +1150,10 @@ _UDEVPERSIST() {
         rules_file="/etc/udev/rules.d/${udevfilename}"
 
         _INSTALL_ETC_FILES "règle udev persistante (${UDEVDESCR})" "${UDEVRULE}" "${rules_file}" "644"
-        grep -qxF 0 "/tmp/status" && {
+        if grep -qxF 0 "/tmp/status" 2>/dev/null; then
             _RUNSILENT "" sudo udevadm control --reload-rules
             _RUNSILENT "" sudo udevadm trigger
-        }
+        fi
     else
         _LOG "Aucune règle udev persistante demandée"
     fi
@@ -1179,6 +1179,24 @@ _LIBVIRT() {
         echo ""
     } >>"${LOG_FILE}"
 
+}
+
+########################################################################################################################
+
+_CHRONY() {
+    # --- Configuration Chrony (IPv4 only si IPv6 désactivé) ---
+    _LOG "* chrony *"
+    if echo "${CMDLINE}" | grep -q 'ipv6.disable=1'; then
+        local chrony_file chrony_content
+        chrony_file="/etc/sysconfig/chronyd"
+        chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
+        readonly chrony_file chrony_content
+
+        _INSTALL_ETC_FILES "chronyd" "${chrony_content}" "${chrony_file}" "644"
+        grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo systemctl try-restart chronyd || true
+    else
+        _LOG "ipv6 n'est pas activé donc on ne change rien à chrony"
+    fi
 }
 
 ########################################################################################################################
