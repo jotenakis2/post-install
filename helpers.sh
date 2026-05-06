@@ -143,13 +143,13 @@ _INSTALL_ETC_FILES() {
     _LOG "${msg^^}"
     if sudo test -f "${file}" && printf '%s' "${content}" | sudo cmp -s - "${file}"; then
         _INFO "${msg^} déjà configuré (${file})"
-        echo 1
+        echo 1 >/tmp/status
     else
         _OK "Configuration du ${msg} (${file})"
         printf '%s' "${content}" | sudo tee "${file}" >/dev/null
         _RUNSILENT "" sudo chmod -v "${rights}" "${file}"
         _ETC_FILES_ADD "${file}"
-        echo 0
+        echo 0 >/tmp/status
     fi
     {
         sudo ls -l "${file}"

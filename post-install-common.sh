@@ -775,7 +775,7 @@ SETUP_ETC() {
     _JOURNALD
     _NETWORKMANAGER
     _SYSTEMD_RESOLVED
-    #_KERNEL
+    _KERNEL
     _BRAVEPOLICIES
     _IOSCHEDULER
     _UDEVPERSIST
@@ -1079,7 +1079,7 @@ _SYSTEMD_RESOLVED() {
 
 _KERNEL() {
     # --- Optimisations Kernel (Sysctl) ---
-    local sysctlfile sysctl_header full_sysctl_content
+    local sysctlfile sysctl_header full_sysctl_content status
     sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
     sysctl_header="# =======================================================================
 # WARNING: Do not modify this file!
@@ -1094,7 +1094,8 @@ ${SYSCTL_CONF}"
 
     _LOG "* sysctl *"
     _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"
-    [[ "${STATUS}" -eq 0 ]] && sudo sysctl -p "${sysctlfile}" >/dev/null
+    status=$(cat /tmp/status || true)
+    [[ "${status}" -eq 0 ]] && sudo sysctl -p "${sysctlfile}" >/dev/null
 }
 
 ########################################################################################################################
@@ -1131,7 +1132,8 @@ ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="
 ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
 '
     _LOG "* IO scheduler *"
-    status=$(_INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644")
+    _INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644"
+    status=$(cat /tmp/status || true)
     [[ "${status}" -eq 0 ]] && {
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
@@ -1144,12 +1146,13 @@ _UDEVPERSIST() {
     # --- udev static custom rule, par exemple clé usb
     _LOG "* udev persist custom *"
     if [[ -n "${UDEVRULE}" ]]; then
-        local udevfilename rules_file
+        local udevfilename rules_file status
         udevfilename="99-persist-key.rules"
         rules_file="/etc/udev/rules.d/${udevfilename}"
 
         _INSTALL_ETC_FILES "règle udev persistante (${UDEVDESCR})" "${UDEVRULE}" "${rules_file}" "644"
-        [[ "${STATUS}" -eq 0 ]] && {
+        status=$(cat /tmp/status || true)
+        [[ "${status}" -eq 0 ]] && {
             _RUNSILENT "" sudo udevadm control --reload-rules
             _RUNSILENT "" sudo udevadm trigger
         }
