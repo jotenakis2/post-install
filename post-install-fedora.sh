@@ -57,7 +57,7 @@ REMOVE_RPM_PACKAGES() {
     done
     _MANAGE_TABLE _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]}"
 
-    if [[ "${ZSWAP}" = "yes" ]]; then # on dégage zram si zswap est demandé
+    if [[ "${ZSWAP,,}" = "yes" ]]; then # on dégage zram si zswap est demandé
         _IS_PKG_INSTALLED zram-generator-defaults && _RUNSILENT "" _PKG_REMOVE zram-generator-defaults
         _LOG "ZSWAP est demandé : zram est supprimé"
     fi
@@ -251,7 +251,7 @@ SETUP_GRUB() {
     _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
 
     if [[ "${is_grub}" == "true" ]]; then
-        if [[ "${ZSWAP}" = "yes" ]]; then
+        if [[ "${ZSWAP,,}" = "yes" ]]; then
             zswap="zswap.enabled=1 zswap.compressor=zstd"
             _LOG "ZSWAP est demandé : \"${zswap}\" ajouté à GRUB"
         fi
@@ -337,7 +337,7 @@ SETUP_FIREWALL() {
 
 ########################################################################################################################
 SETUP_SWAP() { # que si zswap est demandé
-    if [[ "${ZSWAP}" = "yes" ]]; then
+    if [[ "${ZSWAP,,}" = "yes" ]]; then
         _LOG "* swap *"
         local target_size ram_total_kib
         local recreate_swap=false
@@ -426,7 +426,7 @@ SETUP_SWAP() { # que si zswap est demandé
             _LOG "Le module SELinux systemd_swap_search est déjà actif"
         fi
     else
-        _LOG "zswap n'est pas demandé (variable ZSWAP = ${ZSWAP}) => on ne crée pas de swap physique."
+        _LOG "zswap n'est pas demandé (variable ZSWAP = ${ZSWAP,,}) => on ne crée pas de swap physique."
     fi
 }
 

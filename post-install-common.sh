@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=31.0
+readonly VER=31.1
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh #
 ####################################################################################
@@ -187,8 +187,6 @@ INSTALL_CARGO_PACKAGES() {
         _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/cargo-binstall"
 
         # 2. Installation des paquets via Cargo (binstall)
-        declare -g installed_list
-        installed_list=$(cargo install --list 2>/dev/null)
         _MANAGE_TABLE _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
 
         # 3. symlinks globaux
@@ -302,9 +300,10 @@ INSTALL_GIT_REPOS() {
 
 ########################################################################################################################
 SETUP_SHELL() {
-    _SECTION " Configuration du shell par défaut " "━" "${C_GREEN}"
+    _SECTION " Configuration du shell zsh par défaut " "━" "${C_GREEN}"
     # 1- zsh
     local zsh_bin
+    _EXIST zsh || _PKG_INSTALL zsh
     zsh_bin=$(command -v zsh)
 
     if ! grep -qxF "${zsh_bin}" /etc/shells; then
@@ -312,57 +311,56 @@ SETUP_SHELL() {
     fi
 
     local user uid current_shell
-    while IFS=: read -r user _ uid _ _ _ _; do
-        if [[ ("${uid}" -ge 1000 && "${uid}" -lt 2000) || "${uid}" -eq 0 ]]; then # root et users normaux
+    while IFS=: read -r user _ uid _ _ _ _; do                                    # on parcourt le fichier /etc/passwd pour récupérer user et uid.
+        if [[ ("${uid}" -ge 1000 && "${uid}" -lt 5000) || "${uid}" -eq 0 ]]; then # root et users normaux
             current_shell=$(getent passwd "${user}" | cut -d: -f7)
             if [[ "${current_shell}" != "${zsh_bin}" ]]; then
-                _RUN "chsh ${user} → zsh" sudo chsh -s "${zsh_bin}" "${user}"
+                _RUN "Shell zsh pour ${user}" sudo chsh -s "${zsh_bin}" "${user}"
                 ETC_FILES+=("/etc/passwd")
             else
-                _INFO "${user} utilise déjà zsh"
+                _INFO "${user} a déjà zsh par défaut"
             fi
         fi
     done </etc/passwd
 
     # 2- Oh-my-posh prompt
-    local arch
-    arch=$(uname -m)
-    local omp_target=""
+    if [[ ${USE_OH_MY_POSH_PROMPT,,} = "yes" ]]; then
+        local arch omp_target="" no_ohmyposh=0
+        arch=$(uname -m)
 
-    case "${arch}" in
-    x86_64 | amd64)
-        omp_target="posh-linux-amd64"
-        ;;
-    aarch64 | arm64)
-        omp_target="posh-linux-arm64"
-        ;;
-    armv7l)
-        omp_target="posh-linux-arm"
-        ;;
-    *)
-        _DIE "Architecture non supportée pour Oh My Posh : ${arch}"
-        ;;
-    esac
+        case "${arch}" in
+        x86_64 | amd64)
+            omp_target="posh-linux-amd64"
+            ;;
+        aarch64 | arm64)
+            omp_target="posh-linux-arm64"
+            ;;
+        armv7l)
+            omp_target="posh-linux-arm"
+            ;;
+        *)
+            _ERR "Architecture non supportée pour Oh My Posh : ${arch}"
+            no_ohmyposh=1
+            ;;
+        esac
 
-    local omp_url="https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/${omp_target}"
-    local omp_bin="${INSTALL_DIR}/oh-my-posh"
-    if _EXIST oh-my-posh; then
-        local check
-        check=$(oh-my-posh notice)
-        if [[ -z "${check}" ]]; then
-            _LOG "aucune mise à jour de oh-my-posh dispo"
-        else
-            _RUN "Mise à jour de Oh-My-Posh" oh-my-posh upgrade
+        if [[ "${no_ohmyposh}" = 0 ]]; then
+            local omp_url="https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/${omp_target}"
+            local omp_bin="${INSTALL_DIR}/oh-my-posh"
+            if _EXIST oh-my-posh; then
+                local check
+                check=$(oh-my-posh notice)
+                if [[ -z "${check}" ]]; then
+                    _LOG "aucune mise à jour de oh-my-posh dispo"
+                else
+                    _RUN "Mise à jour de Oh-My-Posh" oh-my-posh upgrade
+                fi
+            else
+                _RUN "Téléchargement du binaire Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
+                _RUNSILENT "" chmod 777 -v "${omp_bin}"
+            fi
         fi
-    else
-        _RUN "Téléchargement du binaire Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
-        _RUNSILENT "" chmod 777 -v "${omp_bin}"
     fi
-
-    # 3- symlinks
-    #_SYMLINK "${HOME}/.local/share/icons" "${HOME}/.icons"
-    #_SYMLINK "${HOME}/.local/share/themes" "${HOME}/.themes"
-
 }
 
 ########################################################################################################################
@@ -423,9 +421,7 @@ SETUP_SYSTEMD() {
         fi
     done
 
-    local all_fmt
-    local missing_fmt
-    local present_fmt
+    local missing_fmt present_fmt
     present_fmt=$(_FORMAT_LIST "${present[@]}")
     if ((${#missing[@]})); then
         missing_fmt=$(_FORMAT_LIST "${missing[@]}")
@@ -456,7 +452,7 @@ SETUP_FSTAB() {
     _SECTION " Configuration du fichier FSTAB " "━" "${C_GREEN}"
 
     # SWAPFILE
-    if [[ "${ZSWAP}" = "yes" ]]; then
+    if [[ "${ZSWAP,,}" = "yes" ]]; then
         local swapdir="/var/swap"
         if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
             if [[ ! -f /etc/fstab.origin ]]; then
@@ -637,7 +633,7 @@ SETUP_KDE_PLASMA() {
         if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela*" -print -quit | grep -q . >/dev/null; then
             temp_tela=$(mktemp -d)
             _RUN "Téléchargement des icônes Tela" git clone https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
-            _RUN "Installation des icônes Tela (dans ${HOME}/.local/share/icons/)" bash -c "   \"${temp_tela}\"/tela/install.sh -a -d \"${HOME}\"/.local/share/icons   "
+            _RUN "Installation des icônes Tela dracula (dans ${HOME}/.local/share/icons/)" bash -c "\"${temp_tela}\"/tela/install.sh -c dracula -d \"${HOME}\"/.local/share/icons"
             _RUNSILENT "" rm -rf "${temp_tela}"
             change=1
         fi
@@ -668,14 +664,15 @@ SETUP_KDE_PLASMA() {
         fi
 
         # déplacement du panneau principal
-        local target_pos="${KDEPANEL:-bottom}" # fallback en bas
-        local display_pos
+        local target_pos display_pos
+        target_pos="${KDEPANEL,,:-bottom}"
+
         case "${target_pos}" in
         bottom) display_pos="basse" ;;
         top) display_pos="haute" ;;
         right) display_pos="droite" ;;
         left) display_pos="gauche" ;;
-        *) display_pos="inconnue" ;;
+        *) display_pos="basse" ;;
         esac
 
         if ! pgrep plasmashell >/dev/null 2>&1; then
@@ -770,164 +767,16 @@ SETUP_PLM() {
 ########################################################################################################################
 SETUP_ETC() {
     _SECTION " Configuration générale du système " "━" "${C_GREEN}"
-
-    # par défaut msmtp ne crée pas le log system !
-    if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
-        if [[ ! -f /var/log/msmtp.log ]]; then
-            _LOG "config log msmtp car paquet présent"
-            sudo touch /var/log/msmtp.log
-            _RUNSILENT "" sudo chmod -v 600 /var/log/msmtp.log >>"${LOG_FILE}"
-            _ETC_FILES_ADD "/var/log/msmtp.log"
-        fi
-    fi
-
-    # --- Hostname ---
-    local currenthost newhost
-    currenthost=$(hostnamectl hostname)
-    if [[ -n "${MYHOSTNAME}" ]] && [[ "${currenthost}" != "${MYHOSTNAME}" ]]; then
-        _RUN "Changement du nom de la machine (de ${currenthost} vers ${MYHOSTNAME})" sudo hostnamectl set-hostname "${MYHOSTNAME}"
-        newhost=$(hostnamectl hostname)
-        _LOG "nouveau hostname : ${newhost}"
-        _ETC_FILES_ADD "/etc/hostname"
-    fi
-
-    # --- journald ---
-    local journald_content journald_file
-    journald_file="/etc/systemd/journald.conf"
-    journald_content=$'[Journal]\nSystemMaxUse=900M\nSystemKeepFree=2G\n'
-    readonly journald_file journald_content
-    _INSTALL_ETC_FILES "journal système" "${journald_content}" "${journald_file}" "644"
-
-    # --- NetworkManager & systemd-resolved ---
-    _LOG "* réseau *"
-    local nm_dns_conf resolved_10_conf restart=0
-    nm_dns_conf=$'[main]\ndns=systemd-resolved\n'
-    resolved_10_conf=$'[Resolve]\nLLMNR=no\n'
-    readonly nm_dns_conf resolved_10_conf
-
-    if ! grep -rq "dns=systemd-resolved" /etc/NetworkManager/conf.d; then
-        _OK "Configuration de NetworkManager avec systemd-resolved (/etc/NetworkManager/conf.d/99-global-dns.conf)"
-        printf '%s' "${nm_dns_conf}" | sudo tee /etc/NetworkManager/conf.d/99-global-dns.conf >/dev/null
-        _RUNSILENT "" sudo chmod -v 644 /etc/NetworkManager/conf.d/99-global-dns.conf
-        restart=1
-        _ETC_FILES_ADD "/etc/NetworkManager/conf.d/99-global-dns.conf"
-    else
-        _INFO "NetworkManager déjà configuré (/etc/NetworkManager/conf.d/99-global-dns.conf)"
-    fi
-
-    _RUNSILENT "" _SYMLINK /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-
-    if [[ ! -f /etc/systemd/resolved.conf.d/dns_servers.conf ]] || [[ ! -f /etc/systemd/resolved.conf.d/10-disable-llmnr.conf ]]; then
-        _OK "Déploiement de la configuration DNS (dans /etc/systemd/resolved.conf.d/)"
-        printf '%s' "${RESOLVED_DNS_SERVERS}" | sudo tee /etc/systemd/resolved.conf.d/dns_servers.conf >/dev/null
-        printf '%s' "${resolved_10_conf}" | sudo tee /etc/systemd/resolved.conf.d/10-disable-llmnr.conf >/dev/null
-        _RUNSILENT "" sudo chmod -v 644 /etc/systemd/resolved.conf.d/dns_servers.conf /etc/systemd/resolved.conf.d/10-disable-llmnr.conf
-        restart=1
-        _ETC_FILES_ADD "/etc/systemd/resolved.conf.d/10-disable-llmnr.conf"
-        _ETC_FILES_ADD "/etc/systemd/resolved.conf.d/dns_servers.conf"
-    else
-        _INFO "Configuration DNS déjà présente (dans /etc/systemd/resolved.conf.d/)"
-    fi
-    if [[ ${restart} -eq 1 ]]; then
-        _RUN "Redémarrage des services NetworkManager et systemd-resolved" sudo systemctl restart systemd-resolved NetworkManager
-    fi
-    {
-        ls -l /etc/NetworkManager/conf.d/99-global-dns.conf
-        cat /etc/NetworkManager/conf.d/99-global-dns.conf
-        echo ""
-        ls -l /etc/systemd/resolved.conf.d/dns_servers.conf
-        cat /etc/systemd/resolved.conf.d/dns_servers.conf
-        echo ""
-        ls -l /etc/systemd/resolved.conf.d/10-disable-llmnr.conf
-        cat /etc/systemd/resolved.conf.d/10-disable-llmnr.conf
-        echo ""
-    } >>"${LOG_FILE}"
-
-    # --- Optimisations Kernel (Sysctl) ---
-    local sysctlfile sysctl_header full_sysctl_content
-    sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
-    sysctl_header="# =======================================================================
-# WARNING: Do not modify this file!
-# It is automatically generated and managed by ${SCRIPTNAME}.
-#
-# To override these settings, create a new drop-in file with a
-# higher priority number (e.g., /etc/sysctl.d/99-custom.conf).
-# ======================================================================="
-    readonly sysctlfile sysctl_header
-    # on concatène le header et la variable globale SYSCTL_CONF
-    full_sysctl_content="${sysctl_header}
-${SYSCTL_CONF}"
-
-    _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"
-    [[ "${STATUS}" -eq 0 ]] && _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
-
-    # --- Configuration Brave Browser (Policies debloat) ---
-    if [[ -n "${BRAVE_POLICIES}" ]]; then
-        local brave_policy_file full_brave_policies
-        brave_policy_file="/etc/brave/policies/managed/brave_debullshitinator-policies.json"
-        full_brave_policies=$(echo "${BRAVE_POLICIES}" | sed "1s/{/{\n    \"_warning\": \"Do not modify this file! It is managed by ${SCRIPTNAME}.\",/")
-        readonly brave_policy_file full_brave_policies
-        _INSTALL_ETC_FILES "politiques de Brave" "${full_brave_policies}" "${brave_policy_file}" "644"
-    else
-        _LOG "Aucune politique de Brave demandée"
-    fi
-
-    # IO scheduler
-    local rules_file rules_content current
-    rules_file="/etc/udev/rules.d/60-ioschedulers.rules"
-    sudo touch "${rules_file}"
-    current=$(cat "${rules_file}" 2>/dev/null || true)
-    rules_content='# NVMe
-ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
-
-# SSD SATA / eMMC
-ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
-
-# HDD rotatif
-ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
-'
-    _INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644"
-    [[ "${STATUS}" -eq 0 ]] && {
-        _RUNSILENT "" sudo udevadm control --reload-rules
-        _RUNSILENT "" sudo udevadm trigger
-    }
-
-    # --- udev static custom rule
-    if [[ -n "${UDEVRULE}" ]]; then
-        local udevfilename="99-persist-key.rules"
-        local rules_file="/etc/udev/rules.d/${udevfilename}"
-        sudo touch "${rules_file}"
-        rules_content="${UDEVRULE}"
-        current=$(cat "${rules_file}" 2>/dev/null || true)
-
-        _INSTALL_ETC_FILES "règle udev persistante (${UDEVDESCR})" "${rules_content}" "${rules_file}" "644"
-        [[ "${STATUS}" -eq 0 ]] && {
-            _RUNSILENT "" sudo udevadm control --reload-rules
-            _RUNSILENT "" sudo udevadm trigger
-        }
-    else
-        _LOG "Aucune règle udev persistante demandée"
-    fi
-
-    # --- Groupe libvirt ---
-    _LOG "* groupe *"
-    local main_user
-    main_user=${USER}
-
-    if getent group libvirt >/dev/null 2>&1; then
-        if id -nG "${main_user}" | grep -qw "libvirt"; then
-            _INFO "Utilisateur ${main_user} déjà dans libvirt"
-        else
-            _RUN "Ajout de l'utilisateur ${main_user} au groupe libvirt" sudo usermod -aG libvirt "${main_user}"
-            _ETC_FILES_ADD "/etc/group"
-        fi
-    fi
-    {
-        ls -l /etc/group
-        grep libvirt /etc/group
-        echo ""
-    } >>"${LOG_FILE}"
-
+    _MSMTP
+    _HOSTNAME
+    _JOURNALD
+    _NETWORKMANAGER
+    _SYSTEMD_RESOLVED
+    _KERNEL
+    _BRAVEPOLICIES
+    _IOSCHEDULER
+    _UDEVPERSIST
+    _LIBVIRT
 }
 
 ########################################################################################################################
@@ -1109,6 +958,223 @@ END() {
     [[ -n "${file}" ]] && _INFO "Log téléversé : ${file}"
     #
     echo ""
+}
+
+########################################################################################################################
+
+_JOURNALD() {
+    local journald_content journald_file
+    journald_file="/etc/systemd/journald.conf"
+    journald_content=$'[Journal]\nSystemMaxUse=900M\nSystemKeepFree=2G\n'
+    readonly journald_file journald_content
+    _LOG "* journald *"
+    _INSTALL_ETC_FILES "journal système" "${journald_content}" "${journald_file}" "644"
+}
+
+########################################################################################################################
+
+_HOSTNAME() {
+    local currenthost newhost
+    currenthost=$(hostnamectl hostname)
+    _LOG "* nom d'hôte *"
+    if [[ -n "${MYHOSTNAME}" ]] && [[ "${currenthost}" != "${MYHOSTNAME}" ]]; then
+        _RUN "Changement du nom de la machine (de ${currenthost} vers ${MYHOSTNAME})" sudo hostnamectl set-hostname "${MYHOSTNAME}"
+        newhost=$(hostnamectl hostname)
+        _LOG "nouveau hostname : ${newhost}"
+        _ETC_FILES_ADD "/etc/hostname"
+    else
+        _LOG "hostname déjà correctement défini"
+    fi
+}
+
+########################################################################################################################
+
+_MSMTP() {
+    # par défaut msmtp ne crée pas le log system !
+    if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
+        if [[ ! -f /var/log/msmtp.log ]]; then
+            _LOG "config log msmtp car paquet présent"
+            sudo touch /var/log/msmtp.log
+            _RUNSILENT "" sudo chmod -v 600 /var/log/msmtp.log >>"${LOG_FILE}"
+            _ETC_FILES_ADD "/var/log/msmtp.log"
+        fi
+    fi
+}
+
+########################################################################################################################
+
+_NETWORKMANAGER() {
+    local nm_dns_conf file dir restart=0
+    nm_dns_conf=$'[main]\ndns=systemd-resolved\n'
+    dir="/etc/NetworkManager/conf.d"
+    file="${dir}/99-global-dns.conf"
+    readonly nm_dns_conf file dir
+
+    _LOG "* dns : NetworkManager *"
+
+    if grep -rq "dns=systemd-resolved" "${dir}"; then
+        _INFO "NetworkManager déjà configuré (${file})"
+    else
+        _OK "Configuration du backend DNS de NetworkManager (${file})"
+        printf '%s' "${nm_dns_conf}" | sudo tee "${file}" >/dev/null
+        _RUNSILENT "" sudo chmod -v 644 "${file}"
+        restart=1
+        _ETC_FILES_ADD "${file}"
+    fi
+
+    if [[ ${restart} -eq 1 ]]; then
+        _RUN "Redémarrage du service NetworkManager" sudo systemctl restart NetworkManager.service
+    fi
+
+    {
+        ls -l "${file}"
+        cat "${file}"
+        echo ""
+    } >>"${LOG_FILE}"
+}
+
+########################################################################################################################
+
+_SYSTEMD_RESOLVED() {
+    local resolved_10_conf dnsfile llmnrfile dir restart=0
+    dir="/etc/systemd/resolved.conf.d"
+    dnsfile="${dir}/90-dns_servers.conf"
+    llmnrfile="${dir}/10-disable-llmnr.conf"
+    resolved_10_conf=$'[Resolve]\nLLMNR=no\n'
+    readonly resolved_10_conf dir dnsfile llmnrfile
+
+    _LOG "* dns : systemd-resolved *"
+    _RUNSILENT "" _SYMLINK /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+
+    if [[ ! -f "${dnsfile}" ]] || [[ ! -f "${llmnrfile}" ]]; then
+        _OK "Déploiement de la configuration DNS (dans ${dir})"
+        printf '%s' "${RESOLVED_DNS_SERVERS}" | sudo tee "${dnsfile}" >/dev/null
+        printf '%s' "${resolved_10_conf}" | sudo tee "${llmnrfile}" >/dev/null
+        _RUNSILENT "" sudo chmod -v 644 "${dnsfile}" "${llmnrfile}"
+        restart=1
+        _ETC_FILES_ADD "${dnsfile}"
+        _ETC_FILES_ADD "${llmnrfile}"
+    else
+        _INFO "Configuration DNS déjà présente (dans ${dir})"
+    fi
+
+    if [[ ${restart} -eq 1 ]]; then
+        _RUN "Redémarrage du service systemd-resolved" sudo systemctl restart systemd-resolved
+    fi
+
+    {
+        ls -l "${dnsfile}"
+        cat "${dnsfile}"
+        echo ""
+        ls -l "${llmnrfile}"
+        cat "${llmnrfile}"
+        echo ""
+    } >>"${LOG_FILE}"
+}
+
+########################################################################################################################
+
+_KERNEL() {
+    # --- Optimisations Kernel (Sysctl) ---
+    local sysctlfile sysctl_header full_sysctl_content
+    sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
+    sysctl_header="# =======================================================================
+# WARNING: Do not modify this file!
+# It is automatically generated and managed by ${SCRIPTNAME}.
+#
+# To override these settings, create a new drop-in file with a
+# higher priority number (e.g., /etc/sysctl.d/99-custom.conf).
+# ======================================================================="
+    readonly sysctlfile sysctl_header
+    full_sysctl_content="${sysctl_header}
+${SYSCTL_CONF}"
+
+    _LOG "* sysctl *"
+    _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"
+    [[ "${STATUS}" -eq 0 ]] && _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
+}
+
+########################################################################################################################
+
+_BRAVEPOLICIES() {
+    # --- Configuration Brave Browser (Policies debloat) ---
+    _LOG "* Brave debloat *"
+    if [[ -n "${BRAVE_POLICIES}" ]]; then
+        local brave_policy_file full_brave_policies
+        brave_policy_file="/etc/brave/policies/managed/brave_debullshitinator-policies.json"
+        full_brave_policies=$(echo "${BRAVE_POLICIES}" | sed "1s/{/{\n    \"_warning\": \"Do not modify this file! It is managed by ${SCRIPTNAME}.\",/")
+        readonly brave_policy_file full_brave_policies
+        _INSTALL_ETC_FILES "politiques de Brave" "${full_brave_policies}" "${brave_policy_file}" "644"
+    else
+        _LOG "Aucune politique de Brave demandée"
+    fi
+}
+
+########################################################################################################################
+
+_IOSCHEDULER() {
+    # IO scheduler NVMe = none, SSD = mq-deadline, HDD = bfq
+    # Some may prefer kyber for nvme
+    #
+    local rules_file rules_content
+    rules_file="/etc/udev/rules.d/60-ioschedulers.rules"
+    rules_content='# NVMe
+ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
+
+# SSD SATA / eMMC
+ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
+
+# HDD rotatif
+ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
+'
+    _LOG "* IO scheduler *"
+    _INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644"
+    [[ "${STATUS}" -eq 0 ]] && {
+        _RUNSILENT "" sudo udevadm control --reload-rules
+        _RUNSILENT "" sudo udevadm trigger
+    }
+}
+
+########################################################################################################################
+
+_UDEVPERSIST() {
+    # --- udev static custom rule, par exemple clé usb
+    _LOG "* udev persist custom *"
+    if [[ -n "${UDEVRULE}" ]]; then
+        local udevfilename rules_file
+        udevfilename="99-persist-key.rules"
+        rules_file="/etc/udev/rules.d/${udevfilename}"
+
+        _INSTALL_ETC_FILES "règle udev persistante (${UDEVDESCR})" "${UDEVRULE}" "${rules_file}" "644"
+        [[ "${STATUS}" -eq 0 ]] && {
+            _RUNSILENT "" sudo udevadm control --reload-rules
+            _RUNSILENT "" sudo udevadm trigger
+        }
+    else
+        _LOG "Aucune règle udev persistante demandée"
+    fi
+}
+
+########################################################################################################################
+
+_LIBVIRT() {
+    # --- Groupe libvirt ---
+    _LOG "* groupe libvirt *"
+
+    if getent group libvirt >/dev/null 2>&1; then
+        if id -nG "${USER}" | grep -qw "libvirt"; then
+            _INFO "Utilisateur ${USER} déjà dans libvirt"
+        else
+            _RUN "Ajout de l'utilisateur ${USER} au groupe libvirt" sudo usermod -aG libvirt "${USER}"
+            _ETC_FILES_ADD "/etc/group"
+        fi
+    fi
+    {
+        ls -l /etc/group
+        grep libvirt /etc/group
+        echo ""
+    } >>"${LOG_FILE}"
+
 }
 
 ########################################################################################################################

@@ -75,12 +75,13 @@ FLATPAK_PKGS=(
 # outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé" ---------------------------------------------
 CARGO_PACKAGES=(
     cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg
-    ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina eza netwatch-tui syswatch poshbuddy
+    ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina eza netwatch-tui syswatch poshbuddy shuck-cli
     # Ajoute tes autres paquets ici
 )
 declare -A BIN_MAPPING=(
     ["yazi-fm"]="yazi"
     ["yazi-cli"]="ya"
+    ["shuck-cli"]="shuck"
     ["tealdeer"]="tldr"
     ["parallel-disk-usage"]="pdu"
     ["fd-find"]="fd"
@@ -306,6 +307,10 @@ TTY_COLOR="vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,
 ZSWAP="yes"
 #-----------------------------------------------------------------------------------------------------------------------------
 
+# prompt oh-my-posh yes/no ? -------------------------------------------------------------------------------------------------
+USE_OH_MY_POSH_PROMPT="yes"
+#-----------------------------------------------------------------------------------------------------------------------------
+
 # paramètres additionels de la ligne de commande du noyau --------------------------------------------------------------------
 CMDLINE="ipv6.disable=1"
 #-----------------------------------------------------------------------------------------------------------------------------
@@ -390,4 +395,5 @@ export BANNER
 export VCONSOLE_FONT
 export ZSWAP
 export SUDORS
+export USE_OH_MY_POSH_PROMPT
 ###############################################################################################################################
