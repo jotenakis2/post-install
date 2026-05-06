@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=31.3
+readonly VER=31.4
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh #
 ####################################################################################
@@ -1119,7 +1119,7 @@ _IOSCHEDULER() {
     # IO scheduler NVMe = none, SSD = mq-deadline, HDD = bfq
     # Some may prefer kyber for nvme
     #
-    local rules_file rules_content
+    local rules_file rules_content status
     rules_file="/etc/udev/rules.d/60-ioschedulers.rules"
     rules_content='# NVMe
 ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
@@ -1131,8 +1131,8 @@ ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="
 ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
 '
     _LOG "* IO scheduler *"
-    _INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644"
-    [[ "${STATUS}" -eq 0 ]] && {
+    status=$(_INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644")
+    [[ "${status}" -eq 0 ]] && {
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
     }
