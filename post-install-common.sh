@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=31.5
+readonly VER=31.6
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -188,10 +188,10 @@ INSTALL_CARGO_PACKAGES() {
         # 2. Installation des paquets via Cargo (binstall)
         declare -g INSTALLED_LIST
         _RUN "Listing des paquets cargo" bash -c "cargo install --list 2>/dev/null > /tmp/cargolist"
-        INSTALLED_LIST="$(cat /tmp/cargolist 2>/dev/null || true)"
-        export INSTALLED_LIST
+        INSTALLED_LIST="$(cat /tmp/cargolist 2>/dev/null || true)" # je passe par un fichier /tmp/cargolist pour avoir un spinner
+        export INSTALLED_LIST # variable utilisée par _CARGOPKG_INSTALL
         _MANAGE_TABLE _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
-        #rm -f /tmp/cargolist 2>/dev/null
+        rm -f /tmp/cargolist 2>/dev/null
 
         # 3. symlinks globaux
         local cmd
@@ -777,6 +777,7 @@ SETUP_ETC() {
     _NETWORKMANAGER
     _SYSTEMD_RESOLVED
     _KERNEL
+    _DISABLE_COREDUMP
     _BRAVEPOLICIES
     _IOSCHEDULER
     _UDEVPERSIST
@@ -1202,3 +1203,22 @@ _CHRONY() {
 }
 
 ########################################################################################################################
+
+_DISABLE_COREDUMP(){
+    local file content dir limits_file dirlimits
+    dir="/etc/systemd/coredump.conf.d"
+    dirlimits="/etc/security/limits.d/"
+    mkdir -p "${dir}" "${dirlimits}"
+
+    file="${dir}/disable.conf"
+    content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
+    _INSTALL_ETC_FILES "coredump systemd" "${content}" "${file}"
+    grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo systemctl daemon-reload || true
+
+    limits_file="${dirlimits}/disable-coredump.conf"
+    if ! grep -qxF "* soft core 0" "${limits_file}" 2>/dev/null; then
+        printf '* soft core 0\n* hard core 0\n' | sudo tee "${limits_file}" > /dev/null
+        _ETC_FILES_ADD "${limits_file}"
+        { ls -l "${limits_file}" ; cat "${limits_file}" ; echo "" ; } >> "${LOG_FILE}"
+    fi
+}
