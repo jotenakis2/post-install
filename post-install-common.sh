@@ -1214,11 +1214,14 @@ _DISABLE_COREDUMP(){
     content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
     _INSTALL_ETC_FILES "coredump systemd" "${content}" "${file}" "644"
     grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo systemctl daemon-reload || true
+    { ls -l "${file}" ; cat "${file}" ; echo "" ; } >> "${LOG_FILE}"
 
     limits_file="${dirlimits}/disable-coredump.conf"
     if ! grep -qxF "* soft core 0" "${limits_file}" 2>/dev/null; then
         printf '* soft core 0\n* hard core 0\n' | sudo tee "${limits_file}" > /dev/null
         _ETC_FILES_ADD "${limits_file}"
-        { ls -l "${limits_file}" ; cat "${limits_file}" ; echo "" ; } >> "${LOG_FILE}"
+    else
+        _INFO "Coredump déja configuré (${limits_file})"
     fi
+    { ls -l "${limits_file}" ; cat "${limits_file}" ; echo "" ; } >> "${LOG_FILE}"
 }
