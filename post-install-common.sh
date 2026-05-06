@@ -191,7 +191,7 @@ INSTALL_CARGO_PACKAGES() {
         INSTALLED_LIST="$(cat /tmp/cargolist 2>/dev/null || true)"
         export INSTALLED_LIST
         _MANAGE_TABLE _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
-        rm -f /tmp/cargolist 2>/dev/null
+        #rm -f /tmp/cargolist 2>/dev/null
 
         # 3. symlinks globaux
         local cmd
