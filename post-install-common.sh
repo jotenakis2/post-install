@@ -1205,10 +1205,11 @@ _CHRONY() {
 ########################################################################################################################
 
 _DISABLE_COREDUMP(){
-    local file content dir limits_file dirlimits
+    local file content dir limits_file dirlimits dirprofile profile
     dir="/etc/systemd/coredump.conf.d"
-    dirlimits="/etc/security/limits.d/"
-    mkdir -p "${dir}" "${dirlimits}"
+    dirlimits="/etc/security/limits.d"
+    dirprofile="/etc/profile.d"
+    mkdir -p "${dir}" "${dirlimits}" "${dirprofile}"
 
     file="${dir}/disable.conf"
     content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
@@ -1224,4 +1225,10 @@ _DISABLE_COREDUMP(){
         _INFO "Coredump déja configuré (${limits_file})"
     fi
     { ls -l "${limits_file}" ; cat "${limits_file}" ; echo "" ; } >> "${LOG_FILE}"
+
+    profile="${dirprofile}/coredump.sh"
+    content=$'ulimit -c 0\n'
+    _INSTALL_ETC_FILES "coredump shell" "${content}" "${profile}" "644"
+    { ls -l "${profile}" ; cat "${profile}" ; echo "" ; } >> "${LOG_FILE}"
+
 }

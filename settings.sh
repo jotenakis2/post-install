@@ -14,8 +14,8 @@ SUDORS="yes"
 
 # paquets RPM à installer ----------------------------------------------------------------------------------------------------
 DNF_PACKAGES=(
-    fastfetch util-linux-script foot ghostty fzf bat-extras grc axel rclone procs msmtp s-nail
-    wl-clipboard glow expect sqlite btop atop glances nvtop gping iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
+    fastfetch foot fzf bat-extras grc axel rclone procs msmtp s-nail
+    wl-clipboard glow expect sqlite btop atop glances nvtop iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
     vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng lynis
     libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro konversation libpcap-devel
