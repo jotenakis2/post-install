@@ -14,7 +14,7 @@ SUDORS="yes"
 
 # paquets RPM à installer ----------------------------------------------------------------------------------------------------
 DNF_PACKAGES=(
-    fastfetch foot fzf bat-extras grc axel rclone procs msmtp s-nail
+    fastfetch foot fzf bat-extras grc axel rclone procs msmtp s-nail chkrootkit rkhunter
     wl-clipboard glow expect sqlite btop atop glances nvtop iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
     vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng lynis

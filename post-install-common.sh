@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=31.6
+readonly VER=31.7
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -783,6 +783,10 @@ SETUP_ETC() {
     _UDEVPERSIST
     _LIBVIRT
     _CHRONY
+    # hardening passwords
+    _SET_LOGIN_DEFS "SHA_CRYPT_MIN_ROUNDS" "65536"
+    _SET_LOGIN_DEFS "SHA_CRYPT_MAX_ROUNDS" "65536"
+    #
 }
 
 ########################################################################################################################
@@ -1236,3 +1240,26 @@ _DISABLE_COREDUMP(){
     { ls -l "${profile}" ; cat "${profile}" ; echo "" ; } >> "${LOG_FILE}"
 
 }
+
+########################################################################################################################
+
+_SET_LOGIN_DEFS() {
+    local key="$1"
+    local value="$2"
+    local file="/etc/login.defs"
+
+    if grep -qE "^${key}[[:space:]]+${value}" "${file}"; then
+        _LOG "Robustification des hash des mots de passe déjà configurée (${file})"
+        return 0  # déjà à la bonne valeur, rien à faire
+    elif grep -qE "^${key}" "${file}"; then
+        sudo sed -i "s/^${key}.*/${key} ${value}/" "${file}"
+        _LOG "Robustification des hash des mots de passe (${file})"
+    else
+        echo "${key} ${value}" | sudo tee -a "${file}" > /dev/null
+        _LOG "Robustification des hash des mots de passe (${file})"
+    fi
+    grep "${key}" "${file}" >> "${LOG_FILE}"
+    _ETC_FILES_ADD "${file}"
+}
+
+
