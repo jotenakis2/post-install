@@ -1250,13 +1250,14 @@ _SET_LOGIN_DEFS() {
 
     if grep -qE "^${key}[[:space:]]+${value}" "${file}"; then
         _LOG "Robustification des hash des mots de passe déjà configurée (${file})"
-        return 0  # déjà à la bonne valeur, rien à faire
+        grep "${key}" "${file}" >> "${LOG_FILE}"
+        return 0
     elif grep -qE "^${key}" "${file}"; then
         sudo sed -i "s/^${key}.*/${key} ${value}/" "${file}"
-        _LOG "Robustification des hash des mots de passe (${file})"
+        _INFO "Robustification des hash des mots de passe (${key} dans ${file})"
     else
         echo "${key} ${value}" | sudo tee -a "${file}" > /dev/null
-        _LOG "Robustification des hash des mots de passe (${file})"
+        _INFO "Robustification des hash des mots de passe (${key} dans ${file})"
     fi
     grep "${key}" "${file}" >> "${LOG_FILE}"
     _ETC_FILES_ADD "${file}"
