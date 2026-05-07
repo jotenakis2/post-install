@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=32.1
+readonly VER=32.2
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -1033,9 +1033,9 @@ _NETWORKMANAGER() {
     _LOG "* dns : NetworkManager *"
 
     if grep -rq "dns=systemd-resolved" "${dir}"; then
-        _INFO "NetworkManager déjà configuré (${file})"
+        _INFO "Backend DNS de NetworkManager déjà OK (${file})"
     else
-        _OK "Configuration du backend DNS de NetworkManager (${file})"
+        _OK "Configuration backend DNS de NetworkManager (${file})"
         printf '%s' "${nm_dns_conf}" | sudo tee "${file}" >/dev/null
         _RUNSILENT "" sudo chmod -v 644 "${file}"
         restart=1
@@ -1067,7 +1067,7 @@ _SYSTEMD_RESOLVED() {
     _RUNSILENT "" _SYMLINK /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
     if [[ ! -f "${dnsfile}" ]] || [[ ! -f "${llmnrfile}" ]]; then
-        _OK "Déploiement de la configuration DNS (dans ${dir})"
+        _OK "Configuration DNS (dans ${dir})"
         printf '%s' "${RESOLVED_DNS_SERVERS}" | sudo tee "${dnsfile}" >/dev/null
         printf '%s' "${resolved_10_conf}" | sudo tee "${llmnrfile}" >/dev/null
         _RUNSILENT "" sudo chmod -v 644 "${dnsfile}" "${llmnrfile}"
@@ -1075,7 +1075,7 @@ _SYSTEMD_RESOLVED() {
         _ETC_FILES_ADD "${dnsfile}"
         _ETC_FILES_ADD "${llmnrfile}"
     else
-        _INFO "Configuration DNS déjà présente (dans ${dir})"
+        _INFO "Configuration DNS déjà OK (dans ${dir})"
     fi
 
     if [[ ${restart} -eq 1 ]]; then
@@ -1235,9 +1235,10 @@ _DISABLE_COREDUMP(){
     limits_file="${dirlimits}/disable-coredump.conf"
     if ! grep -qxF "* soft core 0" "${limits_file}" 2>/dev/null; then
         printf '* soft core 0\n* hard core 0\n' | sudo tee "${limits_file}" > /dev/null
+        _OK "Configuration coredump"
         _ETC_FILES_ADD "${limits_file}"
     else
-        _INFO "Coredump déja configuré (${limits_file})"
+        _INFO "Coredump déja OK (${limits_file})"
     fi
     { ls -l "${limits_file}" ; cat "${limits_file}" ; echo "" ; } >> "${LOG_FILE}"
 

@@ -142,10 +142,10 @@ _INSTALL_ETC_FILES() {
     readonly msg content file rights
     _LOG "${msg^^}"
     if sudo test -f "${file}" && printf '%s' "${content}" | sudo cmp -s - "${file}"; then
-        _INFO "${msg^} déjà configuré (${file})"
+        _INFO "${msg^} déjà OK (${file})"
         echo 1 >/tmp/status
     else
-        _OK "Configuration du ${msg} (${file})"
+        _OK "Configuration ${msg} (${file})"
         printf '%s' "${content}" | sudo tee "${file}" >/dev/null
         _RUNSILENT "" sudo chmod -v "${rights}" "${file}"
         _ETC_FILES_ADD "${file}"
