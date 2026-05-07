@@ -393,10 +393,9 @@ SETUP_DOTFILES() {
     done
 
     # 2- stow pour déployer dotfiles depuis dépôt git
-    local pkg name listdot=" " displayed_stow args
+    local pkg name listdot=" " displayed_stow
     displayed_stow="Stow"
-    args=""
-    [[ "${RESTOW}" = "yes " ]] && { displayed_stow="reStow"; args="--restow" ; }
+    [[ "${RESTOW}" = "yes " ]] && displayed_stow="reStow"
 
     echo -e " ${C_GREEN}✓ ${C_RESET} ${displayed_stow} :"
     for pkg in "${DOTFILES_DIR}"/*/; do
@@ -406,7 +405,11 @@ SETUP_DOTFILES() {
     _PRINT_LIST "${listdot}" | tee -a "${LOG_FILE}"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
-        stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" "${args}" "${name}" &>>"${LOG_FILE}"
+        if [[ "${RESTOW}" = "yes " ]]; then
+            stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
+        else
+            stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" "${name}" &>>"${LOG_FILE}"
+        fi
     done
 
     if _EXIST bat; then
