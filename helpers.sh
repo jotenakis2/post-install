@@ -5,35 +5,6 @@
 # FONCTIONS HELPERS                                                                                                    #
 ########################################################################################################################
 
-# _BANNER
-# _SECTION
-# _HEURE
-# _OK
-# _ERR
-# _INFO
-# _DIE
-# _LOG
-# _IN_ARRAY
-# _SYMLINK
-# _PLASMA_EVAL
-# _PLASMA_GET_PANEL_LOCATION
-# _PASS
-# _RUNSILENT
-# _RUN
-# _EXIST
-# _DETECT_GRUB !!!!!!!!!!!!!!!!!!
-# _DIR_IS_SAFE_TO_RESTORE
-# _CONVERT_SECONDS
-# _FORMAT_LIST
-# _IS_ENABLED
-# _IS_ENABLED_USER
-# _IS_ACTIVE
-# _IS_ACTIVE_USER
-# _INIT_COLOR
-# _IS_FPPKG_INSTALLED
-# _FPPKG_INSTALL
-# _MANAGE_TABLE
-
 ############################################################################################################################
 _BANNER() {
     local color=$1
@@ -61,7 +32,7 @@ _BANNER() {
     printf '\033[%sm%s%s%s\033[0m\n' "${fg}" "${TL}" "${hline}" "${TR}"
     printf '\033[%sm%s%*s%s%*s%s\033[0m\n' "${fg}" "${V}" "${padl}" '' "${text}" "${padr}" '' "${V}"
     printf '\033[%sm%s%s%s\033[0m\n' "${fg}" "${BL}" "${hline}" "${BR}"
-    echo "${text}" >>"${LOG_FILE}"
+    echo "${text}" >>"${LOG_FILE:-/dev/null}"
     return 0
 }
 
@@ -155,21 +126,21 @@ _INSTALL_ETC_FILES() {
         sudo ls -l "${file}"
         sudo cat "${file}"
         echo ""
-    } >>"${LOG_FILE}"
+    } >>"${LOG_FILE:-/dev/null}"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 _IS_ENABLED() {
-    systemctl is-enabled --quiet "$@" 2>>"${LOG_FILE}"
+    systemctl is-enabled --quiet "$@" 2>>"${LOG_FILE:-/dev/null}"
 }
 _IS_ACTIVE() {
-    systemctl is-active --quiet "$@" 2>>"${LOG_FILE}"
+    systemctl is-active --quiet "$@" 2>>"${LOG_FILE:-/dev/null}"
 }
 _IS_ENABLED_USER() {
-    systemctl --user is-enabled --quiet "$@" 2>>"${LOG_FILE}"
+    systemctl --user is-enabled --quiet "$@" 2>>"${LOG_FILE:-/dev/null}"
 }
 _IS_ACTIVE_USER() {
-    systemctl --user is-active --quiet "$@" 2>>"${LOG_FILE}"
+    systemctl --user is-active --quiet "$@" 2>>"${LOG_FILE:-/dev/null}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 _IN_ARRAY() {
@@ -312,7 +283,7 @@ _RUNSILENT() {
     local tmperr
     tmperr=$(mktemp)
     # shellcheck disable=SC2312
-    "$@" 2>&1 | tee -a "${LOG_FILE}" >"${tmperr}"
+    "$@" 2>&1 | tee -a "${LOG_FILE:-/dev/null}" >"${tmperr}"
     local rc="${PIPESTATUS[0]}"
 
     if ((rc != 0)); then
@@ -340,7 +311,7 @@ _RUN() {
     local msg="$1"
     shift
     tput civis || true # Hide cursor, ignore errors if unsupported
-    "$@" >>"${LOG_FILE}" 2>&1 &
+    "$@" >>"${LOG_FILE:-/dev/null}" 2>&1 &
     local pid=$!
     _SPIN "${pid}" "${msg}"
     if wait "${pid}"; then
@@ -349,8 +320,8 @@ _RUN() {
     else
         tput cvvis || true # Show cursor, ignore errors if unsupported
         _ERR "${msg}"
-        tail -n5 "${LOG_FILE}"
-        _DIE "Échec — détails : ${LOG_FILE}"
+        tail -n5 "${LOG_FILE:-/dev/null}"
+        _DIE "Échec — détails : ${LOG_FILE:-/dev/null}"
     fi
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -485,17 +456,17 @@ _MANAGE_TABLE() {
             present_fmt=$(_FORMAT_LIST "${present[@]}")
             ((${#present[@]})) && {
                 _INFO "Paquets à IGNORER car réussissant le test \"${test}\" : "
-                _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE}" || true
+                _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}" || true
             }
             _INFO "Paquets à TRAITER car échouant au test \"${test}\" : "
-            _PRINT_LIST "${missing_fmt}" | tee -a "${LOG_FILE}" || true
+            _PRINT_LIST "${missing_fmt}" | tee -a "${LOG_FILE:-/dev/null}" || true
             _RUN "${treat^} en cours..." "${install_cmd}" "${missing[@]}"
             printf '\e[1A\e[2K' # je remonte d'une ligne et je la vide, pour écraser le "en cours..."
             _OK "Traitement terminé, ${treat} OK."
         else
             all_fmt=$(_FORMAT_LIST "$@")
             _INFO "Tout a été traité (${treat}) : "
-            _PRINT_LIST "${all_fmt}" | tee -a "${LOG_FILE}" || true
+            _PRINT_LIST "${all_fmt}" | tee -a "${LOG_FILE:-/dev/null}" || true
         fi
     else
         _INFO "Rien à traiter (${treat}), liste transmise vide..."
@@ -523,7 +494,7 @@ _PRINT_ETC_FILES() {
         hr="$(date +%Y%m%d-%H%M%S)"
         _INFO "Fichiers système crées ou modifiés : "
         _PRINT_LIST "${list}"
-        echo "${list}" >> "${LOG_FILE:-}"
+        echo "${list}" >> "${LOG_FILE:-/dev/null}"
         if [[ -f "${HOME}/${file}" ]]; then
             echo "" >>"${HOME}/${file}"
         else
