@@ -9,22 +9,22 @@ source ./post-install-common.sh # fonctions distro-agnostique
 
 ########################################################################################################################
 CHECK() {
-    [[ -n "${BASH_VERSION:-}" ]] || {
+    if [[ -z "${BASH_VERSION:-}" ]]; then
         echo "Ce script requiert bash."
         exit 1
-    }
-    [[ "${BASH_VERSINFO[0]}" -ge 5 ]] || {
+    fi
+    if [[ "${BASH_VERSINFO[0]}" -lt 5 ]]; then
         echo "Bash >= 5 requis (actuel : ${BASH_VERSION})."
         exit 1
-    }
-    [[ "${EUID}" -ne 0 ]] || {
+    fi
+    if [[ "${EUID}" -eq 0 ]]; then
         echo "Ne pas lancer en root. Le script gère sudo lui-même."
         exit 1
-    }
-    [[ -f /etc/fedora-release ]] || {
+    fi
+    if [[ ! -f /etc/fedora-release ]]; then
         echo "Fedora uniquement."
         exit 1
-    }
+    fi
 
     # Vérification explicite des droits sudo (groupe wheel)
     if ! id -nG "${USER}" | grep -qw "wheel"; then
@@ -58,7 +58,9 @@ REMOVE_RPM_PACKAGES() {
     _MANAGE_TABLE _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]}"
 
     if [[ "${ZSWAP,,}" = "yes" ]]; then # on dégage zram si zswap est demandé
-        _IS_PKG_INSTALLED zram-generator-defaults && _RUNSILENT "" _PKG_REMOVE zram-generator-defaults
+        if _IS_PKG_INSTALLED zram-generator-defaults; then
+            _RUNSILENT "" _PKG_REMOVE zram-generator-defaults
+        fi
         _LOG "ZSWAP est demandé : zram est supprimé"
     fi
 
@@ -147,7 +149,7 @@ _SETUP_VCONSOLE_FONT() {
     local found=0
 
     for dir in "${font_dirs[@]}"; do
-        if ls "${dir}/${font}".* &>/dev/null 2>&1; then
+        if ls "${dir}/${font}".* &>/dev/null; then
             found=1
             break
         fi
@@ -260,7 +262,7 @@ SETUP_GRUB() {
             # Application des modifications (avec gestion de l'absence)
             _RUN "Mise à jour des paramètres de GRUB (/etc/default/grub)" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
             _INFO "Options de démarrage du noyau ajoutées à GRUB : "
-            _PRINT_LIST "${target_cmdline}" | tee -a "${LOG_FILE}" || true
+            _PRINT_LIST "${target_cmdline}" | tee -a "${LOG_FILE:-/dev/null}"
 
             if grep -q '^GRUB_TIMEOUT=' /etc/default/grub; then
                 _RUN "Délai GRUB 2 sec (/etc/default/grub)" sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
@@ -322,7 +324,7 @@ SETUP_FIREWALL() {
 SETUP_SWAP() { # que si zswap est demandé
     if [[ "${ZSWAP,,}" = "yes" ]]; then
         _LOG "* swap *"
-        local target_size ram_total_kib
+        local target_size ram_total_kib SWAP_SIZE SWAP_MAX
         local recreate_swap=false
         local swapdir="/var/swap"
 
@@ -482,10 +484,10 @@ SETUP_SUDO_RS() {
         _PASS
         #_RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
         _SYMLINK "${sudo_rs_bin}" "${local_bin_sudo}"
-        [[ "${STATUSSYMLINK}" -eq 0 ]] && {
+        if [[ "${STATUSSYMLINK}" -eq 0 ]]; then
             change=1
             _ETC_FILES_ADD "${local_bin_sudo}"
-        } # le lien a bien été crée
+        fi # le lien a bien été crée
         _RUNSILENT "" sudo chmod -v 4111 "${sudo_rs_bin}"
         _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
 
@@ -559,8 +561,12 @@ SETUP_SUDO_RS() {
 _CLEANUP_APPSTREAM() {
     if ! _IS_PKG_INSTALLED plasma-discover && ! _IS_PKG_INSTALLED gnome-software; then
         local -a appstream=()
-        _IS_PKG_INSTALLED rpmfusion-free-appstream-data && appstream+=("rpmfusion-free-appstream-data")
-        _IS_PKG_INSTALLED rpmfusion-nonfree-appstream-data && appstream+=("rpmfusion-nonfree-appstream-data")
+        if _IS_PKG_INSTALLED rpmfusion-free-appstream-data; then
+            appstream+=("rpmfusion-free-appstream-data")
+        fi
+        if _IS_PKG_INSTALLED rpmfusion-nonfree-appstream-data; then
+            appstream+=("rpmfusion-nonfree-appstream-data")
+        fi
         if [[ ${#appstream[@]} -gt 0 ]]; then
             _RUN "Suppression métadonnées appstream RPMFusion" _PKG_REMOVE "${appstream[@]}"
         fi
@@ -589,10 +595,17 @@ _PKG_INSTALL() {
 _PKG_DOWNLOAD_THEN_INSTALL() {
     local arch
     arch=$(uname -m)
-    local download_dir="./dnf-packages$$"
-    echo -n "Téléchargement depuis les dépôts... "
+    local download_dir
+    download_dir=$(mktemp -d ./dnf-packages.XXXXXX)
+    _RUNSILENT "" sudo mkdir -pv "${download_dir}"
+    echo "Téléchargement depuis les dépôts... "
     _RUNSILENT "" sudo dnf download --skip-unavailable -y --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" "$@"
-    echo -n "installation depuis le cache local..."
+    echo "installation depuis le cache local..."
+    if ! compgen -G "${download_dir}/*.rpm" > /dev/null; then
+        _ERR "Aucun RPM à installer"
+        _RUNSILENT "" sudo rm -rvf "${download_dir}"
+        return 0
+    fi
     _RUNSILENT "" sudo dnf install --skip-unavailable -y "${download_dir}"/*.rpm
     _RUNSILENT "" sudo rm -rvf "${download_dir}"
 }

@@ -6,7 +6,7 @@ set -euo pipefail
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=32.8
+readonly VER=32.9
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -114,6 +114,9 @@ INITIALIZE() {
     export LOG_DIR LOG_FILE INSTALL_DIR
     mkdir -p "${LOG_DIR}"
     touch "${LOG_FILE}"
+    declare -g STATUSFILE
+    STATUSFILE=$(mktemp /tmp/status.XXXXXX)
+    export STATUSFILE
 
     clear
     source /etc/os-release
@@ -255,13 +258,13 @@ INSTALL_GO_PACKAGES() {
                 local present_fmt
                 present_fmt=$(_FORMAT_LIST "${present[@]}")
                 _INFO "Tout a été traité (installation) : "
-                _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE}"
+                _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
             else
                 if [[ -n "${present[*]}" ]]; then
                     local present_fmt
                     present_fmt=$(_FORMAT_LIST "${present[@]}")
                     _INFO "Déjà installé : "
-                    _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE}" || true
+                    _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
                 fi
             fi
             for pkg in "${missing[@]}"; do
@@ -311,7 +314,9 @@ SETUP_SHELL() {
     _SECTION " Configuration du shell zsh par défaut " "━" "${C_GREEN}"
     # 1- zsh
     local zsh_bin
-    _EXIST zsh || _RUNSILENT "" _PKG_INSTALL zsh
+    if ! _EXIST zsh; then
+        _RUNSILENT "" _PKG_INSTALL zsh
+    fi
     zsh_bin=$(command -v zsh)
 
     if ! grep -qxF "${zsh_bin}" /etc/shells; then
@@ -394,14 +399,17 @@ SETUP_DOTFILES() {
 
     # 2- stow pour déployer dotfiles depuis dépôt git
     local pkg name listdot=" " displayed_stow
-    [[ "${RESTOW}" = "yes" ]] && displayed_stow="Forçage des liens symboliques (restow)" || displayed_stow="Vérification des liens symboliques, création si besoin (stow)"
-
+    if [[ "${RESTOW}" = "yes" ]]; then
+        displayed_stow="Forçage des liens symboliques (restow)"
+    else
+        displayed_stow="Vérification des liens symboliques, création si besoin (stow)"
+    fi
     echo -e " ${C_GREEN}✓ ${C_RESET} ${displayed_stow} :"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
         listdot="${listdot}${name} "
     done
-    _PRINT_LIST "${listdot}" | tee -a "${LOG_FILE}"
+    _PRINT_LIST "${listdot}" | tee -a "${LOG_FILE:-/dev/null}"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
         if [[ "${RESTOW}" = "yes" ]]; then
@@ -440,16 +448,16 @@ SETUP_SYSTEMD() {
     present_fmt=$(_FORMAT_LIST "${present[@]}")
     if ((${#missing[@]})); then
         missing_fmt=$(_FORMAT_LIST "${missing[@]}")
-        ((${#present[@]})) && {
+        if ((${#present[@]})); then
             _INFO "Déjà désactivés : "
-            _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE}" || true
-        }
+            _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
+        fi
         _INFO "À désactiver : "
-        _PRINT_LIST "${missing_fmt}" | tee -a "${LOG_FILE}" || true
+        _PRINT_LIST "${missing_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
         _RUN "Désactivation des services" sudo systemctl disable --now "${missing[@]}"
     else
         _INFO "Services déjà désactivés : "
-        _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE}" || true
+        _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
     fi
 
     for service in "${!USER_SERVICES_TO_ENABLE[@]}"; do
@@ -556,8 +564,8 @@ SETUP_FSTAB() {
     local mounts
     mounts=$(findmnt -rn -t ext4 -o SOURCE,TARGET,FSTYPE)
     while read -r dev mp fs _; do
-        [[ "${fs}" != "ext4" ]] && continue
-        [[ "${mp}" == "/boot" ]] && continue
+        if [[ "${fs}" != "ext4" ]]; then continue; fi
+        if [[ "${mp}" == "/boot" ]]; then continue; fi
         if sudo tune2fs -l "${dev}" 2>/dev/null | grep -q "fast_commit"; then
             _LOG "fast_commit déjà actif sur ${dev} (montée en ${mp})"
         else
@@ -713,16 +721,17 @@ SETUP_KDE_PLASMA() {
         # Avatar
         local avatar
         avatar="/usr/share/plasma/avatars/photos/Cocktail.png"
-        [[ -f /var/lib/AccountsService/icons/"${USER}" ]] || _RUN "Avatar (Cocktail) pour ${USER}" sudo cp -v "${avatar}" /var/lib/AccountsService/icons/"${USER}"
-
+        if [[ ! -f /var/lib/AccountsService/icons/"${USER}" ]]; then
+            _RUN "Avatar (Cocktail) pour ${USER}" sudo cp -v "${avatar}" /var/lib/AccountsService/icons/"${USER}"
+        fi
         # on redémarre l'interface pour appliquer de suite.
         if pgrep plasmashell >/dev/null 2>&1; then
             if [[ "${change}" -eq 1 ]]; then
                 _RUN "Redémarrage de l'interface de KDE Plasma 6" bash -c "\
                 kwriteconfig6 --file kdeglobals --group Icons --key Theme Tela-dracula-dark ;\
                 kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme catppuccin-mocha-lavender-cursors ;\
-                [[ -n \"${tokyoexist}\" ]] && plasma-apply-colorscheme \"${tokyoexist}\" ;\
-                [[ -f \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ]] && plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ;\
+                if [[ -n \"${tokyoexist}\" ]]; then plasma-apply-colorscheme \"${tokyoexist}\" ; fi\
+                if [[ -f \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ]]; then plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ; fi\
                 kwriteconfig6 --file ksplashrc --group KSplash --key Theme Colourful-Ring-Splashscreen-Plasma6 ;\
                 sleep 1 ;\
                 systemctl --user restart plasma-plasmashell.service"
@@ -842,18 +851,25 @@ ${SSHD_CONFIG}"
         } >>"${LOG_FILE}"
 
         # banière /etc/issue.net
-        sudo test -L "${banner_file}" && sudo rm -f "${banner_file}"
+        if sudo test -L "${banner_file}"; then
+            sudo rm -f "${banner_file}"
+        fi
         _INSTALL_ETC_FILES "bannière sshd" "${BANNER}" "${banner_file}" "644"
         if sudo test -L /etc/issue; then
             local currentlink
             currentlink="$(sudo readlink /etc/issue || true)"
-            [[ ${currentlink} != "${banner_file}" ]] && { sudo rm -f /etc/issue; _ETC_FILES_ADD "/etc/issue"; }
+            if [[ ${currentlink} != "${banner_file}" ]]; then
+                sudo rm -f /etc/issue
+                _ETC_FILES_ADD "/etc/issue"
+            fi
         else
             sudo rm -f /etc/issue
             _ETC_FILES_ADD "/etc/issue"
         fi
         _RUNSILENT "" _SYMLINK "${banner_file}" "/etc/issue"
-        [[ "${STATUSSYMLINK}" -eq 0 ]] && _ETC_FILES_ADD "/etc/issue"
+        if [[ "${STATUSSYMLINK}" -eq 0 ]]; then
+            _ETC_FILES_ADD "/etc/issue"
+        fi
 
         # gestion service
         if _IS_ENABLED sshd; then
@@ -966,7 +982,7 @@ INSTALL_FLATPAK_PACKAGES() {
 
 END() {
     local duration file
-    rm -f /tmp/status 2>/dev/null
+    rm -f "${STATUSFILE:-}" 2>/dev/null
     _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
     _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
     duration=$(_CONVERT_SECONDS "$((SECONDS - START))")
@@ -981,11 +997,15 @@ END() {
 
     # LOG
     _INFO "Fichier log de la post-installation : ${LOG_FILE}"
-    _EXIST curl || _RUNSILENT "" _PKG_INSTALL curl
+    if ! _EXIST curl; then
+        _RUNSILENT "" _PKG_INSTALL curl
+    fi
     local url
     url="https://temp.sh/upload"
     file=$(curl -F file=@"${LOG_FILE}" "${url}" 2>/dev/null)
-    [[ -n "${file}" ]] && _OK "Log téléversé : ${file}"
+    if [[ -n "${file}" ]]; then
+        _OK "Log téléversé : ${file}"
+    fi
     #
     echo ""
 }
@@ -1121,7 +1141,9 @@ ${SYSCTL_CONF}"
 
     _LOG "* sysctl *"
     _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"
-    grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo sysctl -p "${sysctlfile}" || true
+    if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+        _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
+    fi
 }
 
 ########################################################################################################################
@@ -1159,7 +1181,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 '
     _LOG "* IO scheduler *"
     _INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644"
-    if grep -qxF 0 "/tmp/status" 2>/dev/null; then
+    if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
         _RUNSILENT "" sudo udevadm control --reload-rules
         _RUNSILENT "" sudo udevadm trigger
     fi
@@ -1176,7 +1198,7 @@ _UDEVPERSIST() {
         rules_file="/etc/udev/rules.d/${udevfilename}"
 
         _INSTALL_ETC_FILES "règle udev persistante (${UDEVDESCR})" "${UDEVRULE}" "${rules_file}" "644"
-        if grep -qxF 0 "/tmp/status" 2>/dev/null; then
+        if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
             _RUNSILENT "" sudo udevadm control --reload-rules
             _RUNSILENT "" sudo udevadm trigger
         fi
@@ -1219,7 +1241,9 @@ _CHRONY() {
         readonly chrony_file chrony_content
 
         _INSTALL_ETC_FILES "chronyd" "${chrony_content}" "${chrony_file}" "644"
-        grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo systemctl try-restart chronyd || true
+        if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+            _RUNSILENT "" sudo systemctl try-restart chronyd
+        fi
     else
         _LOG "ipv6 n'est pas activé donc on ne change rien à chrony"
     fi
@@ -1239,7 +1263,9 @@ _DISABLE_COREDUMP(){
     file="${dir}/disable.conf"
     content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
     _INSTALL_ETC_FILES "coredump systemd" "${content}" "${file}" "644"
-    grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo systemctl daemon-reload || true
+    if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+        _RUNSILENT "" sudo systemctl daemon-reload
+    fi
     { ls -l "${file}" ; cat "${file}" ; echo "" ; } >> "${LOG_FILE}"
 
     limits_file="${dirlimits}/disable-coredump.conf"
@@ -1264,7 +1290,9 @@ _DISABLE_COREDUMP(){
 _INSTALL_USER_CRONTAB(){
     local cron_job1 cron_job2
     _LOG "* crontab ${USER} *"
-    _EXIST crontab || _RUNSILENT "" _PKG_INSTALL cronie
+    if ! _EXIST crontab; then
+        _RUNSILENT "" _PKG_INSTALL cronie
+    fi
     cron_job1='0 21 * * 0 ~/.local/share/cargo/bin/sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1'
     if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/sheldon lock --update"; then
         _RUN "Tâche cron \"sheldon update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job1}\" ) | crontab -"
@@ -1284,7 +1312,8 @@ _INSTALL_USER_CRONTAB(){
 
 _CLEANUP() {
     echo -e "${C_BOLD}${C_RED} Plantage !${C_RESET}"
-    sudo rm -f "${SUDOTMP[@]}" /tmp/status
+    if [[ ${#SUDOTMP[@]} -gt 0 ]]; then sudo rm -f "${SUDOTMP[@]}"; fi
+    rm -f "${STATUSFILE:-}"
     _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_RED}"
     echo "Extrait du Log : "
@@ -1297,7 +1326,8 @@ _CLEANUP() {
 
 _INTERRUPT() {
     echo -e "${C_BOLD}${C_GREEN} Arrêt du script demandé par l'utilisateur...${C_RESET}"
-    sudo rm -f "${SUDOTMP[@]}" /tmp/status
+    if [[ ${#SUDOTMP[@]} -gt 0 ]]; then sudo rm -f "${SUDOTMP[@]}"; fi
+    rm -f "${STATUSFILE:-}"
     _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_GREEN}"
     echo "Extrait du Log : "
@@ -1326,6 +1356,8 @@ Z /etc/cron.weekly  0700 root root -
 Z /etc/cron.monthly 0700 root root -
 '
     _INSTALL_ETC_FILES "robustification droits de fichiers critiques" "${rights}" "${file}" "644"
-     grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo systemd-tmpfiles --create "${file}" || true
+    if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+        _RUNSILENT "" sudo systemd-tmpfiles --create "${file}"
+    fi
 
 }

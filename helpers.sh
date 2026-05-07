@@ -13,11 +13,11 @@ _BANNER() {
     local fg cols
     cols="${COLUMNS}"
     case "${color}" in
-    red) fg=31 ;; green) fg=32 ;; yellow) fg=33 ;; blue) fg=34 ;;
-    magenta) fg=35 ;; cyan) fg=36 ;; white) fg=37 ;; *) fg=39 ;;
+        red) fg=31 ;; green) fg=32 ;; yellow) fg=33 ;; blue) fg=34 ;;
+        magenta) fg=35 ;; cyan) fg=36 ;; white) fg=37 ;; *) fg=39 ;;
     esac
     local w=$((cols - 2))
-    ((w < 1)) && return
+    if ((w < 1)); then return 0; fi
     local len=${#text}
     ((len > w)) && text=${text:0:w} && len=w
     local padl=$(((w - len) / 2))
@@ -114,13 +114,13 @@ _INSTALL_ETC_FILES() {
     _LOG "${msg^^}"
     if sudo test -f "${file}" && printf '%s' "${content}" | sudo cmp -s - "${file}"; then
         _INFO "${msg^} déjà OK (${file})"
-        echo 1 >/tmp/status
+        echo 1 >"${STATUSFILE}"
     else
         _OK "Configuration ${msg} (${file})"
         printf '%s' "${content}" | sudo tee "${file}" >/dev/null
         _RUNSILENT "" sudo chmod -v "${rights}" "${file}"
         _ETC_FILES_ADD "${file}"
-        echo 0 >/tmp/status
+        echo 0 >"${STATUSFILE}"
     fi
     {
         sudo ls -l "${file}"
@@ -156,14 +156,11 @@ _SECTION() {
     [[ $# == 0 ]] && return 1
 
     declare -i term_cols # Terminal width
-    term_cols="${COLUMNS}" || return 1
+    if ! term_cols="${COLUMNS}"; then return 1; fi
     echo -e "${color}"
 
     declare -i str_len="${#msg}" # Length of $msg
-    [[ ${str_len} -ge ${term_cols} ]] && {
-        echo "${msg}"
-        return 0
-    }
+    if [[ ${str_len} -ge ${term_cols} ]]; then echo "${msg}"; return 0; fi
 
     declare -i filler_len="$(((term_cols - str_len) / 2))"
     local ch="${fillertype:0:1}"
@@ -241,7 +238,7 @@ _SYMLINK() {
             STATUSSYMLINK=1
         fi
     else
-        mkdir -p "$(dirname "${dst}")"
+        sudo mkdir -p "$(dirname "${dst}")"
         if sudo ln -s "${src}" "${dst}"; then
             _OK "Lien créé : ${dst} → ${src}"
             STATUSSYMLINK=0
@@ -284,7 +281,8 @@ _RUNSILENT() {
     tmperr=$(mktemp)
     # shellcheck disable=SC2312
     "$@" 2>&1 | tee -a "${LOG_FILE:-/dev/null}" >"${tmperr}"
-    local rc="${PIPESTATUS[0]}"
+    local rc
+    rc="${PIPESTATUS[0]}"
 
     if ((rc != 0)); then
         head -5 "${tmperr}" >&2
@@ -384,7 +382,7 @@ _DIR_IS_SAFE_TO_RESTORE() {
 
     local found
     found=$(find "${dir}" -type f ! -empty -print -quit)
-    [[ -z "${found}" ]]
+    if [[ -z "${found}" ]]; then return 0; else return 1; fi
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -392,7 +390,7 @@ _CONVERT_SECONDS() {
     local total=${1:-0}
     local days hours mins secs
 
-    ((total < 0)) && total=0
+    if ((total < 0)); then total=0; fi
 
     days=$((total / 86400))
     hours=$(((total % 86400) / 3600))
@@ -454,22 +452,28 @@ _MANAGE_TABLE() {
         if ((${#missing[@]})); then
             missing_fmt=$(_FORMAT_LIST "${missing[@]}")
             present_fmt=$(_FORMAT_LIST "${present[@]}")
-            ((${#present[@]})) && {
+            if ((${#present[@]})); then
                 _INFO "Paquets à IGNORER car réussissant le test \"${test}\" : "
-                _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}" || true
-            }
+                local a
+                a=$(_PRINT_LIST "${present_fmt}")
+                echo "${a}" | tee -a "${LOG_FILE:-/dev/null}"
+            fi
             _INFO "Paquets à TRAITER car échouant au test \"${test}\" : "
-            _PRINT_LIST "${missing_fmt}" | tee -a "${LOG_FILE:-/dev/null}" || true
+            local a
+            a=$(_PRINT_LIST "${missing_fmt}")
+            echo "${a}" | tee -a "${LOG_FILE:-/dev/null}"
             _RUN "${treat^} en cours..." "${install_cmd}" "${missing[@]}"
             printf '\e[1A\e[2K' # je remonte d'une ligne et je la vide, pour écraser le "en cours..."
             _OK "Traitement terminé, ${treat} OK."
         else
             all_fmt=$(_FORMAT_LIST "$@")
+            local a
+            a=$(_PRINT_LIST "${all_fmt}")
             _INFO "Tout a été traité (${treat}) : "
-            _PRINT_LIST "${all_fmt}" | tee -a "${LOG_FILE:-/dev/null}" || true
+            echo "${a}" | tee -a "${LOG_FILE:-/dev/null}"
         fi
     else
-        _INFO "Rien à traiter (${treat}), liste transmise vide..."
+        _INFO "Rien à traiter, liste transmise vide..."
     fi
 }
 
@@ -477,7 +481,7 @@ _MANAGE_TABLE() {
 
 _ETC_FILES_ADD() {
     local entry="$1"
-    local item=""
+    local item
     for item in "${ETC_FILES[@]}"; do
         [[ "${item}" == "${entry}" ]] && return 0
     done
@@ -561,7 +565,9 @@ _PRINT_LIST() {
                 chunk=""
                 in_space=1
             fi
-            [[ "${line}" != "${indent}" ]] && chunk="${chunk}${char}"
+            if [[ "${line}" != "${indent}" ]]; then
+                chunk="${chunk}${char}"
+            fi
         else
             in_space=0
             chunk="${chunk}${char}"
@@ -580,7 +586,10 @@ _PRINT_LIST() {
         fi
     fi
 
-    [[ "${line}" != "${indent}" ]] && printf '%s\n' "${line}"
+    if [[ "${line}" != "${indent}" ]]; then
+        printf '%s\n' "${line}"
+    fi
+    return 0
 }
 
 ########################################################################################################################
