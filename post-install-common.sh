@@ -842,8 +842,8 @@ ${SSHD_CONFIG}"
 
         # banière /etc/issue.net
         _INSTALL_ETC_FILES "bannière sshd" "${BANNER}" "${banner_file}" "644"
-        sudo rm -f /etc/issue
-        _SYMLINK "/etc/issue.net" "/etc/issue"
+        sudo test -L /etc/issue || sudo rm -f /etc/issue
+        _RUNSILENT "" _SYMLINK "${banner_file}" "/etc/issue"
 
         # gestion service
         if _IS_ENABLED sshd; then
