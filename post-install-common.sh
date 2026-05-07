@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=32.0
+readonly VER=32.1
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
