@@ -521,7 +521,8 @@ _PRINT_ETC_FILES() {
     list=$(_FORMAT_LIST "${ETC_FILES[@]}")
     hr="$(date +%Y%m%d-%H%M%S)"
     _INFO "Fichiers système crées ou modifiés : "
-    echo "${list}" | tee -a "${LOG_FILE}"
+    _PRINT_LIST "${list}"
+    echo "${list}" >> "${LOG_FILE}"
     if [[ -f "${HOME}/${file}" ]]; then
         echo "" >>"${HOME}/${file}"
     else
