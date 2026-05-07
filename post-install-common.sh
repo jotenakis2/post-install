@@ -1320,8 +1320,12 @@ z /etc/at.deny      0600 root root -
 z /etc/at.allow     0600 root root -
 z /etc/crontab      0600 root root -
 z /etc/cron.d       0700 root root -
+Z /etc/cron.hourly  0700 root root -
+Z /etc/cron.daily   0700 root root -
+Z /etc/cron.weekly  0700 root root -
+Z /etc/cron.monthly 0700 root root -
 '
-    _INSTALL_ETC_FILES "robustification des fichiers (${file})" "${rights}" "${file}" "644"
+    _INSTALL_ETC_FILES "robustification des droits (${file})" "${rights}" "${file}" "644"
      grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo systemd-tmpfiles --create "${file}"
 
 }
