@@ -214,7 +214,7 @@ _HEURE() {
     local date heure
     date=$(date '+%T')
     heure=$(date '+%A %d %B %Y')
-    echo "${date}, le ${heure}" | tee -a "${LOG_FILE}"
+    echo "${date}, le ${heure}" | tee -a "${LOG_FILE:-}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -222,7 +222,7 @@ _OK() {
     local msg
     msg="$*"
     echo "${C_GREEN} ✓ ${C_RESET} ${msg}"
-    echo "[OK] ${msg}" >>"${LOG_FILE}"
+    echo "[OK] ${msg}" >>"${LOG_FILE:-}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -230,7 +230,7 @@ _INFO() {
     local msg
     msg="$*"
     echo "${C_GREEN}${C_BOLD} → ${C_RESET} ${msg}"
-    echo "[INFO] ${msg}" >>"${LOG_FILE}"
+    echo "[INFO] ${msg}" >>"${LOG_FILE:-}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -238,7 +238,7 @@ _ERR() {
     local msg
     msg="$*"
     echo "${C_RED} ✗ ${C_RESET} ${msg}"
-    echo "[ERROR] ${msg}" >>"${LOG_FILE}"
+    echo "[ERROR] ${msg}" >>"${LOG_FILE:-}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -250,7 +250,7 @@ _DIE() {
 
 _LOG() {
     local msg="$*"
-    echo -e "\n${msg}" >>"${LOG_FILE}"
+    echo -e "\n${msg}" >>"${LOG_FILE:-}"
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -523,7 +523,7 @@ _PRINT_ETC_FILES() {
         hr="$(date +%Y%m%d-%H%M%S)"
         _INFO "Fichiers système crées ou modifiés : "
         _PRINT_LIST "${list}"
-        echo "${list}" >> "${LOG_FILE}"
+        echo "${list}" >> "${LOG_FILE:-}"
         if [[ -f "${HOME}/${file}" ]]; then
             echo "" >>"${HOME}/${file}"
         else
@@ -562,16 +562,6 @@ _FORMAT_LIST() {
 
 ########################################################################################################################
 
-# print_list STRING
-# Affiche STRING sur stdout en wrappant à la largeur du terminal.
-# Toutes les lignes sont indentées de 5 espaces.
-# Les coupures se font uniquement sur les espaces (jamais en plein mot).
-# Les espaces multiples sont préservés.
-# print_list STRING
-# Affiche STRING sur stdout en wrappant à la largeur du terminal.
-# Toutes les lignes sont indentées de 5 espaces.
-# Les coupures se font uniquement sur les espaces (jamais en plein mot).
-# Les espaces multiples sont préservés sur la même ligne, ignorés en début de continuation.
 _PRINT_LIST() {
     local list="${1:?print_list: argument manquant}"
     local width

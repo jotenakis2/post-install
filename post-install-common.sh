@@ -1288,9 +1288,9 @@ _CLEANUP() {
     _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_RED}"
     echo "Extrait du Log : "
-    tail -5 "${LOG_FILE}"
+    tail -5 "${LOG_FILE:-}" 2>/dev/null
     echo -e "${C_RESET}"
-    _DIE "Log complet : ${LOG_FILE}"
+    _DIE "Log complet : ${LOG_FILE:-}"
 }
 
 ########################################################################################################################
@@ -1301,9 +1301,9 @@ _INTERRUPT() {
     _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_GREEN}"
     echo "Extrait du Log : "
-    tail -5 "${LOG_FILE}"
+    tail -5 "${LOG_FILE:-}" 2>/dev/null
     echo -e "${C_RESET}"
-    _DIE "Log complet : ${LOG_FILE}"
+    _DIE "Log complet : ${LOG_FILE:-}"
 }
 
 ########################################################################################################################
