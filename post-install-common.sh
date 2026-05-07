@@ -1249,20 +1249,21 @@ _DISABLE_COREDUMP(){
 ########################################################################################################################
 
 _INSTALL_USER_CRONTAB(){
-    local cron_job
-    cron_job="0 21 * * 0 ~/.local/share/cargo/bin/sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1"
+    local cron_job1 cron_job2
+    readonly cron_job1 cron_job2
+    cron_job1='0 21 * * 0 ~/.local/share/cargo/bin/sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1'
     if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/sheldon lock --update"; then
-        ( crontab -l 2>/dev/null; echo "${cron_job}" ) | crontab -
-        _LOG "tâche cron ${cron_job} ajoutée"
+        ( crontab -l 2>/dev/null; echo "${cron_job1}" ) | crontab -
+        _LOG "tâche cron ${cron_job1} ajoutée"
     else
-        _LOG "tâche cron ${cron_job} déjà là"
+        _LOG "tâche cron ${cron_job1} déjà là"
     fi
-    cron_job="5 */4 * * * ~/.local/share/cargo/bin/tldr -u >/tmp/tldr 2>&1"
+    cron_job2='5 */4 * * * ~/.local/share/cargo/bin/tldr -u >/tmp/tldr 2>&1'
     if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/tldr -u"; then
-        ( crontab -l 2>/dev/null; echo "${cron_job}" ) | crontab -
-        _LOG "tâche cron ${cron_job} ajoutée"
+        ( crontab -l 2>/dev/null; echo "${cron_job2}" ) | crontab -
+        _LOG "tâche cron ${cron_job2} ajoutée"
     else
-        _LOG "tâche cron ${cron_job} déjà là"
+        _LOG "tâche cron ${cron_job2} déjà là"
     fi
     _RUNSILENT "" crontab -l
 }
