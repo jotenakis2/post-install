@@ -272,7 +272,7 @@ SETUP_GRUB() {
             _LOG "sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
             _ETC_FILES_ADD "/etc/default/grub"
         else
-            _INFO "GRUB déjà correctement configuré (/etc/default/grub)"
+            _INFO "GRUB déjà OK (/etc/default/grub)"
         fi
         {
             sudo ls -l /etc/default/grub

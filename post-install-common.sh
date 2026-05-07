@@ -546,7 +546,7 @@ SETUP_FSTAB() {
                 _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
             fi
         else
-            _INFO "Montage NFS déjà installé"
+            _INFO "Montage NFS déjà OK"
         fi
     else
         _LOG "Aucun montage NFS demandé"
@@ -770,7 +770,7 @@ SETUP_PLM() {
         fi
 
         if [[ "${change}" = 0 ]]; then
-            _INFO "Plasma Login Manager déjà correctement configuré"
+            _INFO "Plasma Login Manager déjà OK"
         fi
         SET_PLM_WALLPAPER
     else
