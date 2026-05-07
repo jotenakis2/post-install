@@ -312,7 +312,7 @@ SETUP_SHELL() {
     _SECTION " Configuration du shell zsh par défaut " "━" "${C_GREEN}"
     # 1- zsh
     local zsh_bin
-    _EXIST zsh || _PKG_INSTALL zsh
+    _EXIST zsh || _RUNSILENT "" _PKG_INSTALL zsh
     zsh_bin=$(command -v zsh)
 
     if ! grep -qxF "${zsh_bin}" /etc/shells; then
@@ -1263,6 +1263,7 @@ _DISABLE_COREDUMP(){
 _INSTALL_USER_CRONTAB(){
     local cron_job1 cron_job2
     _LOG "* crontab ${USER} *"
+    _EXIST crontab || _RUNSILENT "" _PKG_INSTALL cronie
     cron_job1='0 21 * * 0 ~/.local/share/cargo/bin/sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1'
     if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/sheldon lock --update"; then
         _RUN "Tâche cron \"sheldon update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job1}\" ) | crontab -"
