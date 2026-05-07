@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ########################################################
-#   Paramètres utilisateur de post-install-fedora.sh   #
+#   Paramètres utilisateur de post-install-fedora.sh l  #
 ########################################################
 # options yes or no ----------------------------------------------------------------------------------------------------------
 SUDORS="yes"                # remplace sudo par sudo-rs
