@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=31.7
+readonly VER=32.0
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -288,7 +288,11 @@ INSTALL_GIT_REPOS() {
 
         if [[ -d "${target}" ]]; then
             if git -C "${target}" rev-parse --git-dir &>/dev/null; then
-                _RUN "Mise à jour de ${name}" git -C "${target}" pull --ff-only
+                if [[ "${UPDATE_GIT_REPOS}" = "yes" ]]; then
+                    _RUN "Mise à jour de ${name}" git -C "${target}" pull --ff-only
+                else
+                    _INFO "${name} déjà présent et pas de mise à jour demandée"
+                fi
             else
                 _ERR "${target} existe mais n'est pas un dépôt git, ignoré"
             fi
@@ -365,6 +369,7 @@ SETUP_SHELL() {
             fi
         fi
     fi
+    _INSTALL_USER_CRONTAB
 }
 
 ########################################################################################################################
@@ -388,8 +393,12 @@ SETUP_DOTFILES() {
     done
 
     # 2- stow pour déployer dotfiles depuis dépôt git
-    local pkg name listdot=" "
-    echo -e " ${C_GREEN}✓ ${C_RESET} reStow :"
+    local pkg name listdot=" " displayed_stow args
+    displayed_stow="Stow"
+    args=""
+    [[ "${RESTOW}" = "yes " ]] && { displayed_stow="reStow"; args="--restow" ; }
+
+    echo -e " ${C_GREEN}✓ ${C_RESET} ${displayed_stow} :"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
         listdot="${listdot}${name} "
@@ -397,7 +406,7 @@ SETUP_DOTFILES() {
     _PRINT_LIST "${listdot}" | tee -a "${LOG_FILE}"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
-        stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
+        stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" "${args}" "${name}" &>>"${LOG_FILE}"
     done
 
     if _EXIST bat; then
@@ -783,10 +792,6 @@ SETUP_ETC() {
     _UDEVPERSIST
     _LIBVIRT
     _CHRONY
-    # hardening passwords
-    _SET_LOGIN_DEFS "SHA_CRYPT_MIN_ROUNDS" "65536"
-    _SET_LOGIN_DEFS "SHA_CRYPT_MAX_ROUNDS" "65536"
-    #
 }
 
 ########################################################################################################################
@@ -1215,7 +1220,7 @@ _DISABLE_COREDUMP(){
     dir="/etc/systemd/coredump.conf.d"
     dirlimits="/etc/security/limits.d"
     dirprofile="/etc/profile.d"
-    mkdir -p "${dir}" "${dirlimits}" "${dirprofile}"
+    sudo mkdir -p "${dir}" "${dirlimits}" "${dirprofile}"
 
     _LOG "* coredump disable *"
 
@@ -1243,24 +1248,21 @@ _DISABLE_COREDUMP(){
 
 ########################################################################################################################
 
-_SET_LOGIN_DEFS() {
-    local key="$1"
-    local value="$2"
-    local file="/etc/login.defs"
-
-    if grep -qE "^${key}[[:space:]]+${value}" "${file}"; then
-        _LOG "Robustification des hash des mots de passe déjà configurée (${file})"
-        grep "${key}" "${file}" >> "${LOG_FILE}"
-        return 0
-    elif grep -qE "^${key}" "${file}"; then
-        sudo sed -i "s/^${key}.*/${key} ${value}/" "${file}"
-        _INFO "Robustification des hash des mots de passe (${key} dans ${file})"
+_INSTALL_USER_CRONTAB(){
+    local cron_job
+    cron_job="0 21 * * 0 ~/.local/share/cargo/bin/sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1"
+    if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/sheldon lock --update"; then
+        ( crontab -l 2>/dev/null; echo "${cron_job}" ) | crontab -
+        _LOG "tâche cron ${cron_job} ajoutée"
     else
-        echo "${key} ${value}" | sudo tee -a "${file}" > /dev/null
-        _INFO "Robustification des hash des mots de passe (${key} dans ${file})"
+        _LOG "tâche cron ${cron_job} déjà là"
     fi
-    grep "${key}" "${file}" >> "${LOG_FILE}"
-    _ETC_FILES_ADD "${file}"
+    cron_job="5 */4 * * * ~/.local/share/cargo/bin/tldr -u >/tmp/tldr 2>&1"
+    if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/tldr -u"; then
+        ( crontab -l 2>/dev/null; echo "${cron_job}" ) | crontab -
+        _LOG "tâche cron ${cron_job} ajoutée"
+    else
+        _LOG "tâche cron ${cron_job} déjà là"
+    fi
+    _RUNSILENT "" crontab -l
 }
-
-
