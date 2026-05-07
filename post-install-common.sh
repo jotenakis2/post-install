@@ -405,7 +405,7 @@ SETUP_DOTFILES() {
     _PRINT_LIST "${listdot}" | tee -a "${LOG_FILE}"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
-        if [[ "${RESTOW}" = "yes " ]]; then
+        if [[ "${RESTOW}" = "yes" ]]; then
             stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
         else
             stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" "${name}" &>>"${LOG_FILE}"
