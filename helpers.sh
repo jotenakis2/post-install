@@ -516,22 +516,26 @@ _ETC_FILES_ADD() {
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _PRINT_ETC_FILES() {
-    local item list file hr
-    file="list-of-system-files-created-or-modified-by-${SCRIPTNAME}"
-    list=$(_FORMAT_LIST "${ETC_FILES[@]}")
-    hr="$(date +%Y%m%d-%H%M%S)"
-    _INFO "Fichiers système crées ou modifiés : "
-    _PRINT_LIST "${list}"
-    echo "${list}" >> "${LOG_FILE}"
-    if [[ -f "${HOME}/${file}" ]]; then
-        echo "" >>"${HOME}/${file}"
+    if [[ -n "${ETC_FILES[*]}" ]]; then
+        local item list file hr
+        file="list-of-system-files-created-or-modified-by-${SCRIPTNAME}"
+        list=$(_FORMAT_LIST "${ETC_FILES[@]}")
+        hr="$(date +%Y%m%d-%H%M%S)"
+        _INFO "Fichiers système crées ou modifiés : "
+        _PRINT_LIST "${list}"
+        echo "${list}" >> "${LOG_FILE}"
+        if [[ -f "${HOME}/${file}" ]]; then
+            echo "" >>"${HOME}/${file}"
+        else
+            true >"${HOME}/${file}" # création fichier vide
+        fi
+        for item in "${ETC_FILES[@]}"; do
+            echo "${hr} : ${item}" >>"${HOME}/${file}"
+        done
+        _RUNSILENT "" sudo cp -f "${HOME}/${file}" "/root/${file}"
     else
-        true >"${HOME}/${file}" # création fichier vide
+        _OK "Aucun fichier système crée ou modifié"
     fi
-    for item in "${ETC_FILES[@]}"; do
-        echo "${hr} : ${item}" >>"${HOME}/${file}"
-    done
-    _RUNSILENT "" sudo cp -f "${HOME}/${file}" "/root/${file}"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
