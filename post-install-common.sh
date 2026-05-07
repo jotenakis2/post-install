@@ -1325,7 +1325,7 @@ Z /etc/cron.daily   0700 root root -
 Z /etc/cron.weekly  0700 root root -
 Z /etc/cron.monthly 0700 root root -
 '
-    _INSTALL_ETC_FILES "robustification des droits (${file})" "${rights}" "${file}" "644"
+    _INSTALL_ETC_FILES "robustification droits de fichiers critiques" "${rights}" "${file}" "644"
      grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo systemd-tmpfiles --create "${file}"
 
 }
