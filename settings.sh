@@ -4,15 +4,13 @@ set -euo pipefail
 #   Paramètres utilisateur de post-install-fedora.sh l  #
 ########################################################
 # options yes or no ----------------------------------------------------------------------------------------------------------
-SUDORS="yes"                # remplace sudo par sudo-rs
-ACTIVATE_SSHD="yes"         # activation / configuration server ssh
-ZSWAP="yes"                 # si yes, zram éventuel supprimé et remplacé par zswap avec un backend swapfile
-USE_OH_MY_POSH_PROMPT="yes" # pour télécharger oh-my-posh pour l'utilisateur qui lance le script
-UPDATE_GIT_REPOS="no"       # force une maj des repos git
-# force une maj des liens symboliques des dotfiles (reSTOW)
-RESTOW="no"
+SUDORS="yes"                 # remplace sudo par sudo-rs
+ACTIVATE_SSHD="yes"          # activation / configuration server ssh
+ZSWAP="yes"                  # si yes, zram éventuel supprimé et remplacé par zswap avec un backend swapfile
+USE_OH_MY_POSH_PROMPT="yes"  # pour télécharger oh-my-posh pour l'utilisateur qui lance le script
+UPDATE_GIT_REPOS="yes"       # force une maj des repos git
+RESTOW="yes"                 # force une maj des liens symboliques des dotfiles (reSTOW)
 #-----------------------------------------------------------------------------------------------------------------------------
-
 
 # nom de la machine (si vide on ne change pas le nom de l'installer) ---------------------------------------------------------
 MYHOSTNAME="MyFedoraBTW"
