@@ -729,9 +729,16 @@ SETUP_KDE_PLASMA() {
             if [[ "${change}" -eq 1 ]]; then
                 _RUN "Redémarrage de l'interface de KDE Plasma 6" bash -c "\
                 kwriteconfig6 --file kdeglobals --group Icons --key Theme Tela-dracula-dark ;\
-                kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme catppuccin-mocha-lavender-cursors ;\
-                if [[ -n \"${tokyoexist}\" ]]; then plasma-apply-colorscheme \"${tokyoexist}\" ; fi\
-                if [[ -f \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ]]; then plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ; fi\
+                kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme catppuccin-mocha-lavender-cursors \
+
+                if [[ -n \"${tokyoexist}\" ]]; then \
+                    plasma-apply-colorscheme \"${tokyoexist}\" \
+                fi
+
+                if [[ -f \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ]]; then \
+                    plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\"
+                fi
+
                 kwriteconfig6 --file ksplashrc --group KSplash --key Theme Colourful-Ring-Splashscreen-Plasma6 ;\
                 sleep 1 ;\
                 systemctl --user restart plasma-plasmashell.service"
