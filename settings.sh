@@ -9,7 +9,8 @@ ACTIVATE_SSHD="yes"         # activation / configuration server ssh
 ZSWAP="yes"                 # si yes, zram éventuel supprimé et remplacé par zswap avec un backend swapfile
 USE_OH_MY_POSH_PROMPT="yes" # pour télécharger oh-my-posh pour l'utilisateur qui lance le script
 UPDATE_GIT_REPOS="no"       # force une maj des repos git
-RESTOW="no"                 # force une maj des liens symboliques des dotfiles (reSTOW)
+# force une maj des liens symboliques des dotfiles (reSTOW)
+RESTOW="no"
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
