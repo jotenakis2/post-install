@@ -984,7 +984,7 @@ END() {
     local url
     url="https://temp.sh/upload"
     file=$(curl -F file=@"${LOG_FILE}" "${url}" 2>/dev/null)
-    [[ -n "${file}" ]] && _INFO "Log téléversé : ${file}"
+    [[ -n "${file}" ]] && _OK "Log téléversé : ${file}"
     #
     echo ""
 }
