@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=32.5
+readonly VER=32.6
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -847,9 +847,10 @@ ${SSHD_CONFIG}"
         if sudo test -L /etc/issue; then
             local currentlink
             currentlink="$(sudo readlink /etc/issue || true)"
-            [[ ${currentlink} != "${banner_file}" ]] && sudo rm -f /etc/issue
+            [[ ${currentlink} != "${banner_file}" ]] && { sudo rm -f /etc/issue; _ETC_FILES_ADD "/etc/issue"; }
         else
             sudo rm -f /etc/issue
+            _ETC_FILES_ADD "/etc/issue"
         fi
         _RUNSILENT "" _SYMLINK "${banner_file}" "/etc/issue"
         [[ "${STATUSSYMLINK}" -eq 0 ]] && _ETC_FILES_ADD "/etc/issue"
@@ -1073,7 +1074,7 @@ _SYSTEMD_RESOLVED() {
     readonly resolved_10_conf dir dnsfile llmnrfile
 
     _LOG "* dns : systemd-resolved *"
-    _RUNSILENT "" _SYMLINK /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+    _RUNSILENT "" _SYMLINK "../run/systemd/resolve/stub-resolv.conf" "/etc/resolv.conf"
 
     if [[ ! -f "${dnsfile}" ]] || [[ ! -f "${llmnrfile}" ]]; then
         _OK "Configuration DNS (dans ${dir})"
