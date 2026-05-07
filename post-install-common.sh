@@ -3,6 +3,8 @@
 #      cachyos kernel
 # shellcheck disable=SC2310
 set -euo pipefail
+trap '_CLEANUP' ERR
+trap '_INTERRUPT' INT
 readonly SCRIPTNAME="${0##*/}"
 readonly VER=32.6
 # paramètres customisables définis dans settings.sh. ###############################
@@ -14,9 +16,6 @@ MAIN() {
     args=${1:-}
     source ./helpers.sh
     _ENABLE_COLORS
-    # en cas d'erreur ou d'interruption je nettoie, affiche le LOGFILE et sort proprement.
-    trap 'sudo rm -f "${SUDOTMP[@]}" /tmp/status ; _PRINT_ETC_FILES ; _DIE "Log : ${LOG_FILE}"' ERR
-    trap 'sudo rm -f "${SUDOTMP[@]}" ; _DIE "Log : ${LOG_FILE}"' INT
     CHECK
     INITIALIZE
     if [[ "${args}" = "--shellonly" ]] || [[ "${args}" = "-s" ]]; then
@@ -1279,3 +1278,31 @@ _INSTALL_USER_CRONTAB(){
     fi
     _RUNSILENT "" crontab -l
 }
+
+########################################################################################################################
+
+_CLEANUP() {
+    echo -e "${C_BOLD}${C_RED} Plantage !"
+    sudo rm -f "${SUDOTMP[@]}" /tmp/status
+    _PRINT_ETC_FILES
+    echo ""
+    echo "Extrait du Log : "
+    tail -5 "${LOG_FILE}"
+    echo -e "${C_RESET}"
+    _DIE "Log complet : ${LOG_FILE}"
+}
+
+########################################################################################################################
+
+_INTERRUPT() {
+    echo -e "${C_BOLD}${C_GREEN} Arrêt du script demandé par l'utilisateur..."
+    sudo rm -f "${SUDOTMP[@]}" /tmp/status
+    _PRINT_ETC_FILES
+    echo ""
+    echo "Extrait du Log : "
+    tail -5 "${LOG_FILE}"
+    echo -e "${C_RESET}"
+    _DIE "Log complet : ${LOG_FILE}"
+}
+
+########################################################################################################################
