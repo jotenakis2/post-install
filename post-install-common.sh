@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=32.3
+readonly VER=32.4
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -842,6 +842,7 @@ ${SSHD_CONFIG}"
         } >>"${LOG_FILE}"
 
         # banière /etc/issue.net
+        sudo test -L "${banner_file}" && sudo rm -f "${banner_file}"
         _INSTALL_ETC_FILES "bannière sshd" "${BANNER}" "${banner_file}" "644"
         if sudo test -L /etc/issue; then
             local currentlink
