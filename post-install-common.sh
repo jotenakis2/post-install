@@ -474,7 +474,7 @@ SETUP_FSTAB() {
                 _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.origin
             fi
             _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.swap
-            _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap defaults,nofail 0 0 | sudo tee -a /etc/fstab"
+            _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap sw,nofail 0 0 | sudo tee -a /etc/fstab"
             _ETC_FILES_ADD "/etc/fstab"
         else
             _INFO "Swap déjà présent dans /etc/fstab"
