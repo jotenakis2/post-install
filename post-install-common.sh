@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=32.4
+readonly VER=32.5
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -1265,15 +1265,13 @@ _INSTALL_USER_CRONTAB(){
     _LOG "* crontab ${USER} *"
     cron_job1='0 21 * * 0 ~/.local/share/cargo/bin/sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1'
     if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/sheldon lock --update"; then
-        ( crontab -l 2>/dev/null; echo "${cron_job1}" ) | crontab - 2>/dev/null
-        _OK "Tâche cron \"sheldon update\" ajoutée pour ${USER}"
+        _RUN "Tâche cron \"sheldon update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job1}\" ) | crontab -"
     else
         _INFO "Tâche cron \"sheldon update\" déjà là pour ${USER}"
     fi
     cron_job2='5 */4 * * * ~/.local/share/cargo/bin/tldr -u >/tmp/tldr 2>&1'
     if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/tldr -u"; then
-        ( crontab -l 2>/dev/null; echo "${cron_job2}" ) | crontab - 2>/dev/null
-        _OK "Tâche cron \"tldr update\" ajoutée pour ${USER}"
+        _RUN "Tâche cron \"tldr update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job2}\" ) | crontab -"
     else
         _INFO "Tâche cron \"tldr update\" déjà là pour ${USER}"
     fi

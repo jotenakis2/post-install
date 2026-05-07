@@ -158,18 +158,18 @@ _SETUP_VCONSOLE_FONT() {
     else
         if grep -q "^FONT=" "${vconsole}" 2>/dev/null; then
             if grep -q "^FONT=${font}" "${vconsole}" 2>/dev/null; then
-                _INFO "Police console TTY déjà à jour"
+                _INFO "Police console TTY déjà à jour (${vconsole})"
                 grep FONT "${vconsole}" >>"${LOG_FILE}"
             else
                 _RUNSILENT "" sudo sed -i "s/^FONT=.*/FONT=${font}/" "${vconsole}"
-                _OK "Modification de la police console TTY"
+                _OK "Modification de la police console TTY (${vconsole})"
                 _ETC_FILES_ADD "${vconsole}"
                 _LOG "Police console définie :"
                 cat "${vconsole}" 2>/dev/null >>"${LOG_FILE}"
             fi
         else
             printf '%s' "FONT=${font}" | sudo tee -a "${vconsole}" >/dev/null
-            _OK "Ajout de la police console TTY"
+            _OK "Ajout de la police console TTY (${vconsole})"
             _ETC_FILES_ADD "${vconsole}"
             _LOG "Police console définie :"
             cat "${vconsole}" 2>/dev/null >>"${LOG_FILE}"
