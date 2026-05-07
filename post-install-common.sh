@@ -394,8 +394,7 @@ SETUP_DOTFILES() {
 
     # 2- stow pour déployer dotfiles depuis dépôt git
     local pkg name listdot=" " displayed_stow
-    displayed_stow="Stow"
-    [[ "${RESTOW}" = "yes" ]] && displayed_stow="reStow"
+    [[ "${RESTOW}" = "yes" ]] && displayed_stow="Forçage des liens symboliques (restow)" || displayed_stow="Vérification des liens symboliques, création si besoin (stow)"
 
     echo -e " ${C_GREEN}✓ ${C_RESET} ${displayed_stow} :"
     for pkg in "${DOTFILES_DIR}"/*/; do
@@ -1253,19 +1252,20 @@ _DISABLE_COREDUMP(){
 
 _INSTALL_USER_CRONTAB(){
     local cron_job1 cron_job2
+    _LOG "* crontab ${USER} *"
     cron_job1='0 21 * * 0 ~/.local/share/cargo/bin/sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1'
     if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/sheldon lock --update"; then
         ( crontab -l 2>/dev/null; echo "${cron_job1}" ) | crontab - &>/dev/null
-        _LOG "tâche cron ${cron_job1} ajoutée"
+        _OK "Tâche cron \"sheldon update\" ajoutée pour ${USER}"
     else
-        _LOG "tâche cron ${cron_job1} déjà là"
+        _INFO "Tâche cron \"sheldon update\" déjà là pour ${USER}"
     fi
     cron_job2='5 */4 * * * ~/.local/share/cargo/bin/tldr -u >/tmp/tldr 2>&1'
     if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/tldr -u"; then
         ( crontab -l 2>/dev/null; echo "${cron_job2}" ) | crontab - &>/dev/null
-        _LOG "tâche cron ${cron_job2} ajoutée"
+        _OK "Tâche cron \"tldr update\" ajoutée pour ${USER}"
     else
-        _LOG "tâche cron ${cron_job2} déjà là"
+        _INFO "Tâche cron \"tldr update\" déjà là pour ${USER}"
     fi
     _RUNSILENT "" crontab -l
 }
