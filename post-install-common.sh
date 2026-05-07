@@ -1252,14 +1252,14 @@ _INSTALL_USER_CRONTAB(){
     local cron_job1 cron_job2
     cron_job1='0 21 * * 0 ~/.local/share/cargo/bin/sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1'
     if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/sheldon lock --update"; then
-        ( crontab -l 2>/dev/null; echo "${cron_job1}" ) | crontab -
+        ( crontab -l 2>/dev/null; echo "${cron_job1}" ) | crontab - &>/dev/null
         _LOG "tâche cron ${cron_job1} ajoutée"
     else
         _LOG "tâche cron ${cron_job1} déjà là"
     fi
     cron_job2='5 */4 * * * ~/.local/share/cargo/bin/tldr -u >/tmp/tldr 2>&1'
     if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/tldr -u"; then
-        ( crontab -l 2>/dev/null; echo "${cron_job2}" ) | crontab -
+        ( crontab -l 2>/dev/null; echo "${cron_job2}" ) | crontab - &>/dev/null
         _LOG "tâche cron ${cron_job2} ajoutée"
     else
         _LOG "tâche cron ${cron_job2} déjà là"
