@@ -4,7 +4,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=32.2
+readonly VER=32.3
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -15,7 +15,8 @@ MAIN() {
     source ./helpers.sh
     _ENABLE_COLORS
     # en cas d'erreur ou d'interruption je nettoie, affiche le LOGFILE et sort proprement.
-    trap 'echo "" ; sudo rm -f "${SUDOTMP[@]}" /tmp/status ; _PRINT_ETC_FILES ; _DIE "Log : ${LOG_FILE}"' ERR INT
+    trap 'sudo rm -f "${SUDOTMP[@]}" /tmp/status ; _PRINT_ETC_FILES ; _DIE "Log : ${LOG_FILE}"' ERR
+    trap 'sudo rm -f "${SUDOTMP[@]}" ; _DIE "Log : ${LOG_FILE}"' INT
     CHECK
     INITIALIZE
     if [[ "${args}" = "--shellonly" ]] || [[ "${args}" = "-s" ]]; then
@@ -842,8 +843,15 @@ ${SSHD_CONFIG}"
 
         # banière /etc/issue.net
         _INSTALL_ETC_FILES "bannière sshd" "${BANNER}" "${banner_file}" "644"
-        sudo test -L /etc/issue || sudo rm -f /etc/issue
+        if sudo test -L /etc/issue; then
+            local currentlink
+            currentlink="$(sudo readlink /etc/issue || true)"
+            [[ ${currentlink} != "${banner_file}" ]] && sudo rm -f /etc/issue
+        else
+            sudo rm -f /etc/issue
+        fi
         _RUNSILENT "" _SYMLINK "${banner_file}" "/etc/issue"
+        _ETC_FILES_ADD "/etc/issue"
 
         # gestion service
         if _IS_ENABLED sshd; then
@@ -1235,7 +1243,7 @@ _DISABLE_COREDUMP(){
     limits_file="${dirlimits}/disable-coredump.conf"
     if ! grep -qxF "* soft core 0" "${limits_file}" 2>/dev/null; then
         printf '* soft core 0\n* hard core 0\n' | sudo tee "${limits_file}" > /dev/null
-        _OK "Configuration coredump"
+        _OK "Configuration coredump (${limits_file})"
         _ETC_FILES_ADD "${limits_file}"
     else
         _INFO "Coredump déja OK (${limits_file})"
