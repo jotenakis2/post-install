@@ -1282,10 +1282,10 @@ _INSTALL_USER_CRONTAB(){
 ########################################################################################################################
 
 _CLEANUP() {
-    echo -e "${C_BOLD}${C_RED} Plantage !"
+    echo -e "${C_BOLD}${C_RED} Plantage !${C_RESET}"
     sudo rm -f "${SUDOTMP[@]}" /tmp/status
     _PRINT_ETC_FILES
-    echo ""
+    echo -e "${C_BOLD}${C_RED}"
     echo "Extrait du Log : "
     tail -5 "${LOG_FILE}"
     echo -e "${C_RESET}"
@@ -1295,10 +1295,10 @@ _CLEANUP() {
 ########################################################################################################################
 
 _INTERRUPT() {
-    echo -e "${C_BOLD}${C_GREEN} Arrêt du script demandé par l'utilisateur..."
+    echo -e "${C_BOLD}${C_GREEN} Arrêt du script demandé par l'utilisateur...${C_RESET}"
     sudo rm -f "${SUDOTMP[@]}" /tmp/status
     _PRINT_ETC_FILES
-    echo ""
+    echo -e "${C_BOLD}${C_GREEN}"
     echo "Extrait du Log : "
     tail -5 "${LOG_FILE}"
     echo -e "${C_RESET}"
