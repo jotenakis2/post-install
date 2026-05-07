@@ -6,7 +6,7 @@ set -euo pipefail
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=32.7
+readonly VER=32.8
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -794,6 +794,7 @@ SETUP_ETC() {
     _UDEVPERSIST
     _LIBVIRT
     _CHRONY
+    _HARDENING
 }
 
 ########################################################################################################################
@@ -1306,3 +1307,21 @@ _INTERRUPT() {
 }
 
 ########################################################################################################################
+
+_HARDENING(){
+    local rights file dir
+    dir="/etc/tmpfiles.d"
+    file="${dir}/hardening-perms.conf"
+    _RUNSILENT "" sudo mkdir -pv "${dir}"
+    rights='
+z /etc/cron.deny    0600 root root -
+z /etc/cron.allow   0600 root root -
+z /etc/at.deny      0600 root root -
+z /etc/at.allow     0600 root root -
+z /etc/crontab      0600 root root -
+z /etc/cron.d       0700 root root -
+'
+    _INSTALL_ETC_FILES "robustification des fichiers (${file})" "${rights}" "${file}" "644"
+     grep -qxF 0 "/tmp/status" 2>/dev/null && _RUNSILENT "" sudo systemd-tmpfiles --create "${file}"
+
+}
