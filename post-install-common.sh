@@ -852,7 +852,7 @@ ${SSHD_CONFIG}"
             sudo rm -f /etc/issue
         fi
         _RUNSILENT "" _SYMLINK "${banner_file}" "/etc/issue"
-        _ETC_FILES_ADD "/etc/issue"
+        [[ "${STATUSSYMLINK}" -eq 0 ]] && _ETC_FILES_ADD "/etc/issue"
 
         # gestion service
         if _IS_ENABLED sshd; then
