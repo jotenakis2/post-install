@@ -450,18 +450,20 @@ _MANAGE_TABLE() {
             missing_fmt=$(_FORMAT_LIST "${missing[@]}")
             present_fmt=$(_FORMAT_LIST "${present[@]}")
             if ((${#present[@]})); then
-                _INFO "Paquets à IGNORER car réussissant le test \"${test}\" : "
+                _LOG "Paquets à IGNORER car réussissant le test \"${test}\" : "
+                _INFO "Paquets à ignorer"
                 local a
                 a=$(_PRINT_LIST "${present_fmt}")
                 echo "${a}" | tee -a "${LOG_FILE:-/dev/null}"
             fi
-            _INFO "Paquets à TRAITER car échouant au test \"${test}\" : "
+            _LOG "Paquets à TRAITER car échouant au test \"${test}\" : "
+            _INFO "Paquets à traiter"
             local a
             a=$(_PRINT_LIST "${missing_fmt}")
             echo "${a}" | tee -a "${LOG_FILE:-/dev/null}"
             _RUN "${treat^} en cours..." "${install_cmd}" "${missing[@]}"
             printf '\e[1A\e[2K' # je remonte d'une ligne et je la vide, pour écraser le "en cours..."
-            _OK "Traitement terminé, ${treat} OK."
+            _OK "Traitement terminé, ${treat} OK"
         else
             all_fmt=$(_FORMAT_LIST "$@")
             local a
@@ -496,11 +498,6 @@ _PRINT_ETC_FILES() {
         _INFO "Fichiers système crées ou modifiés : "
         _PRINT_LIST "${list}"
         echo "${list}" >> "${LOG_FILE:-/dev/null}"
-        # if [[ -f "${HOME}/${file}" ]]; then
-        #     echo "" >>"${HOME}/${file}"
-        # else
-        #     true >"${HOME}/${file}" # création fichier vide
-        # fi
         for item in "${ETC_FILES[@]}"; do
             echo "${hr} : ${item}" >>"${HOME}/${file}"
         done

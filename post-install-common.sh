@@ -959,9 +959,13 @@ INSTALL_FLATPAK_PACKAGES() {
         # 5. Installation des paquets depuis Flathub (System-wide par défaut avec sudo)
         _MANAGE_TABLE _IS_FPPKG_INSTALLED _FPPKG_INSTALL "${FLATPAK_PKGS[@]}"
 
+        # 5bis flatpak update
+        _LOG "Mise à jour des flatpak"
+        _RUNSILENT "" sudo flatpak update -y
+
         # 6. Petit nettoyage des runtimes inutilisés
         _LOG "Nettoyage des runtimes Flatpak orphelins"
-        _RUNSILENT "" sudo flatpak --verbose uninstall --unused -y
+        _RUNSILENT "" sudo flatpak uninstall --unused -y
     else
         _LOG "Aucun paquets Flatpak demandés"
     fi
