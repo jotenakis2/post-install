@@ -1303,7 +1303,7 @@ _DO_CLEAN(){
     for f in "${SUDOTMP[@]+"${SUDOTMP[@]}"}"; do
         if [[ -n "${f}" ]]; then sudo rm -f -- "${f}"; fi
     done
-    sudo rm -rf "${STATUSFILE:-}" "${LINKFILE:-}" "${DOWNLOAD_DIR}"
+    sudo rm -rf "${STATUSFILE:-}" "${LINKFILE:-}" "${DOWNLOAD_DIR:-}"
 }
 
 ########################################################################################################################
