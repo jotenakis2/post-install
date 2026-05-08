@@ -6,7 +6,7 @@ set -euo pipefail
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=33
+readonly VER=33.0
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
