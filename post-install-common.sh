@@ -305,6 +305,13 @@ INSTALL_GIT_REPOS() {
             if git -C "${target}" rev-parse --git-dir &>/dev/null; then
                 if [[ "${UPDATE_GIT_REPOS}" = "yes" ]]; then
                     _RUN "Mise à jour de ${name}" git -C "${target}" pull --ff-only
+                    # installation
+                    if [[ "${name}" = "fedupdate" ]]; then
+                        _RUN "Installation de ${name}" bash -c "cd ${target}; make install"
+                    fi
+                    if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
+                        _RUN "Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
+                    fi
                 else
                     _INFO "${name} déjà présent et pas de mise à jour demandée"
                 fi
@@ -313,18 +320,17 @@ INSTALL_GIT_REPOS() {
             fi
         else
             _RUN "Téléchargement de ${name}" git clone "${repo}" "${target}"
+            # installation
+            if [[ "${name}" = "fedupdate" ]]; then
+                _RUN "Installation de ${name}" bash -c "cd ${target}; make install"
+            fi
+            if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
+                _RUN "Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
+            fi
         fi
 
         if [[ "${repo}" == "${DOTFILES_REPO}" && "${target}" != "${DOTFILES_DIR}" ]]; then
             _RUNSILENT "" _SYMLINK "${target}" "${DOTFILES_DIR}"
-        fi
-
-        # installation
-        if [[ "${name}" = "fedupdate" ]]; then
-            _RUN "Installation de ${name}" bash -c "make -f ${target}/Makefile install"
-        fi
-        if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
-            _RUN "Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
         fi
     done
 }
