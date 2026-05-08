@@ -8,7 +8,7 @@ set -euo pipefail
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=33.4
+readonly VER=33.5
 
 # paramètres utilisateurs définis dans settings.sh ################################
 source ./settings.sh                                                              #
@@ -321,10 +321,10 @@ INSTALL_GIT_REPOS() {
 
         # installation
         if [[ "${name}" = "fedupdate" ]]; then
-            _RUN "Installation de ${name}" bash -c "cd ${target} && make install"
+            _RUN "Installation de ${name}" bash -c "make -f ${target}/Makefile install"
         fi
         if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
-            _RUN "Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} && sudo cp -af ${target}/${name} /usr/local/bin"
+            _RUN "Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
         fi
     done
 }
