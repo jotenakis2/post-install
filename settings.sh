@@ -261,7 +261,6 @@ ListenAddress 0.0.0.0
 #
 # Identity & disconnect
 AuthorizedKeysFile      .ssh/authorized_keys
-ClientAliveInterval 300
 LoginGraceTime 2m
 PermitEmptyPasswords no
 PasswordAuthentication yes
@@ -271,8 +270,13 @@ ChallengeResponseAuthentication no
 UsePAM no
 PermitRootLogin no
 MaxAuthTries 3
-MaxSessions 3
+MaxSessions 2
 MaxStartups 5:10:30
+ClientAliveInterval 300
+ClientAliveCountMax 3
+AllowTcpForwarding no
+AllowAgentForwarding no
+TCPKeepAlive no
 #
 # Banner & welcomes
 #
