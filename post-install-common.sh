@@ -5,10 +5,14 @@
 #      DISABLEIPV6
 # shellcheck disable=SC2310
 set -euo pipefail
-trap '_CLEANUP' ERR
-trap '_INTERRUPT' INT
 readonly SCRIPTNAME="${0##*/}"
 readonly VER=33.5
+
+# gestion des interruptions
+trap '_CLEANUP' ERR
+trap '_INTERRUPT' INT
+trap '_DO_CLEAN' EXIT
+#
 
 # paramètres utilisateurs définis dans settings.sh ################################
 source ./settings.sh                                                              #
