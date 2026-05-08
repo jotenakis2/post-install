@@ -1335,6 +1335,7 @@ Z /etc/cron.monthly 0700 root root -
 ########################################################################################################################
 
 _FAIL2BANSSH(){
+    _LOG "* fail2ban *"
     if ! _IS_PKG_INSTALLED fail2ban; then
         _RUN "Installation de fail2ban" _PKG_INSTALL fail2ban
     else
@@ -1430,6 +1431,7 @@ _SSHBANNER(){
     for f in /etc/issue /etc/issue.net; do
         _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
         status="${STATUSSYMLINK}"
+        echo "${f} : ${status}"
         if [[ "${status}" = "1" ]]; then
             _RUNSILENT "" sudo rm -f "${f}"
             _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
