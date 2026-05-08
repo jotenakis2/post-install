@@ -866,7 +866,7 @@ ${SSHD_CONFIG}"
         if sudo test -L /etc/ssh/sshd_config; then
             _RUNSILENT "" sudo rm -fv /etc/ssh/sshd_config
         fi
-        printf '%s\n' "Include /etc/ssh/sshd_config.d/*.conf\n" | sudo tee "/etc/ssh/sshd_config" > /dev/null
+        printf '%s\n' "Include /etc/ssh/sshd_config.d/*.conf" | sudo tee "/etc/ssh/sshd_config" > /dev/null
         # Autorisation
         _USERAUTHSSH
         # service systemd
