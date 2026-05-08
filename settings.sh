@@ -255,18 +255,15 @@ SSHD_CONFIG='Protocol 2
 Port 22
 LogLevel VERBOSE
 UseDNS  no
-#ipv4 only
 AddressFamily inet
 ListenAddress 0.0.0.0
-#
-# Identity & disconnect
 AuthorizedKeysFile      .ssh/authorized_keys
 LoginGraceTime 2m
 PermitEmptyPasswords no
 PasswordAuthentication yes
 KbdInteractiveAuthentication no
 ChallengeResponseAuthentication no
-#AuthenticationMethods publickey,keyboard-interactive
+#AuthenticationMethods publickey
 UsePAM no
 PermitRootLogin no
 MaxAuthTries 3
@@ -277,17 +274,10 @@ ClientAliveCountMax 3
 AllowTcpForwarding no
 AllowAgentForwarding no
 TCPKeepAlive no
-#
-# Banner & welcomes
-#
 Banner /etc/issue.d/ssh.issue
 PrintMotd no
 PrintLastLog no
-#
-# options
-#Subsystem       sftp    /usr/lib/ssh/sftp-server
 Subsystem sftp internal-sftp
-#AcceptEnv LANG LC_* COLORTERM
 '
 #-----------------------------------------------------------------------------------------------------------------------------
 
