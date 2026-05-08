@@ -1310,6 +1310,7 @@ _DO_LOG(){
     if [[ -s "${LOG_FILE:-}" ]]; then
         _OK "Extrait du Log :"
         tail -5 "${LOG_FILE:-}" 2>/dev/null
+        _DIE "Log complet : ${LOG_FILE:-}"
     fi
     echo -e "${C_RESET}"
 }
@@ -1322,7 +1323,6 @@ _CLEANUP() {
     _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_RED}"
     _DO_LOG
-    _DIE "Log complet : ${LOG_FILE:-}"
 }
 
 
@@ -1334,7 +1334,6 @@ _INTERRUPT() {
     _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_GREEN}"
     _DO_LOG
-    _DIE "Log complet : ${LOG_FILE:-}"
 }
 
 ########################################################################################################################
