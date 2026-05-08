@@ -1306,6 +1306,14 @@ _DO_CLEAN(){
     sudo rm -rf "${STATUSFILE:-}" "${LINKFILE:-}" "${DOWNLOAD_DIR:-}"
 }
 
+_DO_LOG(){
+    if [[ -s "${LOG_FILE:-}" ]]; then
+        _OK "Extrait du Log :"
+        tail -5 "${LOG_FILE:-}" 2>/dev/null
+    fi
+    echo -e "${C_RESET}"
+}
+
 ########################################################################################################################
 
 _CLEANUP() {
@@ -1313,11 +1321,10 @@ _CLEANUP() {
     _DO_CLEAN
     _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_RED}"
-    echo "Extrait du Log : "
-    tail -5 "${LOG_FILE:-}" 2>/dev/null
-    echo -e "${C_RESET}"
+    _DO_LOG
     _DIE "Log complet : ${LOG_FILE:-}"
 }
+
 
 ########################################################################################################################
 
@@ -1326,9 +1333,7 @@ _INTERRUPT() {
     _DO_CLEAN
     _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_GREEN}"
-    _OK "Extrait du Log (${LOG_FILE:-}) :"
-    tail -5 "${LOG_FILE:-}" 2>/dev/null
-    echo -e "${C_RESET}"
+    _DO_LOG
     _DIE "Log complet : ${LOG_FILE:-}"
 }
 
