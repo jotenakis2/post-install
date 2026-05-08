@@ -132,18 +132,26 @@ INSTALL_REPOS() {
 
 ########################################################################################################################
 INSTALL_FONTS() {
+    local header=""
     if [[ "${FONTS[*]}" != "" ]]; then
         _SECTION " Installation de polices d'affichage personnelles " "━" "${C_GREEN}"
+        header="yes"
         _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL_SKIP "${FONTS[@]}"
-        _SETUP_VCONSOLE_FONT
     else
         _LOG "Aucune police additionnelles demandées"
+    fi
+
+    if [[ -n "${VCONSOLE_FONT}" ]]; then
+        if [[ ${header} = "" ]]; then
+            _SECTION " Installation de polices d'affichage personnelles " "━" "${C_GREEN}"
+        fi
+        _SETUP_VCONSOLE_FONT
     fi
 }
 
 ########################################################################################################################
 _SETUP_VCONSOLE_FONT() {
-    local font="${VCONSOLE_FONT:-ter-v24b}"
+    local font="${VCONSOLE_FONT:-eurlatgr}"
     local vconsole="/etc/vconsole.conf"
     local font_dirs=("/usr/lib/kbd/consolefonts" "/usr/share/kbd/consolefonts")
     local found=0
@@ -294,20 +302,26 @@ SETUP_FIREWALL() {
     fi
 
     # 2. Vérification et activation du service
-    if ! _IS_ACTIVE firewalld; then
-        _RUN "Démarrage et activation du service firewalld" sudo systemctl enable --now firewalld.service
+    if ! _IS_ACTIVE firewalld.service; then
+        _RUN "Démarrage du firewall" sudo systemctl enable --now firewalld.service
     else
         _INFO "Firewall déjà actif"
+        if ! _IS_ENABLED firewalld.service; then
+            _RUNSILENT "" sudo systemctl enable firewalld.service
+        fi
     fi
 
     # 3. Configuration des services essentiels
     local firewall_changed=false
     local service
+    if [[ "${ACTIVATE_SSHD}" = "yes" ]]; then
+        FIREWALL_SERVICES+=("ssh")
+    fi
     for service in "${FIREWALL_SERVICES[@]}"; do
         if sudo firewall-cmd --permanent --query-service="${service}" >/dev/null 2>&1; then
-            _LOG "Service '${service}' déjà autorisé"
+            _LOG "Service ${service} déjà autorisé"
         else
-            _RUN "Autorisation du service '${service}'" sudo firewall-cmd --permanent --add-service="${service}"
+            _RUN "Autorisation du service ${service}" sudo firewall-cmd --permanent --add-service="${service}"
             firewall_changed=true
         fi
     done
@@ -316,7 +330,7 @@ SETUP_FIREWALL() {
     if [[ "${firewall_changed}" == true ]]; then
         _RUN "Rechargement des règles de firewalld (${FIREWALL_SERVICES[*]})" sudo firewall-cmd --reload
     else
-        _INFO "Règles du firewall déjà à jour"
+        _INFO "Règles firewall déjà OK"
     fi
 }
 

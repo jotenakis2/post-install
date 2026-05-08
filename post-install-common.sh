@@ -6,7 +6,7 @@ set -euo pipefail
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=33.0
+readonly VER=33.1
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -655,7 +655,7 @@ SETUP_KDE_PLASMA() {
         local temp_tela
         if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela*" -print -quit | grep -q . >/dev/null; then
             temp_tela=$(mktemp -d)
-            _RUN "Téléchargement des icônes Tela" git clone https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
+            _RUN "Téléchargement des icônes Tela" git clone --depth=1 https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
             _RUN "Installation des icônes Tela dracula (dans ${HOME}/.local/share/icons/)" bash -c "\"${temp_tela}\"/tela/install.sh -c dracula -d \"${HOME}\"/.local/share/icons"
             _RUNSILENT "" rm -rf "${temp_tela}"
             change=1
@@ -811,15 +811,10 @@ SETUP_SSHD() {
     if [[ "${ACTIVATE_SSHD}" = "yes" ]]; then
         _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
         _RUNSILENT "" sudo mkdir -pv /etc/ssh/sshd_config.d
+        local config_ssh_file full_ssh_content ssh_header sshservice
 
-        local config_ssh_file banner_file full_ssh_content ssh_header
+        sshservice="sshd.service"
         config_ssh_file="/etc/ssh/sshd_config.d/90-jotenakis.conf"
-        config_ssh_allow="/etc/ssh/sshd_config.d/92-AllowUsers.conf"
-        banner_file="/etc/issue.net"
-        content_ssh_allow="# automatically generated and managed by ${SCRIPTNAME} - can be modified to allow other users ======
-AllowUsers ${USER}
-# ===========================================================================================================
-"
         ssh_header="# =======================================================================
 # WARNING: Do not modify this file!
 # It is automatically generated and managed by ${SCRIPTNAME}.
@@ -827,100 +822,22 @@ AllowUsers ${USER}
 # To override these settings, create a new drop-in file with a
 # higher priority number (e.g., /etc/ssh/sshd_config.d/99-custom.conf).
 # ======================================================================="
-        readonly ssh_header content_ssh_allow
+        readonly ssh_header sshservice config_ssh_file
 
         # on concatène le header et la variable globale SSHD_CONFIG
         full_ssh_content="${ssh_header}
 ${SSHD_CONFIG}"
 
+        # Configuration
         _INSTALL_ETC_FILES "sshd" "${full_ssh_content}" "${config_ssh_file}" "600"
-
-        # config sshd AllowUsers
-        if sudo test -f "${config_ssh_allow}"; then
-            _INFO "Fichier ${config_ssh_allow} déjà présent"
-        else
-            _OK "Configuration ${config_ssh_allow} créée"
-            printf '%s' "${content_ssh_allow}" | sudo tee "${config_ssh_allow}" >/dev/null
-            _RUNSILENT "" sudo chmod -v 600 "${config_ssh_allow}"
-            _ETC_FILES_ADD "${config_ssh_allow}"
-        fi
-        {
-            sudo ls -l "${config_ssh_allow}"
-            sudo cat "${config_ssh_allow}"
-            echo ""
-        } >>"${LOG_FILE}"
-
-        # banière /etc/issue.net
-        if sudo test -L "${banner_file}"; then
-            sudo rm -f "${banner_file}"
-        fi
-        _INSTALL_ETC_FILES "bannière sshd" "${BANNER}" "${banner_file}" "644"
-        if sudo test -L /etc/issue; then
-            local currentlink
-            currentlink="$(sudo readlink /etc/issue || true)"
-            if [[ ${currentlink} != "${banner_file}" ]]; then
-                sudo rm -f /etc/issue
-                _ETC_FILES_ADD "/etc/issue"
-            fi
-        else
-            sudo rm -f /etc/issue
-            _ETC_FILES_ADD "/etc/issue"
-        fi
-        _RUNSILENT "" _SYMLINK "${banner_file}" "/etc/issue"
-        if [[ "${STATUSSYMLINK}" -eq 0 ]]; then
-            _ETC_FILES_ADD "/etc/issue"
-        fi
-
-        # gestion service
-        local sshservice
-        sshservice="sshd.service"
-        if _IS_ENABLED "${sshservice}"; then
-            if _IS_ACTIVE "${sshservice}"; then
-                _LOG "${sshservice} OK, activé et démarré"
-            else
-                _LOG "${sshservice} activé mais pas démarré"
-                _RUNSILENT "" sudo systemctl start "${sshservice}"
-            fi
-        else
-            _RUN "Activation/lancement de ${sshservice}" sudo systemctl --now enable "${sshservice}"
-        fi
-
-        # fail2ban
-        if ! _IS_PKG_INSTALLED fail2ban; then
-            _RUN "Installation de fail2ban" _PKG_INSTALL fail2ban
-        else
-            _INFO "Fail2ban déjà installé"
-        fi
-        local jailfile jaildir jailcontent jailservice
-        jailservice="fail2ban.service"
-        jaildir="/etc/fail2ban/jail.d/"
-        sudo mkdir -p "${jaildir}"
-        jailfile="${jaildir}/sshd.local"
-        jailcontent='# created by post-install-fedora.sh by jotenakis
-[sshd]
-enabled   = true
-mode      = aggressive
-port      = ssh
-filter    = sshd
-backend   = systemd
-maxretry  = 3
-findtime  = 1h
-bantime   = 24h
-banaction = firewallcmd-rich-rules
-'
-        _INSTALL_ETC_FILES "prison fail2ban sshd" "${jailcontent}" "${jailfile}" "644"
-        if _IS_ENABLED "${jailservice}"; then
-            if _IS_ACTIVE "${jailservice}"; then
-                _RUN "Chargement de la configuration de ${jailservice}" sudo systemctl reload "${jailservice}"
-            else
-                _RUN "Lancement de de ${jailservice}" sudo systemctl start "${jailservice}"
-            fi
-        else
-            _RUN "Activation/lancement de ${jailservice}" sudo systemctl enable --now "${jailservice}"
-        fi
-        if sudo test -f /var/log/fail2ban.log; then
-            sudo cat /var/log/fail2ban.log | sudo tee -a "${LOG_FILE}" >/dev/null
-        fi
+        # Autorisation
+        _USERAUTHSSH
+        # service systemd
+        _SSHSYSTEMD
+        # Banière sécu
+        _SSHBANNER
+        # Prison fail2ban
+        _FAIL2BANSSH
 
     else
         if _IS_ENABLED "${sshservice}"; then
@@ -1399,4 +1316,134 @@ Z /etc/cron.monthly 0700 root root -
         _RUNSILENT "" sudo systemd-tmpfiles --create "${file}"
     fi
 
+}
+
+########################################################################################################################
+
+_FAIL2BANSSH(){
+    if ! _IS_PKG_INSTALLED fail2ban; then
+        _RUN "Installation de fail2ban" _PKG_INSTALL fail2ban
+    else
+        _INFO "Fail2ban déjà installé"
+    fi
+    local jailfile jaildir jailcontent jailservice
+    jailservice="fail2ban.service"
+    jaildir="/etc/fail2ban/jail.d"
+    sudo mkdir -p "${jaildir}"
+    jailfile="${jaildir}/sshd.local"
+    jailcontent='# created by post-install-fedora.sh by jotenakis
+[sshd]
+enabled   = true
+mode      = aggressive
+port      = ssh
+filter    = sshd
+backend   = systemd
+maxretry  = 3
+findtime  = 1h
+bantime   = 24h
+banaction = firewallcmd-rich-rules
+'
+    _INSTALL_ETC_FILES "prison fail2ban sshd" "${jailcontent}" "${jailfile}" "644"
+
+    if _IS_ENABLED "${jailservice}"; then
+        if _IS_ACTIVE "${jailservice}"; then
+            _RUN "Chargement de la configuration de ${jailservice}" sudo systemctl reload "${jailservice}"
+        else
+            _RUN "Lancement de de ${jailservice}" sudo systemctl start "${jailservice}"
+        fi
+    else
+        _RUN "Activation/lancement de ${jailservice}" sudo systemctl enable --now "${jailservice}"
+    fi
+    if sudo test -f /var/log/fail2ban.log; then
+        sudo cat /var/log/fail2ban.log | sudo tee -a "${LOG_FILE}" >/dev/null
+    fi
+}
+
+########################################################################################################################
+
+_SSHSYSTEMD(){
+    # gestion service ssh
+    local sshservice
+    sshservice="sshd.service"
+    if _IS_ENABLED "${sshservice}"; then
+        if _IS_ACTIVE "${sshservice}"; then
+            _LOG "${sshservice} OK, activé et démarré"
+        else
+            _LOG "${sshservice} activé mais pas démarré"
+            _RUNSILENT "" sudo systemctl start "${sshservice}"
+        fi
+    else
+        _RUN "Activation/lancement de ${sshservice}" sudo systemctl --now enable "${sshservice}"
+    fi
+}
+
+########################################################################################################################
+
+_SSHBANNER(){
+    local banner_file link banner_content
+    banner_file="/etc/issue.net"
+    link="/etc/issue"
+    banner_content='#################################################################
+#                   _    _           _   _                      #
+#                  / \  | | ___ _ __| |_| |                     #
+#                 / _ \ | |/ _ \ |__| __| |                     #
+#                / ___ \| |  __/ |  | |_|_|                     #
+#               /_/   \_\_|\___|_|   \__(_)                     #
+#                                                               #
+#  You are entering into a secured area! Your IP, Login Time,   #
+#   Username has been noted and has been sent to the server     #
+#                       administrator!                          #
+#   This service is restricted to authorized users only. All    #
+#            activities on this system are logged.              #
+#  Unauthorized access will be fully investigated and reported  #
+#        to the appropriate law enforcement agencies.           #
+#################################################################
+'
+    if sudo test -L "${banner_file}"; then
+        sudo rm -f "${banner_file}"
+    fi
+    _INSTALL_ETC_FILES "bannière sshd" "${banner_content}" "${banner_file}" "644"
+
+    if sudo test -L "${link}"; then
+        local currentlink
+        currentlink="$(sudo readlink "${link}" || true)"
+        if [[ ${currentlink} != "${banner_file}" ]]; then
+            sudo rm -f "${link}"
+            _ETC_FILES_ADD "${link}"
+        fi
+    else
+        sudo rm -f "${link}"
+        _ETC_FILES_ADD "${link}"
+    fi
+
+    # /etc/issue lien symbolique vers /etc/issue.net qui contient la bannière sécu
+    _RUNSILENT "" _SYMLINK "${banner_file}" "${link}"
+    if [[ "${STATUSSYMLINK}" -eq 0 ]]; then
+        _ETC_FILES_ADD "${link}"
+    fi
+
+}
+
+########################################################################################################################
+
+_USERAUTHSSH(){ # config sshd AllowUsers
+    local config_ssh_allow content_ssh_allow
+    config_ssh_allow="/etc/ssh/sshd_config.d/92-AllowUsers.conf"
+    content_ssh_allow="# automatically generated and managed by ${SCRIPTNAME} - can be modified to allow other users ======
+AllowUsers ${USER}
+# ===========================================================================================================
+"
+    if sudo test -f "${config_ssh_allow}"; then
+        _INFO "Fichier ${config_ssh_allow} déjà présent"
+    else
+        _OK "Configuration ${config_ssh_allow} créée"
+        printf '%s' "${content_ssh_allow}" | sudo tee "${config_ssh_allow}" >/dev/null
+        _RUNSILENT "" sudo chmod -v 600 "${config_ssh_allow}"
+        _ETC_FILES_ADD "${config_ssh_allow}"
+    fi
+    {
+        sudo ls -l "${config_ssh_allow}"
+        sudo cat "${config_ssh_allow}"
+        echo ""
+    } >>"${LOG_FILE}"
 }
