@@ -1291,9 +1291,9 @@ _INSTALL_USER_CRONTAB(){
 _DO_CLEAN(){
    local f
     for f in "${SUDOTMP[@]+"${SUDOTMP[@]}"}"; do
-        if [[ -n "${f}" ]]; then rm -f -- "${f}"; fi
+        if [[ -n "${f}" ]]; then sudo rm -f -- "${f}"; fi
     done
-    rm -rf "${STATUSFILE:-}" "${LINKFILE:-}" "${DOWNLOAD_DIR}"
+    sudo rm -rf "${STATUSFILE:-}" "${LINKFILE:-}" "${DOWNLOAD_DIR}"
 }
 
 ########################################################################################################################
@@ -1447,7 +1447,6 @@ _SSHBANNER(){
     for f in /etc/issue /etc/issue.net; do
         _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
         status=$(head -1 "${LINKFILE}")
-        echo "${f} : ${status}"
         if [[ "${status}" = "1" ]]; then
             _RUNSILENT "" sudo rm -f "${f}"
             _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
