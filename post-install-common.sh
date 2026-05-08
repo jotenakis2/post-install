@@ -1326,9 +1326,10 @@ _FAIL2BANSSH(){
     else
         _INFO "Fail2ban déjà installé"
     fi
-    local jailfile jaildir jailcontent jailservice
+    local jailfile jaildir jailcontent jailservice new
     jailservice="fail2ban.service"
     jaildir="/etc/fail2ban/jail.d"
+    new=""
     sudo mkdir -p "${jaildir}"
     jailfile="${jaildir}/sshd.local"
     jailcontent='# created by post-install-fedora.sh by jotenakis
@@ -1344,10 +1345,15 @@ bantime   = 24h
 banaction = firewallcmd-rich-rules
 '
     _INSTALL_ETC_FILES "prison fail2ban sshd" "${jailcontent}" "${jailfile}" "644"
+    if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+        new="yes"
+    fi
 
     if _IS_ENABLED "${jailservice}"; then
         if _IS_ACTIVE "${jailservice}"; then
-            _RUN "Chargement de la configuration de ${jailservice}" sudo systemctl reload "${jailservice}"
+            if [[ "${new}" = "yes" ]]; then
+                _RUN "Chargement de la configuration de ${jailservice}" sudo systemctl reload "${jailservice}"
+            fi
         else
             _RUN "Lancement de de ${jailservice}" sudo systemctl start "${jailservice}"
         fi
