@@ -276,7 +276,7 @@ MaxStartups 5:10:30
 #
 # Banner & welcomes
 #
-Banner /etc/issue.net
+Banner /etc/issue.d/ssh.issue
 PrintMotd no
 PrintLastLog no
 #

@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# TODO sshd : email quand conn. / fail2ban
+# TODO sshd : email quand conn.
 #      cachyos kernel
+#      REMOVE-PLYMOUTH
+#      DISABLEIPV6
 # shellcheck disable=SC2310
 set -euo pipefail
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=33.1
-# paramètres customisables définis dans settings.sh. ###############################
-source ./settings.sh                                                               #
-####################################################################################
+readonly VER=33.3
+
+# paramètres utilisateurs définis dans settings.sh ################################
+source ./settings.sh                                                              #
+###################################################################################
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
@@ -309,9 +312,11 @@ INSTALL_GIT_REPOS() {
 
         # installation
         if [[ "${name}" = "fedupdate" ]]; then
-            _RUN "Installation de fedupdate" bash -c "cd ${target} && sudo make install"
+            _RUN "Installation de ${name}" bash -c "cd ${target} && make install"
         fi
-
+        if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
+            _RUN "Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} && sudo cp -af ${target}/${name} /usr/local/bin"
+        fi
     done
 }
 
@@ -501,10 +506,12 @@ SETUP_FSTAB() {
     local fstab_changed=false tmp_dir
     tmp_dir=$(mktemp -d)
     true >"${tmp_dir}/fstab.new" # on crée un fichier vide temporaire
+    echo "created by ${SCRIPTNAME} by jotenakis" >>"${tmp_dir}/fstab.new"
+    echo "" >>"${tmp_dir}/fstab.new"
 
     while IFS= read -r line || [[ -n "${line}" ]]; do
-        if [[ "${line}" =~ ^[[:space:]]*# ]] || [[ -z "${line}" ]]; then # commentaire ou ligne vide ajouté "as is"
-            echo "${line}" >>"${tmp_dir}/fstab.new"
+        if [[ "${line}" =~ ^[[:space:]]*# ]] || [[ -z "${line}" ]]; then # commentaire ou ligne vide supprimée
+            #echo "${line}" >>"${tmp_dir}/fstab.new"
             continue
         fi
 
@@ -531,6 +538,7 @@ SETUP_FSTAB() {
         fi
 
         echo "${line}" >>"${tmp_dir}/fstab.new"
+
     done </etc/fstab
 
     if [[ "${fstab_changed}" == "true" ]]; then
@@ -583,7 +591,7 @@ SETUP_FSTAB() {
     rm -rf "${tmp_dir}"
 }
 
-########################################################################################################################
+######################################################################################################################
 SETUP_DATA() {
     _SECTION " Restauration des données privées de l'utilisateur ${USER} " "━" "${C_GREEN}"
     if [[ -e "${SOURCE}" ]]; then
@@ -1392,9 +1400,10 @@ _SSHSYSTEMD(){
 ########################################################################################################################
 
 _SSHBANNER(){
-    local banner_file link banner_content
-    banner_file="/etc/issue.net"
-    link="/etc/issue"
+    local banner_file dir banner_content
+    dir="/etc/issue.d"
+    _RUNSILENT "" sudo mkdir -pv "${dir}"
+    banner_file="${dir}/ssh.issue"
     banner_content='#################################################################
 #                   _    _           _   _                      #
 #                  / \  | | ___ _ __| |_| |                     #
@@ -1416,24 +1425,21 @@ _SSHBANNER(){
     fi
     _INSTALL_ETC_FILES "bannière sshd" "${banner_content}" "${banner_file}" "644"
 
-    if sudo test -L "${link}"; then
-        local currentlink
-        currentlink="$(sudo readlink "${link}" || true)"
-        if [[ ${currentlink} != "${banner_file}" ]]; then
-            sudo rm -f "${link}"
-            _ETC_FILES_ADD "${link}"
+    # hardening je kill les /etc/issue* et remplace par symlink
+    local f status
+    for f in /etc/issue /etc/issue.net; do
+        _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
+        status="${STATUSSYMLINK}"
+        if [[ "${status}" = "1" ]]; then
+            _RUNSILENT "" sudo rm -f "${f}"
+            _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
+            if [[ "${STATUSSYMLINK}" = "O" ]]; then
+                _ETC_FILES_ADD "${f}"
+            fi
+        elif [[ "${status}" = "O" ]]; then
+            _ETC_FILES_ADD "${f}"
         fi
-    else
-        sudo rm -f "${link}"
-        _ETC_FILES_ADD "${link}"
-    fi
-
-    # /etc/issue lien symbolique vers /etc/issue.net qui contient la bannière sécu
-    _RUNSILENT "" _SYMLINK "${banner_file}" "${link}"
-    if [[ "${STATUSSYMLINK}" -eq 0 ]]; then
-        _ETC_FILES_ADD "${link}"
-    fi
-
+    done
 }
 
 ########################################################################################################################
