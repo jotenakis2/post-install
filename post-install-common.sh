@@ -311,10 +311,10 @@ INSTALL_GIT_REPOS() {
                     _RUN "Mise à jour de ${name}" git -C "${target}" pull --ff-only
                     # installation
                     if [[ "${name}" = "fedupdate" ]]; then
-                        _RUN "Installation de ${name}" bash -c "cd ${target}; make install"
+                        _RUN "  Installation de ${name}" bash -c "cd ${target}; make install"
                     fi
                     if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
-                        _RUN "Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
+                        _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
                     fi
                 else
                     _INFO "${name} déjà présent et pas de mise à jour demandée"
@@ -326,10 +326,10 @@ INSTALL_GIT_REPOS() {
             _RUN "Téléchargement de ${name}" git clone "${repo}" "${target}"
             # installation
             if [[ "${name}" = "fedupdate" ]]; then
-                _RUN "Installation de ${name}" bash -c "cd ${target}; make install"
+                _RUN "  Installation de ${name}" bash -c "cd ${target}; make install"
             fi
             if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
-                _RUN "Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
+                _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
             fi
         fi
 
