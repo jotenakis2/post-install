@@ -498,7 +498,7 @@ SETUP_SUDO_RS() {
         _PASS
         #_RUN "Symlink prioritaire /usr/local/bin/sudo -> sudo-rs" sudo ln -svf "${sudo_rs_bin}" "${local_bin_sudo}"
         _SYMLINK "${sudo_rs_bin}" "${local_bin_sudo}"
-        if [[ "${STATUSSYMLINK}" -eq 0 ]]; then
+        if grep -qxF 0 "${LINKFILE}" 2>/dev/null; then
             change=1
             _ETC_FILES_ADD "${local_bin_sudo}"
         fi # le lien a bien été crée
@@ -609,19 +609,16 @@ _PKG_INSTALL() {
 _PKG_DOWNLOAD_THEN_INSTALL() {
     local arch
     arch=$(uname -m)
-    local download_dir
-    download_dir=$(mktemp -d ./dnf-packages.XXXXXX)
-    _RUNSILENT "" sudo mkdir -pv "${download_dir}"
     echo "Téléchargement depuis les dépôts... "
-    _RUNSILENT "" sudo dnf download --skip-unavailable -y --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" "$@"
+    _RUNSILENT "" sudo dnf download --skip-unavailable -y --arch "${arch}" --arch noarch --resolve --destdir="${DOWNLOAD_DIR}" "$@"
     echo "installation depuis le cache local..."
-    if ! compgen -G "${download_dir}/*.rpm" > /dev/null; then
+    if ! compgen -G "${DOWNLOAD_DIR}/*.rpm" > /dev/null; then
         _ERR "Aucun RPM à installer"
-        _RUNSILENT "" sudo rm -rvf "${download_dir}"
+        _RUNSILENT "" sudo rm -rvf "${DOWNLOAD_DIR}"
         return 0
     fi
-    _RUNSILENT "" sudo dnf install --skip-unavailable -y "${download_dir}"/*.rpm
-    _RUNSILENT "" sudo rm -rvf "${download_dir}"
+    _RUNSILENT "" sudo dnf install --skip-unavailable -y "${DOWNLOAD_DIR}"/*.rpm
+    _RUNSILENT "" sudo rm -rvf "${DOWNLOAD_DIR}"
 }
 
 _SYS_UPDATE() {

@@ -224,29 +224,27 @@ _LOG() {
 _SYMLINK() {
     local src="$1"
     local dst="$2"
-    declare -g STATUSSYMLINK
 
     if [[ -L "${dst}" ]]; then
         local current_target
         current_target=$(readlink "${dst}")
 
         if [[ "${current_target}" = "${src}" ]]; then
-            STATUSSYMLINK=2
+            echo 2 >"${LINKFILE}"
         else
-            _ERR "Lien ${dst} existe déjà mais pointe vers '${current_target}', pas vers '${src}'. Je ne change rien."
-            STATUSSYMLINK=1
+            _ERR "Lien ${dst} existe déjà mais pointe vers ${current_target}, pas vers ${src}. Je ne change rien."
+            echo 1 >"${LINKFILE}"
         fi
     else
         sudo mkdir -p "$(dirname "${dst}")"
         if sudo ln -s "${src}" "${dst}"; then
-            _OK "Lien créé : ${dst} → ${src}"
-            STATUSSYMLINK=0
+            _OK "Lien créé : ${dst}=>${src}"
+            echo 0 >"${LINKFILE}"
         else
-            _ERR "Échec de création du lien : ${dst} → ${src}"
-            STATUSSYMLINK=1
+            _ERR "Échec de création du lien : ${dst}=>${src}"
+            echo 1 >"${LINKFILE}"
         fi
     fi
-    export STATUSSYMLINK
 }
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 

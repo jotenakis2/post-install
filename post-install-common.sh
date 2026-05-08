@@ -8,7 +8,7 @@ set -euo pipefail
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=33.3
+readonly VER=33.4
 
 # paramètres utilisateurs définis dans settings.sh ################################
 source ./settings.sh                                                              #
@@ -110,16 +110,22 @@ INITIALIZE() {
     local logsuffix
     START=${SECONDS}
     _PASS
+    # LOG
     LOG_DIR="${HOME}/.local/log"
     logsuffix="$(date +%Y%m%d-%H%M%S)"
     LOG_FILE="${LOG_DIR}/post-install-fedora-${logsuffix}.log"
     INSTALL_DIR="${HOME}/.local/bin"
     export LOG_DIR LOG_FILE INSTALL_DIR
-    mkdir -p "${LOG_DIR}"
-    touch "${LOG_FILE}"
-    declare -g STATUSFILE
+    mkdir -p "${LOG_DIR}" ; true > "${LOG_FILE}"
+    #
+
+    # FICHIERS TEMPORAIRES
+    declare -g STATUSFILE LINKFILE DOWNLOAD_DIR
     STATUSFILE=$(mktemp /tmp/status.XXXXXX)
-    export STATUSFILE
+    LINKFILE=$(mktemp /tmp/link.XXXXXX)
+    DOWNLOAD_DIR=$(mktemp -d ./dnf-packages.XXXXXX)
+    export STATUSFILE LINKFILE DOWNLOAD_DIR
+    #
 
     clear
     source /etc/os-release
@@ -129,8 +135,8 @@ INITIALIZE() {
     _INFO "Heure de démarrage du script : ${heure}"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
     printf '%s' "Paramètres utilisateur retenus : " >>"${LOG_FILE}"
-    grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh >>"${LOG_FILE}"
-
+    #grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh >>"${LOG_FILE}"
+    tail -n +6 ./settings.sh | grep -E -v '^(#.*shellcheck|[[:space:]]*#.*shellcheck|[[:space:]]*$)' >> "${LOG_FILE}"
     INSTALL_DEPS
 
     # RUST
@@ -162,6 +168,9 @@ INITIALIZE() {
 
     # liste des fichiers système crées ou modifiés par le script
     declare -a ETC_FILES=()
+    # liste des fichiers user crées ou modifiés par le script
+#    declare -a HOME_FILES=()
+
 }
 
 ########################################################################################################################
@@ -952,9 +961,8 @@ INSTALL_FLATPAK_PACKAGES() {
 
 END() {
     local duration file
-    rm -f "${STATUSFILE:-}" 2>/dev/null
+    _DO_CLEAN
     _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
-    _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
     duration=$(_CONVERT_SECONDS "$((SECONDS - START))")
     _INFO "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
     if [[ -n "${ETC_FILES[*]}" ]]; then
@@ -1280,10 +1288,19 @@ _INSTALL_USER_CRONTAB(){
 
 ########################################################################################################################
 
+_DO_CLEAN(){
+   local f
+    for f in "${SUDOTMP[@]+"${SUDOTMP[@]}"}"; do
+        if [[ -n "${f}" ]]; then rm -f -- "${f}"; fi
+    done
+    rm -rf "${STATUSFILE:-}" "${LINKFILE:-}" "${DOWNLOAD_DIR}"
+}
+
+########################################################################################################################
+
 _CLEANUP() {
     echo -e "${C_BOLD}${C_RED} Plantage !${C_RESET}"
-    if [[ ${#SUDOTMP[@]} -gt 0 ]]; then sudo rm -f "${SUDOTMP[@]}"; fi
-    rm -f "${STATUSFILE:-}"
+    _DO_CLEAN
     _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_RED}"
     echo "Extrait du Log : "
@@ -1296,8 +1313,7 @@ _CLEANUP() {
 
 _INTERRUPT() {
     echo -e "${C_BOLD}${C_GREEN} Arrêt du script demandé par l'utilisateur...${C_RESET}"
-    if [[ ${#SUDOTMP[@]} -gt 0 ]]; then sudo rm -f "${SUDOTMP[@]}"; fi
-    rm -f "${STATUSFILE:-}"
+    _DO_CLEAN
     _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_GREEN}"
     echo "Extrait du Log : "
@@ -1430,12 +1446,12 @@ _SSHBANNER(){
     local f status
     for f in /etc/issue /etc/issue.net; do
         _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
-        status="${STATUSSYMLINK}"
+        status=$(head -1 "${LINKFILE}")
         echo "${f} : ${status}"
         if [[ "${status}" = "1" ]]; then
             _RUNSILENT "" sudo rm -f "${f}"
             _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
-            if [[ "${STATUSSYMLINK}" = "O" ]]; then
+            if grep -qxF 0 "${LINKFILE}" 2>/dev/null; then
                 _ETC_FILES_ADD "${f}"
             fi
         elif [[ "${status}" = "O" ]]; then
