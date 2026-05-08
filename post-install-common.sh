@@ -6,7 +6,7 @@ set -euo pipefail
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=32.9
+readonly VER=33
 # paramètres customisables définis dans settings.sh. ###############################
 source ./settings.sh                                                               #
 ####################################################################################
@@ -872,22 +872,61 @@ ${SSHD_CONFIG}"
         fi
 
         # gestion service
-        if _IS_ENABLED sshd; then
-            if _IS_ACTIVE sshd; then
-                _LOG "Le service sshd est bien activé et démarré"
+        local sshservice
+        sshservice="sshd.service"
+        if _IS_ENABLED "${sshservice}"; then
+            if _IS_ACTIVE "${sshservice}"; then
+                _LOG "${sshservice} OK, activé et démarré"
             else
-                _LOG "Le service sshd est bien activé mais n'est pas démarré, on le démarre maintenant"
-                _RUNSILENT "" sudo systemctl start sshd.service
+                _LOG "${sshservice} activé mais pas démarré"
+                _RUNSILENT "" sudo systemctl start "${sshservice}"
             fi
         else
-            _RUN "Activation du service sshd" sudo systemctl --now enable sshd.service
+            _RUN "Activation/lancement de ${sshservice}" sudo systemctl --now enable "${sshservice}"
+        fi
+
+        # fail2ban
+        if ! _IS_PKG_INSTALLED fail2ban; then
+            _RUN "Installation de fail2ban" _PKG_INSTALL fail2ban
+        else
+            _INFO "Fail2ban déjà installé"
+        fi
+        local jailfile jaildir jailcontent jailservice
+        jailservice="fail2ban.service"
+        jaildir="/etc/fail2ban/jail.d/"
+        sudo mkdir -p "${jaildir}"
+        jailfile="${jaildir}/sshd.local"
+        jailcontent='# created by post-install-fedora.sh by jotenakis
+[sshd]
+enabled   = true
+mode      = aggressive
+port      = ssh
+filter    = sshd
+backend   = systemd
+maxretry  = 3
+findtime  = 1h
+bantime   = 24h
+banaction = firewallcmd-rich-rules
+'
+        _INSTALL_ETC_FILES "prison fail2ban sshd" "${jailfile}" "${jailcontent}" "644"
+        if _IS_ENABLED "${jailservice}"; then
+            if _IS_ACTIVE "${jailservice}"; then
+                _RUN "Chargement de la configuration de ${jailservice}" sudo systemctl reload "${jailservice}"
+            else
+                _RUN "Lancement de de ${jailservice}" sudo systemctl start "${jailservice}"
+            fi
+        else
+            _RUN "Activation/lancement de ${jailservice}" sudo systemctl enable --now "${jailservice}"
+        fi
+        if sudo test -f /var/log/fail2ban.log; then
+            sudo cat /var/log/fail2ban.log | sudo tee -a "${LOG_FILE}" >/dev/null
         fi
 
     else
-        if _IS_ENABLED sshd; then
+        if _IS_ENABLED "${sshservice}"; then
             _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
             _LOG "pas de service sshd demandé"
-            _RUN "Désactivation du service sshd" sudo systemctl --now disable sshd.service sshd.socket ssh.service ssh.socket
+            _RUN "Désactivation de ${sshservice}" sudo systemctl --now disable "${sshservice}" sshd.socket ssh.service ssh.socket
         else
             _LOG "pas de service sshd détecté ni demandé"
         fi

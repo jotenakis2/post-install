@@ -499,14 +499,15 @@ _PRINT_ETC_FILES() {
         _INFO "Fichiers système crées ou modifiés : "
         _PRINT_LIST "${list}"
         echo "${list}" >> "${LOG_FILE:-/dev/null}"
-        if [[ -f "${HOME}/${file}" ]]; then
-            echo "" >>"${HOME}/${file}"
-        else
-            true >"${HOME}/${file}" # création fichier vide
-        fi
+        # if [[ -f "${HOME}/${file}" ]]; then
+        #     echo "" >>"${HOME}/${file}"
+        # else
+        #     true >"${HOME}/${file}" # création fichier vide
+        # fi
         for item in "${ETC_FILES[@]}"; do
             echo "${hr} : ${item}" >>"${HOME}/${file}"
         done
+        echo >>"${HOME}/${file}"
         _RUNSILENT "" sudo cp -f "${HOME}/${file}" "/root/${file}"
     else
         _OK "Aucun fichier système crée ou modifié"
