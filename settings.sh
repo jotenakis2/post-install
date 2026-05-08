@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-#33s
 ########################################################
 #   Paramètres utilisateur de post-install-fedora.sh l  #
 ########################################################

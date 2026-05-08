@@ -908,7 +908,7 @@ findtime  = 1h
 bantime   = 24h
 banaction = firewallcmd-rich-rules
 '
-        _INSTALL_ETC_FILES "prison fail2ban sshd" "${jailfile}" "${jailcontent}" "644"
+        _INSTALL_ETC_FILES "prison fail2ban sshd" "${jailcontent}" "${jailfile}" "644"
         if _IS_ENABLED "${jailservice}"; then
             if _IS_ACTIVE "${jailservice}"; then
                 _RUN "Chargement de la configuration de ${jailservice}" sudo systemctl reload "${jailservice}"

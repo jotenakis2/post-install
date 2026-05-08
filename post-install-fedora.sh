@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
-#33
 set -euo pipefail
 source ./post-install-common.sh # fonctions distro-agnostique
 
