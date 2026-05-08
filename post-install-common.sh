@@ -863,7 +863,10 @@ ${SSHD_CONFIG}"
 
         # Configuration (/etc/ssh/sshd_config remplacé par le drop_in et symlink)
         _INSTALL_ETC_FILES "sshd" "${full_ssh_content}" "${config_ssh_file}" "600"
-        printf '%s' 'Include /etc/ssh/sshd_config.d/*.conf' | sudo tee "/etc/ssh/sshd_config" > /dev/null
+        if sudo test -L /etc/ssh/sshd_config; then
+            _RUNSILENT "" sudo rm -fv /etc/ssh/sshd_config
+        fi
+        printf '%s' 'Include /etc/ssh/sshd_config.d/*.conf\n' | sudo tee "/etc/ssh/sshd_config" > /dev/null
         # Autorisation
         _USERAUTHSSH
         # service systemd
