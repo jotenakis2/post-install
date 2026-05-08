@@ -1326,7 +1326,7 @@ _INTERRUPT() {
     _DO_CLEAN
     _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_GREEN}"
-    echo "Extrait du Log : "
+    _OK "Extrait du Log (${LOG_FILE:-}) :"
     tail -5 "${LOG_FILE:-}" 2>/dev/null
     echo -e "${C_RESET}"
     _DIE "Log complet : ${LOG_FILE:-}"
