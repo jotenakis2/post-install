@@ -306,6 +306,12 @@ INSTALL_GIT_REPOS() {
         if [[ "${repo}" == "${DOTFILES_REPO}" && "${target}" != "${DOTFILES_DIR}" ]]; then
             _RUNSILENT "" _SYMLINK "${target}" "${DOTFILES_DIR}"
         fi
+
+        # installation
+        if [[ "${name}" = "fedupdate" ]]; then
+            _RUN "Installation de fedupdate" bash -c "cd ${target} && sudo make install"
+        fi
+
     done
 }
 
