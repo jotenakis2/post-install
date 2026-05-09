@@ -5,7 +5,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=34.0
+readonly SCRIPTNAME VER=34.1
 
 # gestion des interruptions
 trap '_CLEANUP' ERR
@@ -137,22 +137,22 @@ INITIALIZE() {
     _INFO "Distribution : ${PRETTY_NAME}"
     _INFO "Heure de démarrage du script : ${heure}"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
-    printf '%s' "Paramètres utilisateur retenus : " >>"${LOG_FILE}"
+    printf '%s\n' "Paramètres utilisateur retenus : " >>"${LOG_FILE}"
     tail -n +6 ./settings.sh | grep -E -v '^(#.*shellcheck|[[:space:]]*#.*shellcheck|[[:space:]]*$)' >> "${LOG_FILE}"
     INSTALL_DEPS
 
     # RUST
-    export RUSTUP_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/rustup"
-    export CARGO_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/cargo"
+    export RUSTUP_HOME="/opt/rustup"
+    export CARGO_HOME="/opt/cargo"
     # GO
-    export GOPATH="${XDG_DATA_HOME:-${HOME}/.local/share}/go"
-    export GOBIN="${XDG_BIN_HOME:-${HOME}/.local/bin}"
+    export GOPATH="/opt/go"
+    export GOBIN="/opt/go/bin"
 
     # Dossiers utilisateur requis
-    _RUNSILENT "" mkdir -pv "${INSTALL_DIR}" "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
+    _RUNSILENT "" mkdir -pv "${INSTALL_DIR}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
     # Dossiers système requis
-    _RUNSILENT "" sudo mkdir -pv /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
-
+    _RUNSILENT "" sudo mkdir -pv "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
+    _RUNSILENT "" sudo chmod -v 777 "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}"
     # Préparation d'une session sudo confortable et longue pour l'installation
     local sudotmp
     declare -ga SUDOTMP=()
@@ -1074,7 +1074,7 @@ _HOSTNAME() {
     currenthost=$(hostnamectl hostname)
     _LOG "* nom d'hôte *"
     if [[ -n "${MYHOSTNAME}" ]] && [[ "${currenthost}" != "${MYHOSTNAME}" ]]; then
-        _RUN "Changement du nom de la machine (de ${currenthost} vers ${MYHOSTNAME})" sudo hostnamectl set-hostname "${MYHOSTNAME}"
+        _RUN "Configuration nom de la machine (${MYHOSTNAME})" sudo hostnamectl set-hostname "${MYHOSTNAME}"
         newhost=$(hostnamectl hostname)
         _LOG "nouveau hostname : ${newhost}"
         _ETC_FILES_ADD "/etc/hostname"

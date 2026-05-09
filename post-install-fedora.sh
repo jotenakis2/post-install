@@ -46,7 +46,6 @@ REMOVE_RPM_PACKAGES() {
     wants_akonadi_removal=0
     #
     if [[ "${DISABLE_PLYMOUTH,,}" = "yes" ]]; then
-#        _INFO "Suppression boot graphique (plymouth)"
         DNF_REMOVE+=("plymouth-core-libs")
     fi
 
@@ -67,11 +66,19 @@ REMOVE_RPM_PACKAGES() {
             continue
         fi
     done
+    if ((wants_systemd_networkd_removal)); then # on retire systemd-networkd des paquets à retirer car il sera retiré après avec des précautions
+        local tmp=()
+        for pkg in "${DNF_REMOVE[@]}"; do
+            if [[ "${pkg}" != "systemd-networkd" ]]; then tmp+=("${pkg}"); fi
+        done
+        DNF_REMOVE=("${tmp[@]}")
+    fi
+
     _MANAGE_TABLE _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]}"
 
     if [[ "${ZSWAP,,}" = "yes" ]]; then # on dégage zram si zswap est demandé
         if _IS_PKG_INSTALLED zram-generator-defaults; then
-            _RUN "Suppression zram pour remplacer par zswap" _PKG_REMOVE zram-generator-defaults
+            _RUN "Suppression paquet zram-generator-defaults afin de remplacer zram par zswap" _PKG_REMOVE zram-generator-defaults
         fi
         _LOG "ZSWAP est demandé : zram est supprimé"
     fi

@@ -46,7 +46,7 @@ DNF_PACKAGES=(
 # paquets RPM à désinstaller -------------------------------------------------------------------------------------------------
 DNF_REMOVE=(
     rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan at systemd-networkd
-    plasma-drkonqi ibus imsettings maliit-keyboard abrt sudo-python-plugin sssd-common
+    plasma-drkonqi ibus imsettings maliit-keyboard abrt sudo-python-plugin sssd-common mcelog
     # fonts asiatiques
     default-fonts-cjk-mono
     default-fonts-cjk-sans

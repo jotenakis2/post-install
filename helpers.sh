@@ -238,10 +238,10 @@ _SYMLINK() {
     else
         sudo mkdir -p "$(dirname "${dst}")"
         if sudo ln -s "${src}" "${dst}"; then
-            _OK "Lien créé : ${dst}=>${src}"
+            _OK "Lien créé : ${dst} => ${src}"
             echo 0 >"${LINKFILE}"
         else
-            _ERR "Échec de création du lien : ${dst}=>${src}"
+            _ERR "Échec de création du lien : ${dst} => ${src}"
             echo 1 >"${LINKFILE}"
         fi
     fi
