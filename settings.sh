@@ -96,7 +96,7 @@ FLATPAK_PKGS=(
 
 # outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé" ---------------------------------------------
 CARGO_PACKAGES=(
-    cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg
+    cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg amdgpu_top
     ripgrep sd sheldon tealdeer yazi-fm yazi-cli zoxide zsh-patina eza netwatch-tui syswatch poshbuddy shuck-cli
     # Ajoute tes autres paquets ici
 )

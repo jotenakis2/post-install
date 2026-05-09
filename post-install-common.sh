@@ -187,11 +187,13 @@ INSTALL_CARGO_PACKAGES() {
             if echo "${check}" | grep -q "update available"; then
                 version=$(echo "${check}" | awk -F ":" '{print $2}' | xargs)
                 _RUN "Mise à jour de la toolchain RUST (${version})" rustup update stable
+                _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo" "/usr/local/bin/cargo"
             else
                 _LOG "la toolchain rust est à jour"
             fi
         else
             _RUN "Installation de la toolchain RUST" bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
+            _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo" "/usr/local/bin/cargo"
         fi
 
         # 1. Installation de cargo-binstall sans compilation
