@@ -589,11 +589,11 @@ _PRINT_LIST() {
 ########################################################################################################################
 
 _IS_FPPKG_INSTALLED() {
-    sudo flatpak info "$@" &>/dev/null || return 1
+    flatpak info "$@" &>/dev/null || return 1
 }
 
 _FPPKG_INSTALL() {
-    sudo flatpak install -y flathub "$@"
+    flatpak install -y flathub "$@"
 }
 
 _IS_CARGOPKG_INSTALLED() {

@@ -986,17 +986,17 @@ INSTALL_FLATPAK_PACKAGES() {
 
         # 2. Ajout de Flathub s'il n'existe pas
         if ! flatpak --columns=name remotes | grep -q "^flathub$"; then
-            _RUN "Ajout du dépôt Flathub" sudo flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+            _RUN "Ajout du dépôt Flathub" flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
         else
             _INFO "Dépot flathub déjà présent"
         fi
 
         # 3. Activation de Flathub sans filtre
-        _RUNSILENT "" sudo flatpak --verbose remote-modify --no-filter --enable flathub
+        _RUNSILENT "" flatpak --verbose remote-modify --no-filter --enable flathub
 
         # 4. Vérification et suppression du dépôt Fedora
         if flatpak remotes --columns=name | grep -q "^fedora$"; then
-            _RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak --verbose remote-delete --force fedora
+            _RUN "Suppression du dépôt Fedora Flatpak" flatpak --verbose remote-delete --force fedora
         else
             _LOG "Le dépôt Fedora Flatpak n'est pas présent, c'est bien."
         fi
@@ -1006,11 +1006,11 @@ INSTALL_FLATPAK_PACKAGES() {
 
         # 5bis flatpak update
         _LOG "Mise à jour des flatpak"
-        _RUNSILENT "" sudo flatpak update -y
+        _RUNSILENT "" flatpak update -y
 
         # 6. Petit nettoyage des runtimes inutilisés
         _LOG "Nettoyage des runtimes Flatpak orphelins"
-        _RUNSILENT "" sudo flatpak uninstall --unused -y
+        _RUNSILENT "" flatpak uninstall --unused -y
     else
         _LOG "Aucun paquets Flatpak demandés"
     fi
