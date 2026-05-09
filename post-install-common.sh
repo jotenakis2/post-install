@@ -527,7 +527,7 @@ SETUP_FSTAB() {
     tmp_dir=$(mktemp -d)
     true >"${tmp_dir}/fstab.new" # on crée un fichier vide temporaire
     echo "# modified by ${SCRIPTNAME} (v${VER}) by jotenakis" >>"${tmp_dir}/fstab.new"
-    echo "" >>"${tmp_dir}/fstab.new"
+    echo "# initial file copied into /etc/fstab.origin" >>"${tmp_dir}/fstab.new"
 
     while IFS= read -r line || [[ -n "${line}" ]]; do
         if [[ "${line}" =~ ^[[:space:]]*# ]] || [[ -z "${line}" ]]; then # commentaire ou ligne vide supprimée
