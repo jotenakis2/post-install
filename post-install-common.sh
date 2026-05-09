@@ -891,7 +891,7 @@ ListenAddress 0.0.0.0
 
         # on concatène la conf
         full_ssh_content="${ssh_header}
-Port=${SSHD_CONFIG_PORT:-22}
+Port ${SSHD_CONFIG_PORT:-22}
 ${ssh_config}
 ${noipv6}
 ${banner}
