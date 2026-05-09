@@ -52,7 +52,9 @@ REMOVE_RPM_PACKAGES() {
 
     if [[ "${DISABLE_DNF_GUI,,}" = "yes" ]]; then
  #       _INFO "Suppression outils graphiques de gestion des paquets"
-        DNF_REMOVE+=("gnome-software plasma-discover PackageKit-glib")
+        if ! _IN_ARRAY gnome-software "${DNF_REMOVE[@]}" ; then DNF_REMOVE+=("gnome-software"); fi
+        if ! _IN_ARRAY plasma-discover "${DNF_REMOVE[@]}" ; then DNF_REMOVE+=("plasma-discover"); fi
+        if ! _IN_ARRAY PackageKit-glib "${DNF_REMOVE[@]}" ; then DNF_REMOVE+=("PackageKit-glib"); fi
     fi
 
     for pkg in "${DNF_REMOVE[@]}"; do
