@@ -1656,8 +1656,8 @@ _DISABLE_FPRINTD(){
 
         # PAM
         if authselect current 2>/dev/null | grep -q 'with-fingerprint'; then
-            sudo authselect disable-feature with-fingerprint
-            sudo authselect apply-changes
+            _RUNSILENT "" sudo authselect disable-feature with-fingerprint
+            _RUNSILENT "" sudo authselect apply-changes
             change=1
         else
             _LOG "PAM n'a pas la fonction fprint activée"
@@ -1666,7 +1666,8 @@ _DISABLE_FPRINTD(){
         # systemd
         status=$(systemctl is-enabled "${service}" 2>/dev/null)
         if [[ "${status}" != "masked" ]]; then
-            sudo systemctl mask "${service}"
+            _RUNSILENT "" sudo systemctl stop fprintd.service
+            _RUNSILENT "" sudo systemctl mask "${service}"
             change=1
         else
             _LOG "status ${service} : ${status}"
