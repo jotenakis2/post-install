@@ -1346,7 +1346,7 @@ _DISABLE_COREDUMP(){
         dir2="/etc/systemd/coredump.conf.d"
         dirlimits="/etc/security/limits.d"
         dirprofile="/etc/profile.d"
-        sudo mkdir -p "${dir}" "${dirlimits}" "${dirprofile}"
+        sudo mkdir -p "${dir2}" "${dirlimits}" "${dirprofile}"
 
         _LOG "* coredump disable *"
 
