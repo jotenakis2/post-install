@@ -451,10 +451,9 @@ _MANAGE_TABLE() {
             present_fmt=$(_FORMAT_LIST "${present[@]}")
             if ((${#present[@]})); then
                 _LOG "Paquets à IGNORER car réussissant le test \"${test}\" : "
-                _INFO "Paquets à ignorer"
                 local a
                 a=$(_PRINT_LIST "${present_fmt}")
-                echo "${a}" | tee -a "${LOG_FILE:-/dev/null}"
+                echo "${a}" | tee -a "${LOG_FILE:-/dev/null}" >/dev/null
             fi
             _LOG "Paquets à TRAITER car échouant au test \"${test}\" : "
             _INFO "Paquets à traiter"
