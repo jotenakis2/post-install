@@ -1676,7 +1676,7 @@ _DISABLE_FPRINTD(){
         if [[ "${change}" = "1" ]]; then
             _OK "Fonction du capteur d'empreintes désactivée"
         else
-            _OK "Fonction du capteur d'empreintes déjà désactivée"
+            _INFO "Fonction du capteur d'empreintes déjà désactivée"
         fi
     else
         _LOG "On ne touche pas au service de capteur d'empreintes"

@@ -46,12 +46,12 @@ REMOVE_RPM_PACKAGES() {
     wants_akonadi_removal=0
     #
     if [[ "${DISABLE_PLYMOUTH,,}" = "yes" ]]; then
-        _INFO "Suppression boot graphique (plymouth)"
+#        _INFO "Suppression boot graphique (plymouth)"
         DNF_REMOVE+=("plymouth-core-libs")
     fi
 
     if [[ "${DISABLE_DNF_GUI,,}" = "yes" ]]; then
-        _INFO "Suppression outils graphiques de gestion des paquets"
+ #       _INFO "Suppression outils graphiques de gestion des paquets"
         DNF_REMOVE+=("gnome-software plasma-discover PackageKit-glib")
     fi
 
