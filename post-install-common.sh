@@ -1342,8 +1342,8 @@ _CHRONY() {
 
 _DISABLE_COREDUMP(){
     if [[ "${DISABLE_COREDUMP,,}" = "yes" ]]; then
-        local file content dir limits_file dirlimits dirprofile profile
-        dir="/etc/systemd/coredump.conf.d"
+        local file content dir2 limits_file dirlimits dirprofile profile
+        dir2="/etc/systemd/coredump.conf.d"
         dirlimits="/etc/security/limits.d"
         dirprofile="/etc/profile.d"
         sudo mkdir -p "${dir}" "${dirlimits}" "${dirprofile}"
@@ -1351,7 +1351,7 @@ _DISABLE_COREDUMP(){
         _LOG "* coredump disable *"
 
         # systemd
-        file="${dir}/disable.conf"
+        file="${dir2}/disable.conf"
         content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
         _INSTALL_ETC_FILES "coredump systemd" "${content}" "${file}" "644"
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
