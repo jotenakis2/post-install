@@ -1126,7 +1126,7 @@ _NETWORKMANAGER() {
 ########################################################################################################################
 
 _SYSTEMD_RESOLVED() {
-    local resolved_10_conf dnsfile llmnrfile
+    local resolved_10_conf dnsfile llmnrfile dir
     dir="/etc/systemd/resolved.conf.d"
     dnsfile="${dir}/90-dns_servers.conf"
     llmnrfile="${dir}/10-disable-llmnr.conf"
@@ -1342,16 +1342,16 @@ _CHRONY() {
 
 _DISABLE_COREDUMP(){
     if [[ "${DISABLE_COREDUMP,,}" = "yes" ]]; then
-        local file content dir2 limits_file dirlimits dirprofile profile
-        dir2="/etc/systemd/coredump.conf.d"
+        local file content dir limits_file dirlimits dirprofile profile
+        dir="/etc/systemd/coredump.conf.d"
         dirlimits="/etc/security/limits.d"
         dirprofile="/etc/profile.d"
-        sudo mkdir -p "${dir2}" "${dirlimits}" "${dirprofile}"
+        sudo mkdir -p "${dir}" "${dirlimits}" "${dirprofile}"
 
         _LOG "* coredump disable *"
 
         # systemd
-        file="${dir2}/disable.conf"
+        file="${dir}/disable.conf"
         content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
         _INSTALL_ETC_FILES "coredump systemd" "${content}" "${file}" "644"
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
