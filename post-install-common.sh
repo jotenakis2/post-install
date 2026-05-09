@@ -1664,7 +1664,7 @@ _DISABLE_FPRINTD(){
         fi
 
         # systemd
-        status=$(systemctl is-enabled "${service}" 2>/dev/null)
+        status=$(systemctl is-enabled "${service}" 2>/dev/null || true)
         if [[ "${status}" != "masked" ]]; then
             _RUNSILENT "" sudo systemctl stop fprintd.service
             _RUNSILENT "" sudo systemctl mask "${service}"
