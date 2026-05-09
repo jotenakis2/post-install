@@ -198,7 +198,7 @@ INSTALL_CARGO_PACKAGES() {
 
         # 1. Installation de cargo-binstall sans compilation
         if ! _EXIST cargo-binstall; then
-            _RUN "Installation de cargo-binstall (installation de paquets binaires)" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
+            _RUN "Installation de cargo-binstall" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
         else
             _LOG "cargo-binstall (installation de paquets binaires) est déjà installé"
         fi
