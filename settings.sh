@@ -10,6 +10,11 @@ ZSWAP="yes"                  # si yes, zram éventuel supprimé et remplacé par
 USE_OH_MY_POSH_PROMPT="yes"  # pour télécharger oh-my-posh pour l'utilisateur qui lance le script
 UPDATE_GIT_REPOS="yes"       # force une maj des repos git
 RESTOW="yes"                 # force une maj des liens symboliques des dotfiles (reSTOW)
+DISABLE_COREDUMP="yes"       # pour empécher la génération de dump mémoire en cas de crash d'une app
+DISABLE_PLYMOUTH="yes"       # pour désactiver le boot graphique (plymouth sera désinstallé) - le script ne permet pas de le réactiver si l'utilisateur change d'avis
+HARDENING="yes"              # diverses robustifications de sécurité
+DISABLE_IPV6="yes"
+DISABLE_DNF_GUI="yes"        # supprime PackageKit, gnome-logiciels, plasma-diskover, ...
 #-----------------------------------------------------------------------------------------------------------------------------
 
 # nom de la machine (si vide on ne change pas le nom de l'installer) ---------------------------------------------------------
@@ -29,14 +34,15 @@ DNF_PACKAGES=(
 
 # paquets RPM à désinstaller -------------------------------------------------------------------------------------------------
 DNF_REMOVE=(
+    rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan at
+    plasma-drkonqi ibus imsettings maliit-keyboard abrt sudo-python-plugin sssd-common
+    # fonts asiatiques
     default-fonts-cjk-mono
     default-fonts-cjk-sans
     default-fonts-cjk-serif
     default-fonts-other-mono
     default-fonts-other-sans
     default-fonts-other-serif
-    PackageKit-glib rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan at
-    plasma-drkonqi ibus imsettings maliit-keyboard abrt plasma-discover sudo-python-plugin sssd-common plymouth-core-libs
     # inutile sur HP EliteBook 645 14 inch G9 Notebook PC :
     nxpwireless-firmware
     tiwilink-firmware
@@ -237,7 +243,8 @@ BRAVE_POLICIES='{
     "TorDisabled": true,
     "PasswordManagerEnabled": false,
     "DnsOverHttpsMode": "automatic"
-}'
+}
+'
 #-----------------------------------------------------------------------------------------------------------------------------
 
 # conf DNS #------------------------------------------------------------------------------------------------------------------
@@ -251,43 +258,15 @@ DNSSEC=yes
 #-----------------------------------------------------------------------------------------------------------------------------
 
 # conf SSH #------------------------------------------------------------------------------------------------------------------
-SSHD_CONFIG='Protocol 2
-Port 22
-LogLevel VERBOSE
-UseDNS  no
-AddressFamily inet
-ListenAddress 0.0.0.0
-AuthorizedKeysFile      .ssh/authorized_keys
-LoginGraceTime 2m
-PermitEmptyPasswords no
-PasswordAuthentication yes
-KbdInteractiveAuthentication no
-ChallengeResponseAuthentication no
-#AuthenticationMethods publickey
-UsePAM no
-PermitRootLogin no
-MaxAuthTries 3
-MaxSessions 2
-MaxStartups 5:10:30
-ClientAliveInterval 300
-ClientAliveCountMax 3
-AllowTcpForwarding no
-AllowAgentForwarding no
-TCPKeepAlive no
-Banner /etc/issue.d/ssh.issue
-PrintMotd no
-PrintLastLog no
-Subsystem sftp internal-sftp
-'
+SSHD_CONFIG_PORT="22"
 #-----------------------------------------------------------------------------------------------------------------------------
 
 # Couleur du TTY (console virtuelle non graphique) #--------------------------------------------------------------------------
 TTY_COLOR="vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200" #catppuccin mocha
 #-----------------------------------------------------------------------------------------------------------------------------
 
-
 # paramètres additionels optionnels de la ligne de commande du noyau ---------------------------------------------------------
-CMDLINE="ipv6.disable=1"
+CMDLINE=""
 #-----------------------------------------------------------------------------------------------------------------------------
 
 # position du panneau de KDE (top, bottom, right, left) ----------------------------------------------------------------------
@@ -363,7 +342,7 @@ export MYHOSTNAME
 export SOURCE
 export COMMANDS
 export DESTINATIONS
-export SSHD_CONFIG
+export SSHD_CONFIG_PORT
 export ACTIVATE_SSHD
 export VCONSOLE_FONT
 export ZSWAP
@@ -371,4 +350,9 @@ export SUDORS
 export USE_OH_MY_POSH_PROMPT
 export UPDATE_GIT_REPOS
 export RESTOW
+export DISABLE_COREDUMP
+export DISABLE_PLYMOUTH
+export HARDENING
+export DISABLE_IPV6
+export DISABLE_DNF_GUI
 ###############################################################################################################################

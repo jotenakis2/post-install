@@ -6,7 +6,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=33.5
+readonly VER=33.6
 
 # gestion des interruptions
 trap '_CLEANUP' ERR
@@ -844,7 +844,7 @@ SETUP_SSHD() {
     if [[ "${ACTIVATE_SSHD}" = "yes" ]]; then
         _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
         _RUNSILENT "" sudo mkdir -pv /etc/ssh/sshd_config.d
-        local config_ssh_file full_ssh_content ssh_header sshservice
+        local config_ssh_file full_ssh_content ssh_header sshservice ssh_config noipv6="" banner=""
 
         sshservice="sshd.service"
         config_ssh_file="/etc/ssh/sshd_config.d/90-jotenakis.conf"
@@ -855,11 +855,47 @@ SETUP_SSHD() {
 # To override these settings, create a new drop-in file with a
 # higher priority number (e.g., /etc/ssh/sshd_config.d/99-custom.conf).
 # ======================================================================="
-        readonly ssh_header sshservice config_ssh_file
+        ssh_config='Protocol 2
+LogLevel VERBOSE
+UseDNS  no
+AuthorizedKeysFile      .ssh/authorized_keys
+LoginGraceTime 2m
+PermitEmptyPasswords no
+PasswordAuthentication yes
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+#AuthenticationMethods publickey
+UsePAM no
+PermitRootLogin no
+MaxAuthTries 3
+MaxSessions 2
+MaxStartups 5:10:30
+ClientAliveInterval 300
+ClientAliveCountMax 2
+AllowTcpForwarding no
+AllowAgentForwarding no
+TCPKeepAlive no
+PrintMotd no
+PrintLastLog yes
+Subsystem sftp internal-sftp
+'
+        if [[ ${DISABLE_IPV6,,} = "yes" ]]; then
+            noipv6='AddressFamily inet
+ListenAddress 0.0.0.0
+'
+        fi
+        if [[ ${HARDENING,,} = "yes" ]]; then
+            banner='Banner /etc/issue.d/ssh.issue'
+        fi
+        readonly ssh_header sshservice config_ssh_file ssh_config
 
-        # on concatène le header et la variable globale SSHD_CONFIG
+        # on concatène la conf
         full_ssh_content="${ssh_header}
-${SSHD_CONFIG}"
+Port=${SSHD_CONFIG_PORT:-22}
+${ssh_config}
+${noipv6}
+${banner}
+"
 
         # Configuration (/etc/ssh/sshd_config remplacé par le drop_in et symlink)
         _INSTALL_ETC_FILES "sshd" "${full_ssh_content}" "${config_ssh_file}" "600"
@@ -871,10 +907,12 @@ ${SSHD_CONFIG}"
         _USERAUTHSSH
         # service systemd
         _SSHSYSTEMD
-        # Banière sécu
-        _SSHBANNER
-        # Prison fail2ban
-        _FAIL2BANSSH
+        if [[ "${HARDENING,,}" = "yes" ]]; then
+            # Banière sécu
+            _SSHBANNER
+            # Prison fail2ban
+            _FAIL2BANSSH
+        fi
 
     else
         if _IS_ENABLED "${sshservice}"; then
@@ -1230,7 +1268,7 @@ _LIBVIRT() {
 _CHRONY() {
     # --- Configuration Chrony (IPv4 only si IPv6 désactivé) ---
     _LOG "* chrony *"
-    if echo "${CMDLINE}" | grep -q 'ipv6.disable=1'; then
+    if [[ "${DISABLE_IPV6,,}" = "yes" ]]; then
         local chrony_file chrony_content
         chrony_file="/etc/sysconfig/chronyd"
         chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
@@ -1248,36 +1286,40 @@ _CHRONY() {
 ########################################################################################################################
 
 _DISABLE_COREDUMP(){
-    local file content dir limits_file dirlimits dirprofile profile
-    dir="/etc/systemd/coredump.conf.d"
-    dirlimits="/etc/security/limits.d"
-    dirprofile="/etc/profile.d"
-    sudo mkdir -p "${dir}" "${dirlimits}" "${dirprofile}"
+    if [[ "${DISABLE_COREDUMP}" = "yes" ]]; then
+        local file content dir limits_file dirlimits dirprofile profile
+        dir="/etc/systemd/coredump.conf.d"
+        dirlimits="/etc/security/limits.d"
+        dirprofile="/etc/profile.d"
+        sudo mkdir -p "${dir}" "${dirlimits}" "${dirprofile}"
 
-    _LOG "* coredump disable *"
+        _LOG "* coredump disable *"
 
-    file="${dir}/disable.conf"
-    content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
-    _INSTALL_ETC_FILES "coredump systemd" "${content}" "${file}" "644"
-    if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
-        _RUNSILENT "" sudo systemctl daemon-reload
-    fi
-    { ls -l "${file}" ; cat "${file}" ; echo "" ; } >> "${LOG_FILE}"
+        file="${dir}/disable.conf"
+        content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
+        _INSTALL_ETC_FILES "coredump systemd" "${content}" "${file}" "644"
+        if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+            _RUNSILENT "" sudo systemctl daemon-reload
+        fi
+        { ls -l "${file}" ; cat "${file}" ; echo "" ; } >> "${LOG_FILE}"
 
-    limits_file="${dirlimits}/disable-coredump.conf"
-    if ! grep -qxF "* soft core 0" "${limits_file}" 2>/dev/null; then
-        printf '* soft core 0\n* hard core 0\n' | sudo tee "${limits_file}" > /dev/null
-        _OK "Configuration coredump (${limits_file})"
-        _ETC_FILES_ADD "${limits_file}"
+        limits_file="${dirlimits}/disable-coredump.conf"
+        if ! grep -qxF "* soft core 0" "${limits_file}" 2>/dev/null; then
+            printf '* soft core 0\n* hard core 0\n' | sudo tee "${limits_file}" > /dev/null
+            _OK "Configuration coredump (${limits_file})"
+            _ETC_FILES_ADD "${limits_file}"
+        else
+            _INFO "Coredump déja OK (${limits_file})"
+        fi
+        { ls -l "${limits_file}" ; cat "${limits_file}" ; echo "" ; } >> "${LOG_FILE}"
+
+        profile="${dirprofile}/coredump.sh"
+        content=$'ulimit -c 0\n'
+        _INSTALL_ETC_FILES "coredump shell" "${content}" "${profile}" "644"
+        { ls -l "${profile}" ; cat "${profile}" ; echo "" ; } >> "${LOG_FILE}"
     else
-        _INFO "Coredump déja OK (${limits_file})"
+        _LOG "Les coredumps ne sont pas désactivés, à la demande de l'utilisateur."
     fi
-    { ls -l "${limits_file}" ; cat "${limits_file}" ; echo "" ; } >> "${LOG_FILE}"
-
-    profile="${dirprofile}/coredump.sh"
-    content=$'ulimit -c 0\n'
-    _INSTALL_ETC_FILES "coredump shell" "${content}" "${profile}" "644"
-    { ls -l "${profile}" ; cat "${profile}" ; echo "" ; } >> "${LOG_FILE}"
 
 }
 
@@ -1347,11 +1389,13 @@ _INTERRUPT() {
 ########################################################################################################################
 
 _HARDENING(){
-    local rights file dir
-    dir="/etc/tmpfiles.d"
-    file="${dir}/hardening-perms.conf"
-    _RUNSILENT "" sudo mkdir -pv "${dir}"
-    rights='
+    if [[ "${HARDENING}" = "yes" ]]; then
+        _LOG "* hardening : droits sur fichiers critiques *"
+        local rights file dir
+        dir="/etc/tmpfiles.d"
+        file="${dir}/hardening-perms.conf"
+        _RUNSILENT "" sudo mkdir -pv "${dir}"
+        rights='
 z /etc/cron.deny    0600 root root -
 z /etc/cron.allow   0600 root root -
 z /etc/at.deny      0600 root root -
@@ -1363,11 +1407,42 @@ Z /etc/cron.daily   0700 root root -
 Z /etc/cron.weekly  0700 root root -
 Z /etc/cron.monthly 0700 root root -
 '
-    _INSTALL_ETC_FILES "robustification droits de fichiers critiques" "${rights}" "${file}" "644"
-    if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
-        _RUNSILENT "" sudo systemd-tmpfiles --create "${file}"
-    fi
+        _INSTALL_ETC_FILES "robustification droits de fichiers critiques" "${rights}" "${file}" "644"
+        if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+            _RUNSILENT "" sudo systemd-tmpfiles --create "${file}"
+        fi
 
+        _LOG "* hardening : Désactivation de certains protocoles réseaux *"
+        local net_content net_file dir
+        dir="/etc/modprobe.d"
+        _RUNSILENT "" sudo mkdir -pv "${dir}"
+        net_file="${dir}/disable-network-protocols.conf"
+        net_content='
+# network special protocols deactivated by post-install script by jotenakis
+install dccp /bin/false
+install sctp /bin/false
+install rds /bin/false
+install tipc /bin/false
+install n-hdlc /bin/false
+install ax25 /bin/false
+install netrom /bin/false
+install x25 /bin/false
+install rose /bin/false
+install decnet /bin/false
+install econet /bin/false
+install af_802154 /bin/false
+install ipx /bin/false
+install appletalk /bin/false
+install psnap /bin/false
+install p8023 /bin/false
+install p8022 /bin/false
+install can /bin/false
+install atm /bin/false
+'
+        _INSTALL_ETC_FILES "suppresion de protocoles réseaux inutilisés" "${net_content}" "${net_file}" "644"
+    else
+        _LOG "hardening non demandé"
+    fi
 }
 
 ########################################################################################################################

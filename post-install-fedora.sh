@@ -45,6 +45,15 @@ REMOVE_RPM_PACKAGES() {
     wants_systemd_networkd_removal=0
     wants_akonadi_removal=0
     #
+    if [[ "${DISABLE_PLYMOUTH,,}" = "yes" ]]; then
+        _INFO "Suppression du boot graphique (plymouth) demandée"
+        DNF_REMOVE+=("plymouth-core-libs")
+    fi
+
+    if [[ "${DISABLE_DNF_GUI,,}" = "yes" ]]; then
+        DNF_REMOVE+=("gnome-software plasma-discover PackageKit-glib")
+    fi
+
     for pkg in "${DNF_REMOVE[@]}"; do
         if [[ "${pkg}" == "systemd-networkd" ]]; then
             wants_systemd_networkd_removal=1
@@ -238,23 +247,30 @@ INSTALL_RPM_PACKAGES() {
 
 ########################################################################################################################
 SETUP_GRUB() {
-    local is_grub zswap=""
     is_grub=$(_DETECT_GRUB)
 
     _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
 
     if [[ "${is_grub}" == "true" ]]; then
+        local is_grub zswap="" ipv6="" plymouth=""
+
         if [[ "${ZSWAP,,}" = "yes" ]]; then
             zswap="zswap.enabled=1 zswap.compressor=zstd"
             _LOG "ZSWAP est demandé : \"${zswap}\" ajouté à GRUB"
         fi
-        local luks_param="" target_cmdline="" current_cmdline="" current_default=""
+        if [[ "${DISABLE_IPV6,,}" = "yes" ]]; then
+            ipv6="ipv6.disable=1"
+        fi
+        if [[ "${DISABLE_PLYMOUTH,,}" != "yes" ]]; then
+            plymouth="rhgb quiet"
+        fi
 
+        local luks_param="" target_cmdline="" current_cmdline="" current_default=""
         if grep -q 'rd\.luks\.uuid=' /etc/default/grub; then
             luks_param=$(grep -oP 'rd\.luks\.uuid=\S+' /etc/default/grub | head -n 1)
         fi
 
-        target_cmdline="${luks_param} ${zswap} ${CMDLINE} ${TTY_COLOR}"
+        target_cmdline="${luks_param} ${plymouth} ${zswap} ${ipv6} ${CMDLINE} ${TTY_COLOR}"
         target_cmdline=$(echo "${target_cmdline}" | xargs)
 
         current_cmdline=$(grep '^GRUB_CMDLINE_LINUX=' /etc/default/grub | cut -d'"' -f2 || echo "")
@@ -573,7 +589,7 @@ SETUP_SUDO_RS() {
 ########################################################################################################################
 
 _CLEANUP_APPSTREAM() {
-    if ! _IS_PKG_INSTALLED plasma-discover && ! _IS_PKG_INSTALLED gnome-software; then
+    if [[ "${DISABLE_DNF_GUI,,}" = "yes" ]]; then
         local -a appstream=()
         if _IS_PKG_INSTALLED rpmfusion-free-appstream-data; then
             appstream+=("rpmfusion-free-appstream-data")
