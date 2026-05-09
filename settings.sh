@@ -166,8 +166,7 @@ declare -A USER_SERVICES_TO_ENABLE=(
 #-----------------------------------------------------------------------------------------------------------------------------
 
 # configuration du noyau -----------------------------------------------------------------------------------------------------
-SYSCTL_CONF='
-# optimizing
+SYSCTL_CONF='# optimisation by post-install script by jotenakis
 vm.swappiness = 10
 vm.vfs_cache_pressure = 100
 vm.watermark_boost_factor = 0
@@ -187,49 +186,7 @@ net.ipv4.tcp_slow_start_after_idle = 0
 kernel.task_delayacct = 1
 kernel.soft_watchdog = 0
 kernel.watchdog = 0
-kernel.dmesg_restrict = 1
 vm.laptop_mode=5
-fs.suid_dumpable=0
-kernel.core_pattern=|/bin/false
-
-# hardening
-kernel.kptr_restrict = 2
-dev.tty.ldisc_autoload = 0
-fs.protected_hardlinks = 1
-fs.protected_symlinks = 1
-fs.protected_fifos = 2
-fs.protected_regular = 2
-kernel.core_uses_pid = 1
-kernel.ctrl-alt-del = 0
-kernel.perf_event_paranoid = 4
-kernel.randomize_va_space = 2
-kernel.sysrq = 0
-kernel.unprivileged_bpf_disabled = 1
-kernel.yama.ptrace_scope = 3
-net.core.bpf_jit_harden = 2
-net.ipv4.conf.all.accept_redirects = 0
-net.ipv4.conf.all.accept_source_route = 0
-net.ipv4.conf.all.bootp_relay = 0
-net.ipv4.conf.all.forwarding = 0
-net.ipv4.conf.all.log_martians = 1
-net.ipv4.conf.lo.log_martians = 1
-net.ipv4.conf.default.forwarding = 0
-net.ipv4.conf.all.proxy_arp = 0
-net.ipv4.conf.all.rp_filter = 1
-net.ipv4.conf.all.send_redirects = 0
-net.ipv4.conf.default.send_redirects = 0
-net.ipv4.conf.default.accept_redirects = 0
-net.ipv4.conf.default.secure_redirects = 0
-net.ipv4.conf.all.secure_redirects = 0
-net.ipv4.conf.default.accept_source_route = 0
-net.ipv4.tcp_max_syn_backlog = 4096
-net.ipv4.conf.default.log_martians = 1
-net.ipv4.icmp_echo_ignore_broadcasts = 1
-net.ipv4.icmp_ignore_bogus_error_responses = 1
-net.ipv4.ip_forward = 0
-net.ipv4.tcp_syncookies = 1
-net.ipv4.tcp_timestamps = 1
-net.ipv4.conf.default.rp_filter = 1
 '
 #-----------------------------------------------------------------------------------------------------------------------------
 

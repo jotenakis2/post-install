@@ -892,8 +892,11 @@ ListenAddress 0.0.0.0
         # on concatène la conf
         full_ssh_content="${ssh_header}
 Port ${SSHD_CONFIG_PORT:-22}
+# config robuste
 ${ssh_config}
+# only ipv4
 ${noipv6}
+# bannière sécu
 ${banner}
 "
 
@@ -1160,8 +1163,55 @@ _SYSTEMD_RESOLVED() {
 
 _KERNEL() {
     # --- Optimisations Kernel (Sysctl) ---
-    local sysctlfile sysctl_header full_sysctl_content
+    local sysctlfile sysctl_header full_sysctl_content nodump="" harden=""
     sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
+    if [[ "${DISABLE_COREDUMP,,}" = "yes" ]]; then
+        nodump='fs.suid_dumpable=0
+kernel.core_pattern=|/bin/false
+'
+    fi
+    if [[ "${HARDENING,,}" = "yes" ]]; then
+        harden='# hardening
+kernel.kptr_restrict = 2
+dev.tty.ldisc_autoload = 0
+fs.protected_hardlinks = 1
+fs.protected_symlinks = 1
+fs.protected_fifos = 2
+fs.protected_regular = 2
+kernel.core_uses_pid = 1
+kernel.ctrl-alt-del = 0
+kernel.perf_event_paranoid = 4
+kernel.randomize_va_space = 2
+kernel.sysrq = 0
+kernel.unprivileged_bpf_disabled = 1
+kernel.yama.ptrace_scope = 3
+kernel.dmesg_restrict = 1
+net.core.bpf_jit_harden = 2
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.all.bootp_relay = 0
+net.ipv4.conf.all.forwarding = 0
+net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.lo.log_martians = 1
+net.ipv4.conf.default.forwarding = 0
+net.ipv4.conf.all.proxy_arp = 0
+net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.all.send_redirects = 0
+net.ipv4.conf.default.send_redirects = 0
+net.ipv4.conf.default.accept_redirects = 0
+net.ipv4.conf.default.secure_redirects = 0
+net.ipv4.conf.all.secure_redirects = 0
+net.ipv4.conf.default.accept_source_route = 0
+net.ipv4.tcp_max_syn_backlog = 4096
+net.ipv4.conf.default.log_martians = 1
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+net.ipv4.ip_forward = 0
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_timestamps = 1
+net.ipv4.conf.default.rp_filter = 1
+'
+    fi
     sysctl_header="# =======================================================================
 # WARNING: Do not modify this file!
 # It is automatically generated and managed by ${SCRIPTNAME}.
@@ -1171,7 +1221,9 @@ _KERNEL() {
 # ======================================================================="
     readonly sysctlfile sysctl_header
     full_sysctl_content="${sysctl_header}
-${SYSCTL_CONF}"
+${SYSCTL_CONF}
+${nodump}
+${harden}"
 
     _LOG "* sysctl *"
     _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"
