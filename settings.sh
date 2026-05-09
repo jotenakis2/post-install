@@ -167,7 +167,6 @@ declare -A USER_SERVICES_TO_ENABLE=(
 
 # configuration du noyau -----------------------------------------------------------------------------------------------------
 SYSCTL_CONF='# optimisation by post-install script by jotenakis
-vm.swappiness = 10
 vm.vfs_cache_pressure = 100
 vm.watermark_boost_factor = 0
 vm.watermark_scale_factor = 125

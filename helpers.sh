@@ -588,6 +588,39 @@ _PRINT_LIST() {
 
 ########################################################################################################################
 
+_GET_SWAPPINESS() {
+    local ram_gb zram_active zswap_active=""
+
+    ram_gb=$(awk '/MemTotal/ { printf "%d", $2 / 1024 / 1024 }' /proc/meminfo)
+
+    if [[ "${ZSWAP,,}" = "yes" ]]; then
+        zswap_active="Y"
+        zram_active=0
+    else
+        zram_active=$(zramctl --noheadings 2>/dev/null | wc -l || true)
+    fi
+
+    if [[ "${zram_active}" -gt 0 ]]; then
+        echo 120
+    elif [[ "${zswap_active}" == "Y" ]]; then
+        if   [[ "${ram_gb}" -le 4  ]]; then echo 30
+        elif [[ "${ram_gb}" -le 8  ]]; then echo 20
+        elif [[ "${ram_gb}" -le 16 ]]; then echo 10
+        else                                echo 1
+        fi
+    else
+        # swap disque seul
+        if   [[ "${ram_gb}" -le 4  ]]; then echo 40
+        elif [[ "${ram_gb}" -le 8  ]]; then echo 30
+        elif [[ "${ram_gb}" -le 16 ]]; then echo 20
+        else                                echo 10
+        fi
+    fi
+}
+
+
+########################################################################################################################
+
 _IS_FPPKG_INSTALLED() {
     flatpak info "$@" &>/dev/null || return 1
 }

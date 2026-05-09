@@ -6,7 +6,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=33.7
+readonly VER=33.8
 
 # gestion des interruptions
 trap '_CLEANUP' ERR
@@ -1163,7 +1163,7 @@ _SYSTEMD_RESOLVED() {
 
 _KERNEL() {
     # --- Optimisations Kernel (Sysctl) ---
-    local sysctlfile sysctl_header full_sysctl_content nodump="" harden=""
+    local sysctlfile sysctl_header full_sysctl_content nodump="" harden="" swappiness=""
     sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
     if [[ "${DISABLE_COREDUMP,,}" = "yes" ]]; then
         nodump='# no dump
@@ -1213,6 +1213,8 @@ net.ipv4.tcp_timestamps = 1
 net.ipv4.conf.default.rp_filter = 1
 '
     fi
+    swappiness=$(_GET_SWAPPINESS)
+
     sysctl_header="# =======================================================================
 # WARNING: Do not modify this file!
 # It is automatically generated and managed by ${SCRIPTNAME}.
@@ -1222,6 +1224,8 @@ net.ipv4.conf.default.rp_filter = 1
 # ======================================================================="
     readonly sysctlfile sysctl_header
     full_sysctl_content="${sysctl_header}
+# swappiness computed by post-install script by Jotenakis
+vm.swappiness = ${swappiness}
 ${SYSCTL_CONF}
 ${nodump}
 ${harden}"
