@@ -81,7 +81,7 @@ REMOVE_RPM_PACKAGES() {
             if _IS_PKG_INSTALLED systemd-networkd; then
                 _RUN "Suppression systemd-networkd" _PKG_REMOVE systemd-networkd
             else
-                _INFO "systemd-networkd déjà supprimé"
+                _LOG "systemd-networkd déjà supprimé"
             fi
         else
             _INFO "NetworkManager inactif, systemd-networkd conservé par sécurité"
