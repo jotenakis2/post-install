@@ -46,11 +46,12 @@ REMOVE_RPM_PACKAGES() {
     wants_akonadi_removal=0
     #
     if [[ "${DISABLE_PLYMOUTH,,}" = "yes" ]]; then
-        _INFO "Suppression du boot graphique (plymouth) demandée"
+        _INFO "Suppression boot graphique (plymouth)"
         DNF_REMOVE+=("plymouth-core-libs")
     fi
 
     if [[ "${DISABLE_DNF_GUI,,}" = "yes" ]]; then
+        _INFO "Suppression outils graphiques de gestion des paquets"
         DNF_REMOVE+=("gnome-software plasma-discover PackageKit-glib")
     fi
 
@@ -68,7 +69,7 @@ REMOVE_RPM_PACKAGES() {
 
     if [[ "${ZSWAP,,}" = "yes" ]]; then # on dégage zram si zswap est demandé
         if _IS_PKG_INSTALLED zram-generator-defaults; then
-            _RUNSILENT "" _PKG_REMOVE zram-generator-defaults
+            _RUN "Suppression zram pour remplacer par zswap" _PKG_REMOVE zram-generator-defaults
         fi
         _LOG "ZSWAP est demandé : zram est supprimé"
     fi
@@ -76,12 +77,12 @@ REMOVE_RPM_PACKAGES() {
     if ((wants_systemd_networkd_removal)); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
         if _IS_ACTIVE NetworkManager; then
             if _IS_PKG_INSTALLED systemd-networkd; then
-                _RUN "Suppression systemd-networkd (NetworkManager actif)" _PKG_REMOVE systemd-networkd
+                _RUN "Suppression systemd-networkd" _PKG_REMOVE systemd-networkd
             else
                 _INFO "systemd-networkd déjà supprimé"
             fi
         else
-            _INFO "NetworkManager inactif — systemd-networkd conservé"
+            _INFO "NetworkManager inactif, systemd-networkd conservé par sécurité"
         fi
     fi
     if ((wants_akonadi_removal)); then

@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # TODO sshd : email quand conn.
 #      cachyos kernel
-#      REMOVE-PLYMOUTH
-#      DISABLEIPV6
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly SCRIPTNAME="${0##*/}"
-readonly VER=33.8
+SCRIPTNAME="${0##*/}"
+SCRIPTNAME="${SCRIPTNAME%.sh}"
+readonly SCRIPTNAME VER=34.0
 
 # gestion des interruptions
 trap '_CLEANUP' ERR
@@ -43,7 +42,7 @@ MAIN() {
 ########################################################################################################################
 MAINMODE() {
     _REFRESH_SYS_CACHE
-    _RUN "Mise à jour forcée du système" _SYS_UPDATE
+    _RUN "Mise à jour du système" _SYS_UPDATE
     SETUP_SUDO_RS
     # remove/install
     REMOVE_RPM_PACKAGES
@@ -93,7 +92,7 @@ CHECKMODE() {
         grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh
     fi
     echo ""
-    _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
+    _DO_CLEAN
     exit 0
 }
 
@@ -103,7 +102,7 @@ HELPMODE() {
     _INFO "Usage : ./${SCRIPTNAME} [ --shellonly | --check | --help ]"
     _INFO "Sans option, ${SCRIPTNAME} éxécute la post-installation complète."
     _INFO "Les paramètres personnalisables sont stockés dans ./settings.sh."
-    _RUNSILENT "" sudo rm -f "${SUDOTMP[@]}"
+    _DO_CLEAN
     exit 0
 }
 
@@ -116,8 +115,8 @@ INITIALIZE() {
     _PASS
     # LOG
     LOG_DIR="${HOME}/.local/log"
-    logsuffix="$(date +%Y%m%d-%H%M%S)"
-    LOG_FILE="${LOG_DIR}/post-install-fedora-${logsuffix}.log"
+    logsuffix="$(date +%d_%m_%Y-%H.%M.%S)"
+    LOG_FILE="${LOG_DIR}/${SCRIPTNAME}-${logsuffix}.log"
     INSTALL_DIR="${HOME}/.local/bin"
     export LOG_DIR LOG_FILE INSTALL_DIR
     mkdir -p "${LOG_DIR}" ; true > "${LOG_FILE}"
@@ -139,7 +138,6 @@ INITIALIZE() {
     _INFO "Heure de démarrage du script : ${heure}"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
     printf '%s' "Paramètres utilisateur retenus : " >>"${LOG_FILE}"
-    #grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh >>"${LOG_FILE}"
     tail -n +6 ./settings.sh | grep -E -v '^(#.*shellcheck|[[:space:]]*#.*shellcheck|[[:space:]]*$)' >> "${LOG_FILE}"
     INSTALL_DEPS
 
@@ -206,11 +204,13 @@ INSTALL_CARGO_PACKAGES() {
 
         # 2. Installation des paquets via Cargo (binstall)
         declare -g INSTALLED_LIST
-        _RUN "Listing des paquets cargo" bash -c "cargo install --list 2>/dev/null > /tmp/cargolist"
-        INSTALLED_LIST="$(cat /tmp/cargolist 2>/dev/null || true)" # je passe par un fichier /tmp/cargolist pour avoir un spinner
+        local cargolist
+        cargolist="/tmp/cargolist$$"
+        _RUN "Listing des paquets cargo" bash -c "cargo install --list 2>/dev/null > ${cargolist}"
+        INSTALLED_LIST=$(cat "${cargolist}" 2>/dev/null || true) # je passe par un fichier /tmp/cargolist pour avoir un spinner
         export INSTALLED_LIST # variable utilisée par _CARGOPKG_INSTALL
         _MANAGE_TABLE _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
-        rm -f /tmp/cargolist 2>/dev/null
+        rm -f "${cargolist}" 2>/dev/null
 
         # 3. symlinks globaux
         local cmd
@@ -223,7 +223,7 @@ INSTALL_CARGO_PACKAGES() {
         done
 
         # 4. Ajustement des permissions pour l'accès global
-        _RUNSILENT "" chmod a+x -v "${HOME}" "${HOME}/.local" "${HOME}/.local/share" "${CARGO_HOME}" "${CARGO_HOME}/bin"
+        #_RUNSILENT "" chmod a+x -v "${HOME}" "${HOME}/.local" "${HOME}/.local/share" "${CARGO_HOME}" "${CARGO_HOME}/bin"
     else
         _LOG "Aucun paquets cargo demandés"
     fi
@@ -479,8 +479,8 @@ SETUP_SYSTEMD() {
     if ((${#missing[@]})); then
         missing_fmt=$(_FORMAT_LIST "${missing[@]}")
         if ((${#present[@]})); then
-            _INFO "Déjà désactivés : "
-            _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
+            _LOG "Déjà désactivés : "
+            _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}" >/dev/null
         fi
         _INFO "À désactiver : "
         _PRINT_LIST "${missing_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
@@ -503,19 +503,20 @@ SETUP_SYSTEMD() {
 ########################################################################################################################
 SETUP_FSTAB() {
     _SECTION " Configuration du fichier FSTAB " "━" "${C_GREEN}"
-
+    local fstab="/etc/fstab" dr="no"
     # SWAPFILE
     if [[ "${ZSWAP,,}" = "yes" ]]; then
         local swapdir="/var/swap"
         if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
             if [[ ! -f /etc/fstab.origin ]]; then
-                _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.origin
+                _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
             fi
-            _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.swap
-            _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap sw,nofail 0 0 | sudo tee -a /etc/fstab"
-            _ETC_FILES_ADD "/etc/fstab"
+            _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.bak.swap
+            _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap sw,nofail 0 0 | sudo tee -a ${fstab}"
+            _ETC_FILES_ADD "${fstab}"
+            dr="yes"
         else
-            _INFO "Swap déjà présent dans /etc/fstab"
+            _INFO "Swap déjà présent dans ${fstab}"
         fi
     else
         _LOG "Pas de zswap demandé on ne fait pas de swapfile."
@@ -546,8 +547,8 @@ SETUP_FSTAB() {
             if [[ ! ",${opts}," =~ ,lazytime, ]]; then
                 opts="${opts},lazytime"
             fi
-            if [[ ! ",${opts}," =~ ,commit=60, ]] && [[ "${fs}" = "ext4" ]]; then
-                opts="${opts},commit=60"
+            if [[ ! ",${opts}," =~ ,commit=120, ]] && [[ "${fs}" = "ext4" ]]; then
+                opts="${opts},commit=120"
             fi
             if [[ "${orig_opts}" != "${opts}" ]]; then
                 fstab_changed=true
@@ -558,32 +559,32 @@ SETUP_FSTAB() {
 
         echo "${line}" >>"${tmp_dir}/fstab.new"
 
-    done </etc/fstab
+    done <"${fstab}"
 
     if [[ "${fstab_changed}" == "true" ]]; then
-        _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.optimizations
-        _RUN "Optimisations des systèmes de fichier" sudo cp -av "${tmp_dir}/fstab.new" /etc/fstab
-        _RUNSILENT "" sudo systemctl daemon-reload
-        _ETC_FILES_ADD "/etc/fstab"
+        _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.bak.optimizations
+        _RUN "Optimisations des systèmes de fichier" sudo cp -av "${tmp_dir}/fstab.new" "${fstab}"
+        dr="yes"
+        _ETC_FILES_ADD "${fstab}"
     else
-        _INFO "Options d'optimisations déjà présentes dans /etc/fstab"
+        _INFO "Options d'optimisations déjà présentes dans ${fstab}"
     fi
 
     # NFS
     if [[ "${NFS_SHARE}" != "" ]]; then
         local opts
         opts="rw,_netdev,nofail,nodev,nosuid,noexec,noatime,lazytime,x-systemd.automount,x-systemd.device-timeout=30"
-        if ! grep -q "${NFS_SHARE}" /etc/fstab >/dev/null; then
-            if grep -q "${NFS_MP}" /etc/fstab >/dev/null; then
-                _INFO "Point de montage demandé (${NFS_MP}) déjà présent dans /etc/fstab :"
-                grep "${NFS_MP}" /etc/fstab
+        if ! grep -q "${NFS_SHARE}" "${fstab}" >/dev/null; then
+            if grep -q "${NFS_MP}" "${fstab}" >/dev/null; then
+                _INFO "Point de montage demandé (${NFS_MP}) déjà présent dans ${fstab} :"
+                grep "${NFS_MP}" "${fstab}"
                 _INFO "Abandon de l'installation du partage réseau NFS."
             else
                 _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
-                _RUNSILENT "" sudo cp -av /etc/fstab /etc/fstab.bak.nfs
-                echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a /etc/fstab >/dev/null
-                _ETC_FILES_ADD "/etc/fstab"
-                _RUNSILENT "" sudo systemctl daemon-reload
+                _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.bak.nfs
+                echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a "${fstab}" >/dev/null
+                _ETC_FILES_ADD "${fstab}"
+                dr="yes"
                 _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
             fi
         else
@@ -591,6 +592,10 @@ SETUP_FSTAB() {
         fi
     else
         _LOG "Aucun montage NFS demandé"
+    fi
+
+    if [[ "${dr}" = "yes" ]]; then
+        _RUNSILENT "" sudo systemctl daemon-reload
     fi
 
     # fast_commit pour ext4
@@ -607,7 +612,7 @@ SETUP_FSTAB() {
     done <<<"${mounts}"
 
     # Nettoyage
-    rm -rf "${tmp_dir}"
+    sudo rm -rf "${tmp_dir}"
 }
 
 ######################################################################################################################
@@ -724,11 +729,11 @@ SETUP_KDE_PLASMA() {
         target_pos="${KDEPANEL,,:-bottom}"
 
         case "${target_pos}" in
-        bottom) display_pos="basse" ;;
-        top) display_pos="haute" ;;
-        right) display_pos="droite" ;;
-        left) display_pos="gauche" ;;
-        *) display_pos="basse" ;;
+            bottom) display_pos="basse" ;;
+            top)    display_pos="haute" ;;
+            right)  display_pos="droite" ;;
+            left)   display_pos="gauche" ;;
+            *)      display_pos="basse" ;;
         esac
 
         if ! pgrep plasmashell >/dev/null 2>&1; then
@@ -785,8 +790,8 @@ SETUP_KDE_PLASMA() {
                 --env="XCURSOR_THEME=catppuccin-mocha-lavender-cursors"
         fi
     else
-        echo
-        _INFO "KDE Plasma non détectée, pas de personnalisation"
+        echo ""
+        _INFO "KDE Plasma non détecté, pas de personnalisation"
     fi
 }
 
@@ -816,8 +821,7 @@ SETUP_PLM() {
         fi
         SET_PLM_WALLPAPER
     else
-        echo
-        _INFO "KDE Plasma non détectée, pas de changement du login-manager"
+        _LOG "KDE Plasma non détecté, pas de changement du login-manager"
     fi
 }
 
@@ -837,6 +841,7 @@ SETUP_ETC() {
     _LIBVIRT
     _CHRONY
     _HARDENING
+    _DISABLE_FPRINTD
 }
 
 ########################################################################################################################
@@ -907,14 +912,13 @@ ${banner}
         fi
         printf '%s\n' "Include /etc/ssh/sshd_config.d/*.conf" | sudo tee "/etc/ssh/sshd_config" > /dev/null
         # Autorisation
-        _USERAUTHSSH
+        _SSHUSERAUTH
+        # Banière
+        _SSHBANNER
         # service systemd
         _SSHSYSTEMD
         if [[ "${HARDENING,,}" = "yes" ]]; then
-            # Banière sécu
-            _SSHBANNER
-            # Prison fail2ban
-            _FAIL2BANSSH
+            _SSHFAIL2BAN
         fi
 
     else
@@ -946,7 +950,7 @@ SET_PLM_WALLPAPER() {
         if ! sudo grep -Fqx "Image=file://${dest_file}" "${configPLM}" 2>/dev/null; then
             _LOG "Ajout de la configuration wallpaper PLM"
             sudo tee -a "${configPLM}" >/dev/null <<EOF
-
+#
 # added by post-install-script jotenakis -------------------------
 [Greeter][Wallpaper][org.kde.image][General]
 Image=file://${dest_file}
@@ -961,7 +965,7 @@ EOF
             sudo cat "${configPLM}"
         } >>"${LOG_FILE}"
     else
-        _LOG "Fond d'écran custo de PLM introuvable : ${src}"
+        _LOG "Fond d'écran custo pour PLM introuvable : ${src}"
     fi
 }
 
@@ -986,17 +990,17 @@ INSTALL_FLATPAK_PACKAGES() {
 
         # 2. Ajout de Flathub s'il n'existe pas
         if ! flatpak --columns=name remotes | grep -q "^flathub$"; then
-            _RUN "Ajout du dépôt Flathub" flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+            _RUN "Ajout du dépôt Flathub" sudo flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
         else
             _INFO "Dépot flathub déjà présent"
         fi
 
         # 3. Activation de Flathub sans filtre
-        _RUNSILENT "" flatpak --verbose remote-modify --no-filter --enable flathub
+        _RUNSILENT "" sudo flatpak --verbose remote-modify --no-filter --enable flathub
 
         # 4. Vérification et suppression du dépôt Fedora
         if flatpak remotes --columns=name | grep -q "^fedora$"; then
-            _RUN "Suppression du dépôt Fedora Flatpak" flatpak --verbose remote-delete --force fedora
+            _RUN "Suppression du dépôt Fedora Flatpak" sudo flatpak --verbose remote-delete --force fedora
         else
             _LOG "Le dépôt Fedora Flatpak n'est pas présent, c'est bien."
         fi
@@ -1012,7 +1016,7 @@ INSTALL_FLATPAK_PACKAGES() {
         _LOG "Nettoyage des runtimes Flatpak orphelins"
         _RUNSILENT "" flatpak uninstall --unused -y
     else
-        _LOG "Aucun paquets Flatpak demandés"
+        _LOG "Aucun paquet Flatpak demandé"
     fi
 }
 
@@ -1020,7 +1024,6 @@ INSTALL_FLATPAK_PACKAGES() {
 
 END() {
     local duration file
-    #_DO_CLEAN
     _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
     duration=$(_CONVERT_SECONDS "$((SECONDS - START))")
     _INFO "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
@@ -1052,10 +1055,14 @@ END() {
 _JOURNALD() {
     local journald_content journald_file
     journald_file="/etc/systemd/journald.conf"
-    journald_content=$'[Journal]\nSystemMaxUse=900M\nSystemKeepFree=2G\n'
+    journald_content=$'[Journal]\nSystemMaxUse=500M\nSystemKeepFree=1G\n'
     readonly journald_file journald_content
     _LOG "* journald *"
     _INSTALL_ETC_FILES "journal système" "${journald_content}" "${journald_file}" "644"
+    if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+        _RUNSILENT "" sudo systemctl restart systemd-journald
+    fi
+
 }
 
 ########################################################################################################################
@@ -1082,7 +1089,7 @@ _MSMTP() {
         if [[ ! -f /var/log/msmtp.log ]]; then
             _LOG "config log msmtp car paquet présent"
             sudo touch /var/log/msmtp.log
-            _RUNSILENT "" sudo chmod -v 600 /var/log/msmtp.log >>"${LOG_FILE}"
+            _RUNSILENT "" bash -c "sudo chmod -v 600 /var/log/msmtp.log >>${LOG_FILE}"
             _ETC_FILES_ADD "/var/log/msmtp.log"
         fi
     fi
@@ -1091,7 +1098,7 @@ _MSMTP() {
 ########################################################################################################################
 
 _NETWORKMANAGER() {
-    local nm_dns_conf file dir restart=0
+    local nm_dns_conf file dir
     nm_dns_conf=$'[main]\ndns=systemd-resolved\n'
     dir="/etc/NetworkManager/conf.d"
     file="${dir}/99-global-dns.conf"
@@ -1104,13 +1111,9 @@ _NETWORKMANAGER() {
     else
         _OK "Configuration backend DNS de NetworkManager (${file})"
         printf '%s' "${nm_dns_conf}" | sudo tee "${file}" >/dev/null
-        _RUNSILENT "" sudo chmod -v 644 "${file}"
-        restart=1
-        _ETC_FILES_ADD "${file}"
-    fi
-
-    if [[ ${restart} -eq 1 ]]; then
+        _RUNSILENT "" bash -c "sudo chmod -v 644 ${file} >>${LOG_FILE}"
         _RUN "Redémarrage du service NetworkManager" sudo systemctl restart NetworkManager.service
+        _ETC_FILES_ADD "${file}"
     fi
 
     {
@@ -1123,7 +1126,7 @@ _NETWORKMANAGER() {
 ########################################################################################################################
 
 _SYSTEMD_RESOLVED() {
-    local resolved_10_conf dnsfile llmnrfile dir restart=0
+    local resolved_10_conf dnsfile llmnrfile
     dir="/etc/systemd/resolved.conf.d"
     dnsfile="${dir}/90-dns_servers.conf"
     llmnrfile="${dir}/10-disable-llmnr.conf"
@@ -1137,16 +1140,12 @@ _SYSTEMD_RESOLVED() {
         _OK "Configuration DNS (dans ${dir})"
         printf '%s' "${RESOLVED_DNS_SERVERS}" | sudo tee "${dnsfile}" >/dev/null
         printf '%s' "${resolved_10_conf}" | sudo tee "${llmnrfile}" >/dev/null
-        _RUNSILENT "" sudo chmod -v 644 "${dnsfile}" "${llmnrfile}"
-        restart=1
+        _RUNSILENT "" bash -c "sudo chmod -v 644 ${dnsfile} ${llmnrfile} >>${LOG_FILE}"
+        _RUN "Redémarrage du service systemd-resolved" sudo systemctl restart systemd-resolved
         _ETC_FILES_ADD "${dnsfile}"
         _ETC_FILES_ADD "${llmnrfile}"
     else
         _INFO "Configuration DNS déjà OK (dans ${dir})"
-    fi
-
-    if [[ ${restart} -eq 1 ]]; then
-        _RUN "Redémarrage du service systemd-resolved" sudo systemctl restart systemd-resolved
     fi
 
     {
@@ -1224,7 +1223,7 @@ net.ipv4.conf.default.rp_filter = 1
 # ======================================================================="
     readonly sysctlfile sysctl_header
     full_sysctl_content="${sysctl_header}
-# swappiness computed by post-install script by Jotenakis
+# swappiness computed by post-install script by Jotenakis based on RAM/ZRAM/ZSWAP
 vm.swappiness = ${swappiness}
 ${SYSCTL_CONF}
 ${nodump}
@@ -1258,7 +1257,6 @@ _BRAVEPOLICIES() {
 _IOSCHEDULER() {
     # IO scheduler NVMe = none, SSD = mq-deadline, HDD = bfq
     # Some may prefer kyber for nvme
-    #
     local rules_file rules_content
     rules_file="/etc/udev/rules.d/60-ioschedulers.rules"
     rules_content='# NVMe
@@ -1281,7 +1279,7 @@ ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queu
 ########################################################################################################################
 
 _UDEVPERSIST() {
-    # --- udev static custom rule, par exemple clé usb
+    # --- udev static custom rule, eg usb key
     _LOG "* udev persist custom *"
     if [[ -n "${UDEVRULE}" ]]; then
         local udevfilename rules_file
@@ -1304,7 +1302,7 @@ _LIBVIRT() {
     # --- Groupe libvirt ---
     _LOG "* groupe libvirt *"
 
-    if getent group libvirt >/dev/null 2>&1; then
+    if getent group libvirt >/dev/null 2>&1; then # libvirt existe
         if id -nG "${USER}" | grep -qw "libvirt"; then
             _INFO "Utilisateur ${USER} déjà dans libvirt"
         else
@@ -1336,14 +1334,14 @@ _CHRONY() {
             _RUNSILENT "" sudo systemctl try-restart chronyd
         fi
     else
-        _LOG "ipv6 n'est pas activé donc on ne change rien à chrony"
+        _LOG "ipv6 n'est pas désactivé donc on ne change rien à chrony"
     fi
 }
 
 ########################################################################################################################
 
 _DISABLE_COREDUMP(){
-    if [[ "${DISABLE_COREDUMP}" = "yes" ]]; then
+    if [[ "${DISABLE_COREDUMP,,}" = "yes" ]]; then
         local file content dir limits_file dirlimits dirprofile profile
         dir="/etc/systemd/coredump.conf.d"
         dirlimits="/etc/security/limits.d"
@@ -1352,6 +1350,7 @@ _DISABLE_COREDUMP(){
 
         _LOG "* coredump disable *"
 
+        # systemd
         file="${dir}/disable.conf"
         content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
         _INSTALL_ETC_FILES "coredump systemd" "${content}" "${file}" "644"
@@ -1360,6 +1359,7 @@ _DISABLE_COREDUMP(){
         fi
         { ls -l "${file}" ; cat "${file}" ; echo "" ; } >> "${LOG_FILE}"
 
+        # security limits
         limits_file="${dirlimits}/disable-coredump.conf"
         if ! grep -qxF "* soft core 0" "${limits_file}" 2>/dev/null; then
             printf '* soft core 0\n* hard core 0\n' | sudo tee "${limits_file}" > /dev/null
@@ -1370,6 +1370,7 @@ _DISABLE_COREDUMP(){
         fi
         { ls -l "${limits_file}" ; cat "${limits_file}" ; echo "" ; } >> "${LOG_FILE}"
 
+        # shell
         profile="${dirprofile}/coredump.sh"
         content=$'ulimit -c 0\n'
         _INSTALL_ETC_FILES "coredump shell" "${content}" "${profile}" "644"
@@ -1382,23 +1383,27 @@ _DISABLE_COREDUMP(){
 
 ########################################################################################################################
 
-_INSTALL_USER_CRONTAB(){
+_INSTALL_USER_CRONTAB(){ # sheldon update/ tldr update
     local cron_job1 cron_job2
     _LOG "* crontab ${USER} *"
     if ! _EXIST crontab; then
         _RUNSILENT "" _PKG_INSTALL cronie
     fi
-    cron_job1='0 21 * * 0 ~/.local/share/cargo/bin/sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1'
-    if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/sheldon lock --update"; then
-        _RUN "Tâche cron \"sheldon update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job1}\" ) | crontab -"
-    else
-        _INFO "Tâche cron \"sheldon update\" déjà là pour ${USER}"
+    if [[ -x ~/.local/share/cargo/bin/sheldon ]] ; then
+        cron_job1='0 21 * * * ~/.local/share/cargo/bin/sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1'
+        if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/sheldon lock --update"; then
+            _RUN "Tâche cron \"sheldon update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job1}\" ) | crontab -"
+        else
+            _INFO "Tâche cron \"sheldon update\" déjà là pour ${USER}"
+        fi
     fi
-    cron_job2='5 */4 * * * ~/.local/share/cargo/bin/tldr -u >/tmp/tldr 2>&1'
-    if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/tldr -u"; then
-        _RUN "Tâche cron \"tldr update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job2}\" ) | crontab -"
-    else
-        _INFO "Tâche cron \"tldr update\" déjà là pour ${USER}"
+    if [[ -x ~/.local/share/cargo/bin/tldr ]] ; then
+        cron_job2='5 */4 * * * ~/.local/share/cargo/bin/tldr -u >/tmp/tldr 2>&1'
+        if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/tldr -u"; then
+            _RUN "Tâche cron \"tldr update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job2}\" ) | crontab -"
+        else
+            _INFO "Tâche cron \"tldr update\" déjà là pour ${USER}"
+        fi
     fi
     _RUNSILENT "" crontab -l
 }
@@ -1412,6 +1417,8 @@ _DO_CLEAN(){
     done
     sudo rm -rf "${STATUSFILE:-}" "${LINKFILE:-}" "${DOWNLOAD_DIR:-}"
 }
+
+########################################################################################################################
 
 _DO_LOG(){
     if [[ -s "${LOG_FILE:-}" ]]; then
@@ -1432,7 +1439,6 @@ _CLEANUP() {
     _DO_LOG
 }
 
-
 ########################################################################################################################
 
 _INTERRUPT() {
@@ -1446,7 +1452,7 @@ _INTERRUPT() {
 ########################################################################################################################
 
 _HARDENING(){
-    if [[ "${HARDENING}" = "yes" ]]; then
+    if [[ "${HARDENING,,}" = "yes" ]]; then
         _LOG "* hardening : droits sur fichiers critiques *"
         local rights file dir
         dir="/etc/tmpfiles.d"
@@ -1504,7 +1510,7 @@ install atm /bin/false
 
 ########################################################################################################################
 
-_FAIL2BANSSH(){
+_SSHFAIL2BAN(){
     _LOG "* fail2ban *"
     if ! _IS_PKG_INSTALLED fail2ban; then
         _RUN "Installation de fail2ban" _PKG_INSTALL fail2ban
@@ -1517,18 +1523,18 @@ _FAIL2BANSSH(){
     new=""
     sudo mkdir -p "${jaildir}"
     jailfile="${jaildir}/sshd.local"
-    jailcontent='# created by post-install-fedora.sh by jotenakis
+    jailcontent="# created by ${SCRIPTNAME} by jotenakis
 [sshd]
 enabled   = true
 mode      = aggressive
-port      = ssh
+port      = ${SSHD_CONFIG_PORT:-22}
 filter    = sshd
 backend   = systemd
 maxretry  = 3
 findtime  = 1h
 bantime   = 24h
 banaction = firewallcmd-rich-rules
-'
+"
     _INSTALL_ETC_FILES "prison fail2ban sshd" "${jailcontent}" "${jailfile}" "644"
     if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
         new="yes"
@@ -1559,6 +1565,7 @@ _SSHSYSTEMD(){
     if _IS_ENABLED "${sshservice}"; then
         if _IS_ACTIVE "${sshservice}"; then
             _LOG "${sshservice} OK, activé et démarré"
+            _RUNSILENT "" sudo systemctl reload "${sshservice}"
         else
             _LOG "${sshservice} activé mais pas démarré"
             _RUNSILENT "" sudo systemctl start "${sshservice}"
@@ -1596,26 +1603,28 @@ _SSHBANNER(){
     fi
     _INSTALL_ETC_FILES "bannière sshd" "${banner_content}" "${banner_file}" "644"
 
-    # hardening je kill les /etc/issue* et remplace par symlink
-    local f status
-    for f in /etc/issue /etc/issue.net; do
-        _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
-        status=$(head -1 "${LINKFILE}")
-        if [[ "${status}" = "1" ]]; then
-            _RUNSILENT "" sudo rm -f "${f}"
+    if [[ "${HARDENING,,}" = "yes" ]]; then
+        # hardening je kill les /etc/issue* et remplace par symlink
+        local f status
+        for f in /etc/issue /etc/issue.net; do
             _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
-            if grep -qxF 0 "${LINKFILE}" 2>/dev/null; then
+            status=$(head -1 "${LINKFILE}")
+            if [[ "${status}" = "1" ]]; then
+                _RUNSILENT "" sudo rm -f "${f}"
+                _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
+                if grep -qxF 0 "${LINKFILE}" 2>/dev/null; then
+                    _ETC_FILES_ADD "${f}"
+                fi
+            elif [[ "${status}" = "O" ]]; then
                 _ETC_FILES_ADD "${f}"
             fi
-        elif [[ "${status}" = "O" ]]; then
-            _ETC_FILES_ADD "${f}"
-        fi
-    done
+        done
+    fi
 }
 
 ########################################################################################################################
 
-_USERAUTHSSH(){ # config sshd AllowUsers
+_SSHUSERAUTH(){ # config sshd AllowUsers
     local config_ssh_allow content_ssh_allow
     config_ssh_allow="/etc/ssh/sshd_config.d/92-AllowUsers.conf"
     content_ssh_allow="# automatically generated and managed by ${SCRIPTNAME} - can be modified to allow other users ======
@@ -1636,3 +1645,41 @@ AllowUsers ${USER}
         echo ""
     } >>"${LOG_FILE}"
 }
+
+########################################################################################################################
+
+_DISABLE_FPRINTD(){
+    if [[ "${DISABLE_FINGERPRINT}" = "yes"  ]]; then
+        local change=0
+        local status
+        local service="fprintd.service"
+
+        # PAM
+        if authselect current 2>/dev/null | grep -q 'with-fingerprint'; then
+            sudo authselect disable-feature with-fingerprint
+            sudo authselect apply-changes
+            change=1
+        else
+            _LOG "PAM n'a pas la fonction fprint activée"
+        fi
+
+        # systemd
+        status=$(systemctl is-enabled "${service}" 2>/dev/null)
+        if [[ "${status}" != "masked" ]]; then
+            sudo systemctl mask "${service}"
+            change=1
+        else
+            _LOG "status ${service} : ${status}"
+        fi
+
+        if [[ "${change}" = "1" ]]; then
+            _OK "Fonction du capteur d'empreintes désactivée"
+        else
+            _OK "Fonction du capteur d'empreintes déjà désactivée"
+        fi
+    else
+        _LOG "On ne touche pas au service de capteur d'empreintes"
+    fi
+}
+
+########################################################################################################################

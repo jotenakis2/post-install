@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
-########################################################
-#   Paramètres utilisateur de post-install-fedora.sh l  #
-########################################################
-# options yes or no ----------------------------------------------------------------------------------------------------------
+################################################################
+#   Paramètres utilisateur de post-install-fedora.sh           #
+################################################################
+
+################################################################
+# Activation/désactivation de certaines fonctions : yes/no     #
+################################################################
+
+# Note: le script ne permet un retour en arrière si l'utilisateur change d'avis !
 SUDORS="yes"                 # remplace sudo par sudo-rs
 ACTIVATE_SSHD="yes"          # activation / configuration server ssh
 ZSWAP="yes"                  # si yes, zram éventuel supprimé et remplacé par zswap avec un backend swapfile
@@ -11,11 +16,17 @@ USE_OH_MY_POSH_PROMPT="yes"  # pour télécharger oh-my-posh pour l'utilisateur 
 UPDATE_GIT_REPOS="yes"       # force une maj des repos git
 RESTOW="yes"                 # force une maj des liens symboliques des dotfiles (reSTOW)
 DISABLE_COREDUMP="yes"       # pour empécher la génération de dump mémoire en cas de crash d'une app
-DISABLE_PLYMOUTH="yes"       # pour désactiver le boot graphique (plymouth sera désinstallé) - le script ne permet pas de le réactiver si l'utilisateur change d'avis
+DISABLE_PLYMOUTH="yes"       # pour désactiver le boot graphique (plymouth sera désinstallé)
 HARDENING="yes"              # diverses robustifications de sécurité
-DISABLE_IPV6="yes"
+DISABLE_IPV6="yes"           # supprime support ipv6 dans le kernel
 DISABLE_DNF_GUI="yes"        # supprime PackageKit, gnome-logiciels, plasma-diskover, ...
+DISABLE_FINGERPRINT="yes"    # si capteur d'empreinte non supporté autant tout désactiver autour de cette fonction
 #-----------------------------------------------------------------------------------------------------------------------------
+
+
+################################################################
+# Configurations diverses                                      #
+################################################################
 
 # nom de la machine (si vide on ne change pas le nom de l'installer) ---------------------------------------------------------
 MYHOSTNAME="MyFedoraBTW"
@@ -34,7 +45,7 @@ DNF_PACKAGES=(
 
 # paquets RPM à désinstaller -------------------------------------------------------------------------------------------------
 DNF_REMOVE=(
-    rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan at
+    rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan at systemd-networkd
     plasma-drkonqi ibus imsettings maliit-keyboard abrt sudo-python-plugin sssd-common
     # fonts asiatiques
     default-fonts-cjk-mono
@@ -43,7 +54,7 @@ DNF_REMOVE=(
     default-fonts-other-mono
     default-fonts-other-sans
     default-fonts-other-serif
-    # inutile sur HP EliteBook 645 14 inch G9 Notebook PC :
+    # firmware inutile sur HP EliteBook 645 14 inch G9 Notebook PC :
     nxpwireless-firmware
     tiwilink-firmware
     brcmfmac-firmware
@@ -167,15 +178,14 @@ declare -A USER_SERVICES_TO_ENABLE=(
 
 # configuration du noyau -----------------------------------------------------------------------------------------------------
 SYSCTL_CONF='# optimisation by post-install script by jotenakis
-vm.vfs_cache_pressure = 100
+vm.vfs_cache_pressure = 50
 vm.watermark_boost_factor = 0
 vm.watermark_scale_factor = 125
 vm.page-cluster = 0
-vm.dirty_background_ratio = 2
-vm.dirty_ratio = 3
 vm.dirty_bytes = 335544320
 vm.dirty_background_bytes = 167772160
-vm.dirty_writeback_centisecs = 1500
+vm.dirty_writeback_centisecs = 1000
+vm.dirty_expire_centisecs = 2000
 net.core.somaxconn = 8192
 net.ipv4.tcp_congestion_control = bbr
 net.core.default_qdisc = fq
@@ -185,7 +195,6 @@ net.ipv4.tcp_slow_start_after_idle = 0
 kernel.task_delayacct = 1
 kernel.soft_watchdog = 0
 kernel.watchdog = 0
-vm.laptop_mode=5
 '
 #-----------------------------------------------------------------------------------------------------------------------------
 
@@ -265,8 +274,18 @@ declare -A DESTINATIONS=(
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 
+
+
+
+
+
+
+
+
+
+
 ###############################################################################################################################
-###############################################################################################################################
+# les export pour s'assurer que les variables sont accessibles                                                                #
 ###############################################################################################################################
 export DNF_PACKAGES
 export DNF_REMOVE
@@ -311,4 +330,5 @@ export DISABLE_PLYMOUTH
 export HARDENING
 export DISABLE_IPV6
 export DISABLE_DNF_GUI
+export DISABLE_FINGERPRINT
 ###############################################################################################################################
