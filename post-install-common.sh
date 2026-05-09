@@ -6,7 +6,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 readonly SCRIPTNAME="${0##*/}"
-readonly VER=33.6
+readonly VER=33.7
 
 # gestion des interruptions
 trap '_CLEANUP' ERR
@@ -1020,7 +1020,7 @@ INSTALL_FLATPAK_PACKAGES() {
 
 END() {
     local duration file
-    _DO_CLEAN
+    #_DO_CLEAN
     _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
     duration=$(_CONVERT_SECONDS "$((SECONDS - START))")
     _INFO "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
@@ -1166,7 +1166,8 @@ _KERNEL() {
     local sysctlfile sysctl_header full_sysctl_content nodump="" harden=""
     sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
     if [[ "${DISABLE_COREDUMP,,}" = "yes" ]]; then
-        nodump='fs.suid_dumpable=0
+        nodump='# no dump
+fs.suid_dumpable=0
 kernel.core_pattern=|/bin/false
 '
     fi
