@@ -5,7 +5,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=34.1
+readonly SCRIPTNAME VER=34.2
 
 # gestion des interruptions
 trap '_CLEANUP' ERR
@@ -145,14 +145,15 @@ INITIALIZE() {
     export RUSTUP_HOME="/opt/rustup"
     export CARGO_HOME="/opt/cargo"
     # GO
-    export GOPATH="/opt/go"
-    export GOBIN="/opt/go/bin"
+    export GOROOT=/opt/go
+    export GOPATH=/opt/go/workspace
+    export GOBIN=/opt/go/workspace/bin
 
     # Dossiers utilisateur requis
     _RUNSILENT "" mkdir -pv "${INSTALL_DIR}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
     # Dossiers système requis
     _RUNSILENT "" sudo mkdir -pv "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
-    _RUNSILENT "" sudo chmod -v 777 "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}"
+    _RUNSILENT "" sudo chmod -v 777 "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${GOROOT}"
     # Préparation d'une session sudo confortable et longue pour l'installation
     local sudotmp
     declare -ga SUDOTMP=()
@@ -165,7 +166,7 @@ INITIALIZE() {
     _PKG_CONFIG
 
     # PATH
-    export PATH="${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
+    export PATH="${GOROOT}/bin:${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
     #
 
     # liste des fichiers système crées ou modifiés par le script
@@ -238,9 +239,6 @@ INSTALL_GO_PACKAGES() {
 
         local pkg current="" latest="" arch="" os="" gofile=""
 
-        if [[ ! "${PATH}" =~ "/usr/local/go/bin" ]]; then
-            export PATH="/usr/local/go/bin:${PATH}"
-        fi
         if _EXIST go; then
             current="$(go version | awk '{print $3}' || true)"
         fi
@@ -253,10 +251,13 @@ INSTALL_GO_PACKAGES() {
             _LOG "la toolchain GO est à jour (${latest})"
         else
             _RUNSILENT "" curl -LO "https://go.dev/dl/${gofile}"
-            _RUNSILENT "" sudo rm -rvf /usr/local/go
-            _RUN "Installation de la toolchain GO (${latest})" sudo tar -C /usr/local -xzf "${gofile}"
+            _RUN "Installation de la toolchain GO (${latest})" sudo tar -C /opt -xzf "${gofile}"
             _RUNSILENT "" rm -vf "${gofile}"
         fi
+        _RUNSILENT "" _SYMLINK "${GOROOT}/bin/go" "/usr/local/bin/go"
+        _RUNSILENT "" _SYMLINK "${GOROOT}/bin/gofmt" "/usr/local/bin/gofmt"
+        _RUNSILENT "" go telemetry off
+        _RUNSILENT "" sudo go telemetry off
 
         if _EXIST go; then
             local -a missing=()
@@ -1392,16 +1393,16 @@ _INSTALL_USER_CRONTAB(){ # sheldon update/ tldr update
         _RUNSILENT "" _PKG_INSTALL cronie
     fi
     if [[ -x ~/.local/share/cargo/bin/sheldon ]] ; then
-        cron_job1='0 21 * * * ~/.local/share/cargo/bin/sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1'
-        if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/sheldon lock --update"; then
+        cron_job1='0 21 * * * sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1'
+        if ! crontab -l 2>/dev/null | grep -qF "sheldon lock --update"; then
             _RUN "Tâche cron \"sheldon update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job1}\" ) | crontab -"
         else
             _INFO "Tâche cron \"sheldon update\" déjà là pour ${USER}"
         fi
     fi
     if [[ -x ~/.local/share/cargo/bin/tldr ]] ; then
-        cron_job2='5 */4 * * * ~/.local/share/cargo/bin/tldr -u >/tmp/tldr 2>&1'
-        if ! crontab -l 2>/dev/null | grep -qF ".local/share/cargo/bin/tldr -u"; then
+        cron_job2='5 */4 * * * tldr -u >/tmp/tldr 2>&1'
+        if ! crontab -l 2>/dev/null | grep -qF "tldr -u"; then
             _RUN "Tâche cron \"tldr update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job2}\" ) | crontab -"
         else
             _INFO "Tâche cron \"tldr update\" déjà là pour ${USER}"

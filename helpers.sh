@@ -491,9 +491,9 @@ _ETC_FILES_ADD() {
 _PRINT_ETC_FILES() {
     if [[ -n "${ETC_FILES[*]}" ]]; then
         local item list file hr
-        file="list-of-system-files-created-or-modified-by-${SCRIPTNAME}"
+        file="list-of-system-files-created-or-modified-by-${SCRIPTNAME}.log"
         list=$(_FORMAT_LIST "${ETC_FILES[@]}")
-        hr="$(date +%Y%m%d-%H%M%S)"
+        hr="$(date +%d_%m_%Y-%H.%M.%S)"
         _INFO "Fichiers système crées ou modifiés : "
         _PRINT_LIST "${list}"
         echo "${list}" >> "${LOG_FILE:-/dev/null}"
