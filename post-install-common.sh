@@ -117,8 +117,7 @@ INITIALIZE() {
     LOG_DIR="${HOME}/.local/log"
     logsuffix="$(date +%d_%m_%Y-%H.%M.%S)"
     LOG_FILE="${LOG_DIR}/${SCRIPTNAME}-${logsuffix}.log"
-    INSTALL_DIR="${HOME}/.local/bin"
-    export LOG_DIR LOG_FILE INSTALL_DIR
+    export LOG_DIR LOG_FILE
     mkdir -p "${LOG_DIR}" ; true > "${LOG_FILE}"
     #
 
@@ -150,7 +149,7 @@ INITIALIZE() {
     export GOBIN=/opt/go/workspace/bin
 
     # Dossiers utilisateur requis
-    _RUNSILENT "" mkdir -pv "${INSTALL_DIR}" "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
+    _RUNSILENT "" mkdir -pv "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
     # Dossiers système requis
     _RUNSILENT "" sudo mkdir -pv "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
     _RUNSILENT "" sudo chmod -v 777 "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${GOROOT}"
@@ -166,7 +165,7 @@ INITIALIZE() {
     _PKG_CONFIG
 
     # PATH
-    export PATH="${GOROOT}/bin:${GOBIN}:${CARGO_HOME}/bin:${INSTALL_DIR}:${PATH}"
+    export PATH="${GOROOT}/bin:${GOBIN}:${CARGO_HOME}/bin:${PATH}"
     #
 
     # liste des fichiers système crées ou modifiés par le script
@@ -188,14 +187,14 @@ INSTALL_CARGO_PACKAGES() {
             if echo "${check}" | grep -q "update available"; then
                 version=$(echo "${check}" | awk -F ":" '{print $2}' | xargs)
                 _RUN "Mise à jour de la toolchain RUST (${version})" rustup update stable
-                _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo" "/usr/local/bin/cargo"
             else
                 _LOG "la toolchain rust est à jour"
             fi
         else
             _RUN "Installation de la toolchain RUST" bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
-            _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo" "/usr/local/bin/cargo"
         fi
+        _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo" "/usr/local/bin/cargo"
+        _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/rustup" "/usr/local/bin/rustup"
 
         # 1. Installation de cargo-binstall sans compilation
         if ! _EXIST cargo-binstall; then
@@ -392,7 +391,8 @@ SETUP_SHELL() {
 
         if [[ "${no_ohmyposh}" = 0 ]]; then
             local omp_url="https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/${omp_target}"
-            local omp_bin="${INSTALL_DIR}/oh-my-posh"
+            local install_dir="${HOME}/.local/bin"
+            local omp_bin="${install_dir}/oh-my-posh"
             if _EXIST oh-my-posh; then
                 local check
                 check=$(oh-my-posh notice)
@@ -404,6 +404,7 @@ SETUP_SHELL() {
             else
                 _RUN "Téléchargement du binaire Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
                 _RUNSILENT "" chmod 777 -v "${omp_bin}"
+                _RUNSILENT "" _SYMLINK "${omp_bin}" "/usr/local/bin/oh-my-posh"
             fi
         fi
     fi
