@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # TODO sshd : email quand conn.
 #      cachyos kernel
+#      swap : verif si partition swap existe avant de créer un swapfile, verif avant maj fstab aussi
 # shellcheck disable=SC2310
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=34.3
+readonly SCRIPTNAME VER=34.5
+# liste des swaps disk
+declare -A SWAPS
 
 # gestion des interruptions
 trap '_CLEANUP' ERR
@@ -17,10 +20,10 @@ trap '_DO_CLEAN' EXIT
 source ./settings.sh                                                              #
 ###################################################################################
 
+source ./helpers.sh
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
     args=${1:-}
-    source ./helpers.sh
     _ENABLE_COLORS
     CHECK
     INITIALIZE
@@ -64,6 +67,7 @@ MAINMODE() {
     SETUP_SSHD
     SETUP_FSTAB
     SETUP_GRUB
+    SETUP_ENV_DEV
     SETUP_KDE_PLASMA
     SETUP_PLM
     SETUP_DATA
@@ -141,8 +145,8 @@ INITIALIZE() {
     INSTALL_DEPS
 
     # RUST
-    export RUSTUP_HOME="/opt/rustup"
-    export CARGO_HOME="/opt/cargo"
+    export RUSTUP_HOME=/opt/rustup
+    export CARGO_HOME=/opt/cargo
     # GO
     export GOROOT=/opt/go
     export GOPATH=/opt/go/workspace
@@ -169,7 +173,8 @@ INITIALIZE() {
     #
 
     # liste des fichiers système crées ou modifiés par le script
-    declare -a ETC_FILES=()
+    declare -ga ETC_FILES=()
+
     # liste des fichiers user crées ou modifiés par le script
 #    declare -a HOME_FILES=()
 
@@ -410,7 +415,8 @@ SETUP_SHELL() {
         fi
     fi
     _INSTALL_USER_CRONTAB
-}
+
+   }
 
 ########################################################################################################################
 SETUP_DOTFILES() {
@@ -512,19 +518,22 @@ SETUP_FSTAB() {
     # SWAPFILE
     if [[ "${ZSWAP,,}" = "yes" ]]; then
         local swapdir="/var/swap"
-        if ! grep -q "${swapdir}/swapfile" /etc/fstab; then
-            if [[ ! -f /etc/fstab.origin ]]; then
-                _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
+        local swapfile="${swapdir}/swapfile"
+        if [[ -f "${swapfile}" ]]; then # on check qu'on a bien un fichier swap soit crée lors de l'install soit par SETUP_SWAP
+            if ! grep -q "${swapfile}" /etc/fstab; then
+                if [[ ! -f /etc/fstab.origin ]]; then
+                    _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
+                fi
+                _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.bak.swap
+                _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap sw,nofail 0 0 | sudo tee -a ${fstab}"
+                _ETC_FILES_ADD "${fstab}"
+                dr="yes"
+            else
+                _INFO "Swap déjà présent dans ${fstab}"
             fi
-            _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.bak.swap
-            _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap sw,nofail 0 0 | sudo tee -a ${fstab}"
-            _ETC_FILES_ADD "${fstab}"
-            dr="yes"
-        else
-            _INFO "Swap déjà présent dans ${fstab}"
         fi
     else
-        _LOG "Pas de zswap demandé on ne fait pas de swapfile."
+        _LOG "Pas de zswap demandé on n'a pas fait de swapfile à ajouter au fstab"
     fi
 
     # --- Optimisations Fstab (noatime, lazytime) ---
@@ -552,8 +561,16 @@ SETUP_FSTAB() {
             if [[ ! ",${opts}," =~ ,lazytime, ]]; then
                 opts="${opts},lazytime"
             fi
-            if [[ ! ",${opts}," =~ ,commit=120, ]] && [[ "${fs}" = "ext4" ]]; then
-                opts="${opts},commit=120"
+            # if [[ ! ",${opts}," =~ ,commit=120, ]] && [[ "${fs}" = "ext4" ]]; then
+            #     opts="${opts},commit=120"
+            # fi
+            if [[ "${fs}" = "ext4" ]]; then
+                if [[ "${opts}" =~ commit=[0-9]+ ]]; then
+                    # shellcheck disable=SC2001
+                    opts=$(sed 's/commit=[0-9]*/commit=120/' <<< "${opts}")
+                else
+                    opts="${opts},commit=120"
+                fi
             fi
             if [[ "${orig_opts}" != "${opts}" ]]; then
                 fstab_changed=true
@@ -1689,3 +1706,49 @@ _DISABLE_FPRINTD(){
 }
 
 ########################################################################################################################
+
+SETUP_ENV_DEV(){
+    local envcontent envfile envdir
+
+# ENV GO/RUST local pour systemd
+    envcontent="RUSTUP_HOME=${RUSTUP_HOME}
+CARGO_HOME=${CARGO_HOME}
+GOROOT=${GOROOT}
+GOPATH=${GOPATH}
+GOBIN=${GOBIN}
+PATH=${CARGO_HOME}/bin:${GOROOT}/bin:${GOBIN}:\$PATH
+"
+    envdir="${HOME}/.config/environment.d"
+    envfile="${envdir}/dev-env.conf"
+    mkdir -p "${envdir}"
+    _INSTALL_ETC_FILES "Variable d'environment GO et RUST pour systemd (${USER})" "${envcontent}" "${envfile}" "644"
+    _RUNSILENT "" sudo chown "${USER}":"${USER}" "${envfile}"
+
+# ENV GO/RUST pour systemd system-wide
+    envcontent="[Manager]
+DefaultEnvironment=RUSTUP_HOME=${RUSTUP_HOME} \
+                   CARGO_HOME=${CARGO_HOME} \
+                   GOROOT=${GOROOT} \
+                   GOPATH=${GOPATH} \
+                   GOBIN=${GOBIN}
+"
+    envdir="/etc/systemd/system.conf.d"
+    envfile="${envdir}/dev-env.conf"
+    sudo mkdir -p "${envdir}"
+    _INSTALL_ETC_FILES "Variable d'environment GO et RUST pour systemd (système)" "${envcontent}" "${envfile}" "644"
+
+# ENV GO/RUST local pour shells interactifs
+    envcontent="#!/bin/bash
+export RUSTUP_HOME=\"${RUSTUP_HOME}\"
+export CARGO_HOME=\"${CARGO_HOME}\"
+export GOROOT=\"${GOROOT}\"
+export GOPATH=\"${GOPATH}\"
+export GOBIN=\"${GOBIN}\"
+export PATH=\"\$PATH:\$CARGO_HOME/bin:\$GOROOT/bin:\$GOBIN\"
+"
+    envdir="/etc/profile.d"
+    envfile="${envdir}/dev-env.sh"
+    sudo mkdir -p "${envdir}"
+    _INSTALL_ETC_FILES "Variable d'environment GO et RUST pour les shells interactifs (système)" "${envcontent}" "${envfile}" "644"
+
+}

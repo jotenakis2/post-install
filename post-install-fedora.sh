@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
+# shellcheck source=./post-install-common.sh
 source ./post-install-common.sh # fonctions distro-agnostique
 
 ########################################################################################################################
@@ -364,6 +365,16 @@ SETUP_FIREWALL() {
 SETUP_SWAP() { # que si zswap est demandé
     if [[ "${ZSWAP,,}" = "yes" ]]; then
         _LOG "* swap *"
+        _GET_SWAP # récupère les swap disk part ou file dans le tableau associatif SWAPS
+        if [[ "${#SWAPS[@]}" -gt 0 ]]; then
+                local swappath allswap=""
+                for swappath in "${!SWAPS[@]}"; do
+                    allswap="${allswap:+${allswap} }${swappath}"
+                done
+            _LOG "Au moins un swap sur disque a été détecté (${allswap}), pas nécessaire d'en construire un autre"
+            return 0
+        fi
+
         local target_size ram_total_kib SWAP_SIZE SWAP_MAX
         local recreate_swap=false
         local swapdir="/var/swap"
@@ -445,13 +456,12 @@ SETUP_SWAP() { # que si zswap est demandé
             _RUNSILENT "" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
             _RUNSILENT "" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
             _RUN "Installation du module SELinux systemd_swap_search" sudo semodule -i "${selinux_tmp}.pp"
-
-            _RUNSILENT "" rm -fv "${selinux_tmp}.*"
+            sudo rm -f "${selinux_tmp}.te" "${selinux_tmp}.mod" "${selinux_tmp}.pp"
         else
             _LOG "Le module SELinux systemd_swap_search est déjà actif"
         fi
     else
-        _LOG "zswap n'est pas demandé (variable ZSWAP = ${ZSWAP,,}) => on ne crée pas de swap physique."
+        _LOG "zswap n'est pas demandé (variable ZSWAP = ${ZSWAP,,}) => on ne crée pas de swap physique"
     fi
 }
 
