@@ -393,6 +393,7 @@ SETUP_SHELL() {
             local omp_url="https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/${omp_target}"
             local install_dir="${HOME}/.local/bin"
             local omp_bin="${install_dir}/oh-my-posh"
+            mkdir -p "${install_dir}"
             if _EXIST oh-my-posh; then
                 local check
                 check=$(oh-my-posh notice)
