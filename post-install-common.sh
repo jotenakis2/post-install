@@ -764,8 +764,8 @@ SETUP_KDE_PLASMA() {
         # Avatar
         local avatar
         avatar="/usr/share/plasma/avatars/photos/Cocktail.png"
-        if [[ ! -f /var/lib/AccountsService/icons/"${USER}" ]]; then
-            _RUN "Avatar (Cocktail) pour ${USER}" sudo cp -v "${avatar}" /var/lib/AccountsService/icons/"${USER}"
+        if [[ ! -f /var/lib/AccountsService/icons/"${USER}" ]] && [[ -f "${avatar}" ]]; then
+            _RUN "Avatar pour ${USER} (${avatar##*/})" sudo cp -v "${avatar}" /var/lib/AccountsService/icons/"${USER}"
         fi
         # on redémarre l'interface pour appliquer de suite.
         if pgrep plasmashell >/dev/null 2>&1; then
@@ -1394,7 +1394,7 @@ _INSTALL_USER_CRONTAB(){ # sheldon update/ tldr update
     if ! _EXIST crontab; then
         _RUNSILENT "" _PKG_INSTALL cronie
     fi
-    if command -v sheldon 2>/dev/null ; then
+    if _EXIST sheldon; then
         cron_job1='0 21 * * * sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1'
         if ! crontab -l 2>/dev/null | grep -qF "sheldon lock --update"; then
             _RUN "Tâche cron \"sheldon update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job1}\" ) | crontab -"
@@ -1402,7 +1402,7 @@ _INSTALL_USER_CRONTAB(){ # sheldon update/ tldr update
             _INFO "Tâche cron \"sheldon update\" déjà là pour ${USER}"
         fi
     fi
-    if command -v tldr 2>/dev/null ; then
+    if _EXIST tldr; then
         cron_job2='5 */4 * * * tldr -u >/tmp/tldr 2>&1'
         if ! crontab -l 2>/dev/null | grep -qF "tldr -u"; then
             _RUN "Tâche cron \"tldr update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job2}\" ) | crontab -"
