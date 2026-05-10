@@ -1721,21 +1721,17 @@ PATH=${CARGO_HOME}/bin:${GOROOT}/bin:${GOBIN}:\$PATH
     envdir="${HOME}/.config/environment.d"
     envfile="${envdir}/dev-env.conf"
     mkdir -p "${envdir}"
-    _INSTALL_ETC_FILES "Variable d'environment GO et RUST pour systemd (${USER})" "${envcontent}" "${envfile}" "644"
+    _INSTALL_ETC_FILES "Environment GO et RUST pour systemd (${USER})" "${envcontent}" "${envfile}" "644"
     _RUNSILENT "" sudo chown "${USER}":"${USER}" "${envfile}"
 
 # ENV GO/RUST pour systemd system-wide
     envcontent="[Manager]
-DefaultEnvironment=RUSTUP_HOME=${RUSTUP_HOME} \
-                   CARGO_HOME=${CARGO_HOME} \
-                   GOROOT=${GOROOT} \
-                   GOPATH=${GOPATH} \
-                   GOBIN=${GOBIN}
+DefaultEnvironment=RUSTUP_HOME=${RUSTUP_HOME} CARGO_HOME=${CARGO_HOME} GOROOT=${GOROOT} GOPATH=${GOPATH} GOBIN=${GOBIN}
 "
     envdir="/etc/systemd/system.conf.d"
     envfile="${envdir}/dev-env.conf"
     sudo mkdir -p "${envdir}"
-    _INSTALL_ETC_FILES "Variable d'environment GO et RUST pour systemd (système)" "${envcontent}" "${envfile}" "644"
+    _INSTALL_ETC_FILES "Environment GO et RUST pour systemd (système)" "${envcontent}" "${envfile}" "644"
 
 # ENV GO/RUST local pour shells interactifs
     envcontent="#!/bin/bash
@@ -1749,6 +1745,6 @@ export PATH=\"\$PATH:\$CARGO_HOME/bin:\$GOROOT/bin:\$GOBIN\"
     envdir="/etc/profile.d"
     envfile="${envdir}/dev-env.sh"
     sudo mkdir -p "${envdir}"
-    _INSTALL_ETC_FILES "Variable d'environment GO et RUST pour les shells interactifs (système)" "${envcontent}" "${envfile}" "644"
+    _INSTALL_ETC_FILES "Environment GO et RUST pour les shells interactifs (système)" "${envcontent}" "${envfile}" "644"
 
 }
