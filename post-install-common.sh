@@ -1395,7 +1395,7 @@ _INSTALL_USER_CRONTAB(){ # sheldon update/ tldr update
         _RUNSILENT "" _PKG_INSTALL cronie
     fi
     if _EXIST sheldon; then
-        cron_job1='0 21 * * * sheldon lock --update >> /tmp/sheldon_update.log 2>&1'
+        cron_job1='0 21 * * * sheldon lock --update >/tmp/sheldon_update.log 2>&1'
         if ! crontab -l 2>/dev/null | grep -qF "sheldon lock --update"; then
             _RUN "Tâche cron \"sheldon update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job1}\" ) | crontab -"
         else
