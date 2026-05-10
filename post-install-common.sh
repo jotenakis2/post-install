@@ -1394,7 +1394,7 @@ _INSTALL_USER_CRONTAB(){ # sheldon update/ tldr update
     if ! _EXIST crontab; then
         _RUNSILENT "" _PKG_INSTALL cronie
     fi
-    if [[ -x ~/.local/share/cargo/bin/sheldon ]] ; then
+    if command -v sheldon 2>/dev/null ; then
         cron_job1='0 21 * * * sheldon lock --update >> ~/.local/share/sheldon/update.log 2>&1'
         if ! crontab -l 2>/dev/null | grep -qF "sheldon lock --update"; then
             _RUN "Tâche cron \"sheldon update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job1}\" ) | crontab -"
@@ -1402,7 +1402,7 @@ _INSTALL_USER_CRONTAB(){ # sheldon update/ tldr update
             _INFO "Tâche cron \"sheldon update\" déjà là pour ${USER}"
         fi
     fi
-    if [[ -x ~/.local/share/cargo/bin/tldr ]] ; then
+    if command -v tldr 2>/dev/null ; then
         cron_job2='5 */4 * * * tldr -u >/tmp/tldr 2>&1'
         if ! crontab -l 2>/dev/null | grep -qF "tldr -u"; then
             _RUN "Tâche cron \"tldr update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job2}\" ) | crontab -"
