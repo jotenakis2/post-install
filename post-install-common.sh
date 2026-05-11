@@ -652,7 +652,7 @@ SETUP_DATA() {
         if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
             local profil file cmd ffile
             for profil in "${!DESTINATIONS[@]}"; do
-                cmd=${COMMANDS["${profil}"]}
+                cmd=${COMMANDS["${profil}"]:-}
                 # on récupère la sauvegarde la plus récente dans le dossier SOURCE pour le profil ${profil}
                 file=$(find "${SOURCE}" -maxdepth 1 -name "${profil}_*.tar.gz" -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2- || true)
                 if [[ -n "${cmd}" ]] && pgrep -x "${cmd}" >/dev/null; then

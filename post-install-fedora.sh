@@ -714,6 +714,9 @@ INSTALL_CACHYOS_KERNEL() {
     if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]]; then
         _SECTION " Installation du noyau Linux de cachyOS " "━" "${C_GREEN}"
         _RUN "Installation du noyau Linux de cachyos" _PKG_INSTALL kernel-cachyos{,-core,-devel{,-matched},-modules}
+        local linux
+        linux=$(ls /boot | grep vmlinuz.*cachy | sort -V | tail -1)
+        grubby --set-default=/boot/"${linux}"
     fi
 }
 
