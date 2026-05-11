@@ -21,7 +21,7 @@ HARDENING="yes"              # diverses robustifications de sécurité
 DISABLE_IPV6="yes"           # supprime support ipv6 dans le kernel
 DISABLE_DNF_GUI="yes"        # supprime PackageKit, gnome-logiciels, plasma-diskover, ...
 DISABLE_FINGERPRINT="yes"    # si capteur d'empreinte non supporté autant tout désactiver autour de cette fonction
-ENABLE_CACHYOS_KERNEL="yes"  #
+ENABLE_CACHYOS_KERNEL="yes"  # installation/configuration du noyau optimisé de cachyOS (copr fedora)
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
@@ -260,15 +260,9 @@ SOURCE="/media/NAS/backup/data2restore"
 declare -A COMMANDS=(
     ["FIREFOX"]="firefox"
     ["BRAVE"]="brave"
-    ["SSH"]=""
     ["IPTVNATOR"]="iptvnator.bin"
-    ["SSHMANAGER"]=""
     ["HELIUM"]="helium"
-    ["MSMTP"]=""
-    ["MOK"]=""
     ["DISCORD"]="vesktop"
-    ["IMAGES"]=""
-    ["DOCUMENTS"]=""
     # Ajoute les liens binaires à tuer avant de restaurer pour chaque PROFIL (important pour les navigateurs)
 )
 

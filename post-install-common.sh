@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 # TODO sshd : email quand conn.
 #      cachyos kernel
-#      swap : verif si partition swap existe avant de créer un swapfile, verif avant maj fstab aussi
+#      swap : verif si partition swap existe avant de créer un swapfile, verif avant maj fstab aussi - FAIT mais à contrôler.
 # shellcheck disable=SC2310
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=35.0
+readonly SCRIPTNAME VER=35.1
 # liste des swaps disk
 declare -A SWAPS
 
-# gestion des interruptions
+# gestion des interruptions et sourcing des fonctions bas niveau ______
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 trap '_DO_CLEAN' EXIT
-#
+source ./helpers.sh
+# _____________________________________________________________________
 
 # paramètres utilisateurs définis dans settings.sh ################################
 source ./settings.sh                                                              #
 ###################################################################################
 
-source ./helpers.sh
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
     args=${1:-}
@@ -50,6 +50,7 @@ MAINMODE() {
     # remove/install
     REMOVE_SYSTEM_PACKAGES
     INSTALL_REPOS
+    INSTALL_CACHYOS_KERNEL
     INSTALL_SYSTEM_PACKAGES
     INSTALL_FONTS
     INSTALL_CODECS
@@ -61,13 +62,14 @@ MAINMODE() {
     SETUP_SHELL
     SETUP_DOTFILES
     SETUP_ETC
+    _SETUP_ENV_DEV
     SETUP_SYSTEMD
     SETUP_FIREWALL
     SETUP_SWAP
     SETUP_SSHD
     SETUP_FSTAB
+    #SETUP_CACHYOS_KERNEL
     SETUP_GRUB
-    SETUP_ENV_DEV
     SETUP_KDE_PLASMA
     SETUP_PLM
     SETUP_DATA
@@ -1713,7 +1715,7 @@ _DISABLE_FPRINTD(){
 
 ########################################################################################################################
 
-SETUP_ENV_DEV(){
+_SETUP_ENV_DEV(){
     local envcontent envfile envdir
 
 # ENV GO/RUST local pour systemd
@@ -1754,3 +1756,4 @@ export PATH=\"\$PATH:\$CARGO_HOME/bin:\$GOROOT/bin:\$GOBIN\"
     _INSTALL_ETC_FILES "Environment GO et RUST pour les shells interactifs (système)" "${envcontent}" "${envfile}" "644"
 
 }
+
