@@ -6,7 +6,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=35.2
+readonly SCRIPTNAME VER=35.3
 
 # gestion des interruptions et sourcing des fonctions bas niveau ______
 trap '_CLEANUP' ERR

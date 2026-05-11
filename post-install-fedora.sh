@@ -270,7 +270,18 @@ INSTALL_CODECS() {
 INSTALL_SYSTEM_PACKAGES() {
     if [[ "${SYSTEM_PACKAGES[*]}" != "" ]]; then
         _SECTION " Installation des paquets systèmes personnalisés " "━" "${C_GREEN}"
+
+        if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]]; then
+            _LOG " Installation du noyau Linux de cachyOS " "━" "${C_GREEN}"
+            if ! _IN_ARRAY kernel-cachyos-core           "${SYSTEM_PACKAGES[@]}" ; then SYSTEM_PACKAGES+=("kernel-cachyos-core")          ; fi
+            if ! _IN_ARRAY kernel-cachyos-devel          "${SYSTEM_PACKAGES[@]}" ; then SYSTEM_PACKAGES+=("kernel-cachyos-devel")         ; fi
+            if ! _IN_ARRAY kernel-cachyos-devel-matched  "${SYSTEM_PACKAGES[@]}" ; then SYSTEM_PACKAGES+=("kernel-cachyos-devel-matched") ; fi
+            if ! _IN_ARRAY kernel-cachyos-modules        "${SYSTEM_PACKAGES[@]}" ; then SYSTEM_PACKAGES+=("kernel-cachyos-modules")       ; fi
+            if ! _IN_ARRAY kernel-cachyos                "${SYSTEM_PACKAGES[@]}" ; then SYSTEM_PACKAGES+=("kernel-cachyos")               ; fi
+        fi
+
         _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${SYSTEM_PACKAGES[@]}"
+
     else
         _LOG "Aucun paquets systèmes additionnels demandés"
     fi
@@ -709,18 +720,6 @@ _REFRESH_SYS_CACHE() {
         sudo touch "${sentinel}"
     else
         _LOG "Cache DNF à jour (${age}s < ${max_age}s)"
-    fi
-}
-
-########################################################################################################################
-
-INSTALL_CACHYOS_KERNEL() {
-    if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]]; then
-        _SECTION " Installation du noyau Linux de cachyOS " "━" "${C_GREEN}"
-        _RUN "Installation du noyau Linux de cachyos" _PKG_INSTALL kernel-cachyos{,-core,-devel{,-matched},-modules}
-        #local linux
-        #linux=$(ls /boot | grep vmlinuz.*cachy | sort -V | tail -1)
-        #grubby --set-default=/boot/"${linux}"
     fi
 }
 
