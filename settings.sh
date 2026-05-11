@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+XDG_PICTURES_DIR="$(xdg-user-dir PICTURES)"
+XDG_DOCUMENTS_DIR="$(xdg-user-dir DOCUMENTS)"
+
 ################################################################
 #   Paramètres utilisateur de post-install-fedora.sh           #
 ################################################################
@@ -338,4 +341,7 @@ export DISABLE_IPV6
 export DISABLE_DNF_GUI
 export DISABLE_FINGERPRINT
 export ENABLE_CACHYOS_KERNEL
+export XDG_PICTURES_DIR
+export XDG_DOCUMENTS_DIR
+
 ###############################################################################################################################

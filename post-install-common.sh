@@ -6,7 +6,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=35.3
+readonly SCRIPTNAME VER=35.4
 
 # gestion des interruptions et sourcing des fonctions bas niveau ______
 trap '_CLEANUP' ERR
@@ -643,9 +643,7 @@ SETUP_DATA() {
         if ! _IS_PKG_INSTALLED xdg-user-dirs ; then
             _RUNSILENT "" _PKG_INSTALL xdg-user-dirs
         fi
-        XDG_PICTURES_DIR="$(xdg-user-dir PICTURES)"
-        XDG_DOCUMENTS_DIR="$(xdg-user-dir DOCUMENTS)"
-        export XDG_PICTURES_DIR XDG_DOCUMENTS_DIR
+
         if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
             local profil file cmd ffile
             for profil in "${!DESTINATIONS[@]}"; do
