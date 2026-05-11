@@ -145,15 +145,16 @@ INSTALL_REPOS() {
 
     if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]]; then
         _LOG "* repos copr cachyos *"
-        local repo1="bieszczaders/kernel-cachyos"
-        local repo2="bieszczaders/kernel-cachyos-addons"
-        if dnf repolist 2>/dev/null | grep -q "${repo1}"; then
+        local repo1 repo2
+        repo1="bieszczaders/kernel-cachyos"
+        repo2="bieszczaders/kernel-cachyos-addons"
+        if dnf repolist 2>/dev/null | grep -q "${repo1//\//:}"; then
             _INFO "Dépôt COPR ${repo1} déjà présent"
         else
             _RUN "Ajout du dépôt COPR ${repo1}" sudo dnf copr enable -y "${repo1}"
             cache=1
         fi
-        if dnf repolist 2>/dev/null | grep -q "${repo2}"; then
+        if dnf repolist 2>/dev/null | grep -q "${repo2//\//:}"; then
             _INFO "Dépôt COPR ${repo2} déjà présent"
         else
             _RUN "Ajout du dépôt COPR ${repo2}" sudo dnf copr enable -y "${repo2}"
@@ -714,9 +715,9 @@ INSTALL_CACHYOS_KERNEL() {
     if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]]; then
         _SECTION " Installation du noyau Linux de cachyOS " "━" "${C_GREEN}"
         _RUN "Installation du noyau Linux de cachyos" _PKG_INSTALL kernel-cachyos{,-core,-devel{,-matched},-modules}
-        local linux
-        linux=$(ls /boot | grep vmlinuz.*cachy | sort -V | tail -1)
-        grubby --set-default=/boot/"${linux}"
+        #local linux
+        #linux=$(ls /boot | grep vmlinuz.*cachy | sort -V | tail -1)
+        #grubby --set-default=/boot/"${linux}"
     fi
 }
 
