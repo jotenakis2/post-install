@@ -283,6 +283,8 @@ SETUP_GRUB() {
 
     if [[ "${is_grub}" == "true" ]]; then
         local is_grub zswap="" ipv6="" plymouth=""
+        # pour forcer l'affichage du menu des noyaux au boot
+        _RUNSILENT "" sudo grub2-editenv - unset menu_auto_hide
 
         if [[ "${ZSWAP,,}" = "yes" ]]; then
             zswap="zswap.enabled=1 zswap.compressor=zstd"
@@ -323,20 +325,18 @@ SETUP_GRUB() {
             else
                 _RUN "Délai GRUB 2 sec (/etc/default/grub)" sudo bash -c "echo 'GRUB_TIMEOUT=2' >> /etc/default/grub"
             fi
-
             _RUN "Regénération de la configuration de GRUB" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
             _LOG "sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
             _ETC_FILES_ADD "/etc/default/grub"
         else
             _INFO "GRUB déjà OK (/etc/default/grub)"
         fi
-        _RUNSILENT "" sudo grub2-editenv - unset menu_auto_hide
         {
             sudo ls -l /etc/default/grub
             sudo cat /etc/default/grub
         } >>"${LOG_FILE}"
     else
-        _ERR "GRUB n'a pas été détecté, je ne change rien au bootloader."
+        _ERR "GRUB n'a pas été détecté, par prudence je ne change rien au bootloader actuel"
     fi
 }
 
