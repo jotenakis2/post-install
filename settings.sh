@@ -283,8 +283,8 @@ declare -A DESTINATIONS=(
     ["MSMTP"]="${HOME}/.config/msmtp"
     ["MOK"]="${HOME}/mok-cachyos"
     ["DISCORD"]="${HOME}/.config/vesktop"
-    ["IMAGES"]="${XDG_PICTURES_DIR}"
-    ["DOCUMENTS"]="${XDG_DOCUMENTS_DIR}"
+    ["IMAGES"]="${XDG_PICTURES_DIR:-}"
+    ["DOCUMENTS"]="${XDG_DOCUMENTS_DIR:-}"
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 
