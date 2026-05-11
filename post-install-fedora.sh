@@ -3,7 +3,7 @@
 set -euo pipefail
 # shellcheck source=./post-install-common.sh
 source ./post-install-common.sh # fonctions distro-agnostique
-declare -A SWAPS
+declare -A SWAPS=()
 
 ########################################################################################################################
 # FONCTIONS SPECIFIQUES FEDORA                                                                                         #
@@ -388,7 +388,7 @@ SETUP_SWAP() { # que si zswap est demandé
     if [[ "${ZSWAP,,}" = "yes" ]]; then
         _LOG "* swap *"
         _GET_SWAP # récupère les swap disk part ou file dans le tableau associatif SWAPS
-        if [[ "${#SWAPS[@]:-}" -gt 0 ]]; then
+        if [[ "${#SWAPS[@]}" -gt 0 ]]; then
             local swappath allswap=""
             for swappath in "${!SWAPS[@]}"; do
                 allswap="${allswap:+${allswap} }${swappath}"
