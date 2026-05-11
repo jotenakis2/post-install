@@ -6,7 +6,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=34.5
+readonly SCRIPTNAME VER=35.0
 # liste des swaps disk
 declare -A SWAPS
 
@@ -48,9 +48,9 @@ MAINMODE() {
     _RUN "Mise à jour du système" _SYS_UPDATE
     SETUP_SUDO_RS
     # remove/install
-    REMOVE_RPM_PACKAGES
+    REMOVE_SYSTEM_PACKAGES
     INSTALL_REPOS
-    INSTALL_RPM_PACKAGES
+    INSTALL_SYSTEM_PACKAGES
     INSTALL_FONTS
     INSTALL_CODECS
     INSTALL_CARGO_PACKAGES
@@ -183,7 +183,7 @@ INITIALIZE() {
 ########################################################################################################################
 INSTALL_CARGO_PACKAGES() {
     if [[ -n "${CARGO_PACKAGES[*]}" ]]; then
-        _SECTION " Installation des paquets Cargo personnalisés " "━" "${C_GREEN}"
+        _SECTION " Installation des paquets cargo RUST personnalisés " "━" "${C_GREEN}"
 
         # 0. toolchain rust
         local check
@@ -641,6 +641,12 @@ SETUP_FSTAB() {
 SETUP_DATA() {
     _SECTION " Restauration des données privées de l'utilisateur ${USER} " "━" "${C_GREEN}"
     if [[ -e "${SOURCE}" ]]; then
+        if ! _IS_PKG_INSTALLED xdg-user-dirs ; then
+            _RUNSILENT "" _PKG_INSTALL xdg-user-dirs
+        fi
+        XDG_PICTURES_DIR="$(xdg-user-dir PICTURES)"
+        XDG_DOCUMENTS_DIR="$(xdg-user-dir DOCUMENTS)"
+        export XDG_PICTURES_DIR XDG_DOCUMENTS_DIR
         if [[ ${#DESTINATIONS[@]} -gt 0 ]]; then
             local profil file cmd ffile
             for profil in "${!DESTINATIONS[@]}"; do
@@ -1107,7 +1113,7 @@ _HOSTNAME() {
 
 _MSMTP() {
     # par défaut msmtp ne crée pas le log system !
-    if _IN_ARRAY "msmtp" "${DNF_PACKAGES[@]}"; then
+    if _IN_ARRAY "msmtp" "${SYSTEM_PACKAGES[@]}"; then
         if [[ ! -f /var/log/msmtp.log ]]; then
             _LOG "config log msmtp car paquet présent"
             sudo touch /var/log/msmtp.log

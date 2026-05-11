@@ -21,6 +21,7 @@ HARDENING="yes"              # diverses robustifications de sécurité
 DISABLE_IPV6="yes"           # supprime support ipv6 dans le kernel
 DISABLE_DNF_GUI="yes"        # supprime PackageKit, gnome-logiciels, plasma-diskover, ...
 DISABLE_FINGERPRINT="yes"    # si capteur d'empreinte non supporté autant tout désactiver autour de cette fonction
+ENABLE_CACHYOS_KERNEL="yes"  #
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
@@ -32,8 +33,8 @@ DISABLE_FINGERPRINT="yes"    # si capteur d'empreinte non supporté autant tout 
 MYHOSTNAME="MyFedoraBTW"
 #-----------------------------------------------------------------------------------------------------------------------------
 
-# paquets RPM à installer ----------------------------------------------------------------------------------------------------
-DNF_PACKAGES=(
+# paquets système à installer ----------------------------------------------------------------------------------------------------
+SYSTEM_PACKAGES=(
     fastfetch foot fzf bat-extras grc axel rclone procs msmtp s-nail chkrootkit rkhunter
     wl-clipboard glow expect sqlite btop atop glances nvtop iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
@@ -43,8 +44,8 @@ DNF_PACKAGES=(
 )
 #-----------------------------------------------------------------------------------------------------------------------------
 
-# paquets RPM à désinstaller -------------------------------------------------------------------------------------------------
-DNF_REMOVE=(
+# paquets système à désinstaller -------------------------------------------------------------------------------------------------
+SYSTEM_REMOVE=(
     rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan at systemd-networkd
     plasma-drkonqi ibus imsettings maliit-keyboard abrt sudo-python-plugin sssd-common mcelog
     # fonts asiatiques
@@ -264,20 +265,28 @@ declare -A COMMANDS=(
     ["SSHMANAGER"]=""
     ["HELIUM"]="helium"
     ["MSMTP"]=""
+    ["MOK"]=""
+    ["DISCORD"]="vesktop"
+    ["IMAGES"]=""
+    ["DOCUMENTS"]=""
     # Ajoute les liens binaires à tuer avant de restaurer pour chaque PROFIL (important pour les navigateurs)
 )
+
+# shellcheck disable=SC2154
 declare -A DESTINATIONS=(
-    ["FIREFOX"]="${HOME}/.mozilla/firefox/"
-    ["BRAVE"]="${HOME}/.config/BraveSoftware/Brave-Browser/"
-    ["SSH"]="${HOME}/.ssh/"
-    ["IPTVNATOR"]="${HOME}/.config/iptvnator/"
-    ["SSHMANAGER"]="${HOME}/.local/share/sshmanager/"
-    ["HELIUM"]="${HOME}/.config/net.imput.helium/"
+    ["FIREFOX"]="${HOME}/.mozilla/firefox"
+    ["BRAVE"]="${HOME}/.config/BraveSoftware/Brave-Browser"
+    ["SSH"]="${HOME}/.ssh"
+    ["IPTVNATOR"]="${HOME}/.config/iptvnator"
+    ["SSHMANAGER"]="${HOME}/.local/share/sshmanager"
+    ["HELIUM"]="${HOME}/.config/net.imput.helium"
     ["MSMTP"]="${HOME}/.config/msmtp"
+    ["MOK"]="${HOME}/mok-cachyos"
+    ["DISCORD"]="${HOME}/.config/vesktop"
+    ["IMAGES"]="${XDG_PICTURES_DIR}"
+    ["DOCUMENTS"]="${XDG_DOCUMENTS_DIR}"
 )
 #-----------------------------------------------------------------------------------------------------------------------------
-
-
 
 
 
@@ -290,8 +299,8 @@ declare -A DESTINATIONS=(
 ###############################################################################################################################
 # les export pour s'assurer que les variables sont accessibles                                                                #
 ###############################################################################################################################
-export DNF_PACKAGES
-export DNF_REMOVE
+export SYSTEM_PACKAGES
+export SYSTEM_REMOVE
 export FONTS
 export FLATPAK_PKGS
 export CARGO_PACKAGES
@@ -334,4 +343,5 @@ export HARDENING
 export DISABLE_IPV6
 export DISABLE_DNF_GUI
 export DISABLE_FINGERPRINT
+export ENABLE_CACHYOS_KERNEL
 ###############################################################################################################################

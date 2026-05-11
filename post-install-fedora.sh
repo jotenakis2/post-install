@@ -40,24 +40,24 @@ CHECK() {
 }
 
 ########################################################################################################################
-REMOVE_RPM_PACKAGES() {
-    _SECTION " Suppression des paquets RPM indésirables " "━" "${C_GREEN}"
+REMOVE_SYSTEM_PACKAGES() {
+    _SECTION " Suppression des paquets systèmes indésirables " "━" "${C_GREEN}"
     local pkg wants_systemd_networkd_removal wants_akonadi_removal
     wants_systemd_networkd_removal=0
     wants_akonadi_removal=0
     #
     if [[ "${DISABLE_PLYMOUTH,,}" = "yes" ]]; then
-        DNF_REMOVE+=("plymouth-core-libs")
+        SYSTEM_REMOVE+=("plymouth-core-libs")
     fi
 
     if [[ "${DISABLE_DNF_GUI,,}" = "yes" ]]; then
  #       _INFO "Suppression outils graphiques de gestion des paquets"
-        if ! _IN_ARRAY gnome-software "${DNF_REMOVE[@]}" ; then DNF_REMOVE+=("gnome-software"); fi
-        if ! _IN_ARRAY plasma-discover "${DNF_REMOVE[@]}" ; then DNF_REMOVE+=("plasma-discover"); fi
-        if ! _IN_ARRAY PackageKit-glib "${DNF_REMOVE[@]}" ; then DNF_REMOVE+=("PackageKit-glib"); fi
+        if ! _IN_ARRAY gnome-software "${SYSTEM_REMOVE[@]}" ; then SYSTEM_REMOVE+=("gnome-software"); fi
+        if ! _IN_ARRAY plasma-discover "${SYSTEM_REMOVE[@]}" ; then SYSTEM_REMOVE+=("plasma-discover"); fi
+        if ! _IN_ARRAY PackageKit-glib "${SYSTEM_REMOVE[@]}" ; then SYSTEM_REMOVE+=("PackageKit-glib"); fi
     fi
 
-    for pkg in "${DNF_REMOVE[@]}"; do
+    for pkg in "${SYSTEM_REMOVE[@]}"; do
         if [[ "${pkg}" == "systemd-networkd" ]]; then
             wants_systemd_networkd_removal=1
             continue
@@ -69,13 +69,13 @@ REMOVE_RPM_PACKAGES() {
     done
     if ((wants_systemd_networkd_removal)); then # on retire systemd-networkd des paquets à retirer car il sera retiré après avec des précautions
         local tmp=()
-        for pkg in "${DNF_REMOVE[@]}"; do
+        for pkg in "${SYSTEM_REMOVE[@]}"; do
             if [[ "${pkg}" != "systemd-networkd" ]]; then tmp+=("${pkg}"); fi
         done
-        DNF_REMOVE=("${tmp[@]}")
+        SYSTEM_REMOVE=("${tmp[@]}")
     fi
 
-    _MANAGE_TABLE _IS_PKG_REMOVED _PKG_REMOVE "${DNF_REMOVE[@]}"
+    _MANAGE_TABLE _IS_PKG_REMOVED _PKG_REMOVE "${SYSTEM_REMOVE[@]}"
 
     if [[ "${ZSWAP,,}" = "yes" ]]; then # on dégage zram si zswap est demandé
         if _IS_PKG_INSTALLED zram-generator-defaults; then
@@ -105,7 +105,7 @@ REMOVE_RPM_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_REPOS() {
-    _SECTION " Installation des dépôts RPM additionnels " "━" "${C_GREEN}"
+    _SECTION " Installation des dépôts systèmes additionnels " "━" "${C_GREEN}"
     local fedora_ver rpmf cache=0 type
     local rpmfusion_list="free nonfree"
     fedora_ver=$(rpm -E '%fedora')
@@ -247,12 +247,12 @@ INSTALL_CODECS() {
 }
 
 ########################################################################################################################
-INSTALL_RPM_PACKAGES() {
-    if [[ "${DNF_PACKAGES[*]}" != "" ]]; then
-        _SECTION " Installation des paquets RPM personnalisés " "━" "${C_GREEN}"
-        _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${DNF_PACKAGES[@]}"
+INSTALL_SYSTEM_PACKAGES() {
+    if [[ "${SYSTEM_PACKAGES[*]}" != "" ]]; then
+        _SECTION " Installation des paquets systèmes personnalisés " "━" "${C_GREEN}"
+        _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${SYSTEM_PACKAGES[@]}"
     else
-        _LOG "Aucun paquets RPM additionnels demandés"
+        _LOG "Aucun paquets systèmes additionnels demandés"
     fi
 }
 
@@ -649,7 +649,7 @@ _PKG_DOWNLOAD_THEN_INSTALL() {
     _RUNSILENT "" sudo dnf download --skip-unavailable -y --arch "${arch}" --arch noarch --resolve --destdir="${DOWNLOAD_DIR}" "$@"
     echo "installation depuis le cache local..."
     if ! compgen -G "${DOWNLOAD_DIR}/*.rpm" > /dev/null; then
-        _ERR "Aucun RPM à installer"
+        _ERR "Aucun paquet système à installer"
         _RUNSILENT "" sudo rm -rvf "${DOWNLOAD_DIR}"
         return 0
     fi
