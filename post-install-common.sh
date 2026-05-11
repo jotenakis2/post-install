@@ -6,7 +6,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=35.1
+readonly SCRIPTNAME VER=35.2
 # liste des swaps disk
 declare -A SWAPS
 

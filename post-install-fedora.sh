@@ -277,12 +277,13 @@ INSTALL_SYSTEM_PACKAGES() {
 
 ########################################################################################################################
 SETUP_GRUB() {
+    local is_grub
     is_grub=$(_DETECT_GRUB)
 
     _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
 
     if [[ "${is_grub}" == "true" ]]; then
-        local is_grub zswap="" ipv6="" plymouth=""
+        local zswap="" ipv6="" plymouth=""
         # pour forcer l'affichage du menu des noyaux au boot
         _RUNSILENT "" sudo grub2-editenv - unset menu_auto_hide
 
@@ -723,6 +724,36 @@ INSTALL_CACHYOS_KERNEL() {
 }
 
 ########################################################################################################################
+
+SETUP_CACHYOS_KERNEL() {
+    if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]] && _IS_PKG_INSTALLED kernel-cachyos-core; then
+         _SECTION " Configuration du noyau Linux de cachyOS " "━" "${C_GREEN}"
+
+        # Noyau CachyOS par défaut dans grub
+        _LOG "* cachysOS GRUB *"
+        local linux is_grub
+        linux=$(printf '%s\n' /boot/vmlinuz*cachy* | sort -V | tail -1)
+        is_grub=$(_DETECT_GRUB)
+        if [[ "${is_grub}" == "true" ]]; then
+            _RUN "Noyau ${linux} configuré par défaut dans GRUB" grubby --set-default="${linux}"
+        else
+            _OK "GRUB non détecté, pas de changement dans l'ordre de priorité des noyaux installés"
+            _LOG "Noyau cachyOS : ${linux}"
+        fi
+
+        # Secure Boot
+        if ! _IS_PKG_INSTALLED mokutil ; then
+            _RUNSILENT "" _PKG_INSTALL mokutil
+        fi
+        local sb_enabled
+        sb_enabled=$(mokutil --sb-state | awk '{print $2}')
+        if [[ "${sb_enabled}" != "enabled" ]]; then
+            _INFO "Secure boot désactivé, le noyau cachyos n'a pas besoin d'être signé"
+        else
+            _OK "On va devoir signer le noyau cachyos pour qu'il supporte un Secure boot actif"
+        fi
+    fi
+}
 
 
 ######################

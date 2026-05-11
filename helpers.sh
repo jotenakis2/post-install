@@ -622,10 +622,10 @@ _GET_SWAPPINESS() {
 
 _GET_SWAP() {
     local filename size_kb size_gb
-    while IFS=' ' read -r filename _ size_kb _; do
+    while IFS=$'\t ' read -r filename _ size_kb _; do
         [[ "${filename}" == "Filename" ]] && continue
         [[ "${filename}" == /dev/zram* ]] && continue
-        size_gb=$(( size_kb / 1024 / 1024 ))
+        size_gb=$(awk "BEGIN {printf \"%.1f\", ${size_kb}/1024/1024}")
         # shellcheck disable=SC2034
         SWAPS["${filename}"]="${size_gb}"
     done < /proc/swaps
