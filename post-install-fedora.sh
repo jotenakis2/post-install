@@ -272,12 +272,30 @@ INSTALL_SYSTEM_PACKAGES() {
         _SECTION " Installation des paquets systèmes personnalisés " "━" "${C_GREEN}"
 
         if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]]; then
-            _LOG " Installation du noyau Linux de cachyOS " "━" "${C_GREEN}"
-            if ! _IN_ARRAY kernel-cachyos-core           "${SYSTEM_PACKAGES[@]}" ; then SYSTEM_PACKAGES+=("kernel-cachyos-core")          ; fi
-            if ! _IN_ARRAY kernel-cachyos-devel          "${SYSTEM_PACKAGES[@]}" ; then SYSTEM_PACKAGES+=("kernel-cachyos-devel")         ; fi
-            if ! _IN_ARRAY kernel-cachyos-devel-matched  "${SYSTEM_PACKAGES[@]}" ; then SYSTEM_PACKAGES+=("kernel-cachyos-devel-matched") ; fi
-            if ! _IN_ARRAY kernel-cachyos-modules        "${SYSTEM_PACKAGES[@]}" ; then SYSTEM_PACKAGES+=("kernel-cachyos-modules")       ; fi
-            if ! _IN_ARRAY kernel-cachyos                "${SYSTEM_PACKAGES[@]}" ; then SYSTEM_PACKAGES+=("kernel-cachyos")               ; fi
+            _LOG " ajout du noyau Linux de cachyOS dans les paquets à installer " "━" "${C_GREEN}"
+
+            if ! _IN_ARRAY kernel-cachyos-devel "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("kernel-cachyos-devel")
+            fi
+            if ! _IN_ARRAY kernel-cachyos-devel-matched "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("kernel-cachyos-devel-matched")
+            fi
+            if ! _IN_ARRAY kernel-cachyos-modules "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("kernel-cachyos-modules")
+            fi
+            if ! _IN_ARRAY kernel-cachyos "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("kernel-cachyos")
+            fi
+            if ! _IN_ARRAY kernel-cachyos-core "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("kernel-cachyos-core")
+            fi
+            if ! _IN_ARRAY cachyos-ananicy-rules "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("cachyos-ananicy-rules")
+            fi
+            if ! _IN_ARRAY ananicy-cpp "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("ananicy-cpp")
+            fi
+
         fi
 
         _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${SYSTEM_PACKAGES[@]}"
