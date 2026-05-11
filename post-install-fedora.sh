@@ -3,7 +3,6 @@
 set -euo pipefail
 # shellcheck source=./post-install-common.sh
 source ./post-install-common.sh # fonctions distro-agnostique
-
 declare -A SWAPS
 
 ########################################################################################################################
@@ -389,11 +388,11 @@ SETUP_SWAP() { # que si zswap est demandé
     if [[ "${ZSWAP,,}" = "yes" ]]; then
         _LOG "* swap *"
         _GET_SWAP # récupère les swap disk part ou file dans le tableau associatif SWAPS
-        if [[ "${#SWAPS[@]}" -gt 0 ]]; then
-                local swappath allswap=""
-                for swappath in "${!SWAPS[@]}"; do
-                    allswap="${allswap:+${allswap} }${swappath}"
-                done
+        if [[ "${#SWAPS[@]:-}" -gt 0 ]]; then
+            local swappath allswap=""
+            for swappath in "${!SWAPS[@]}"; do
+                allswap="${allswap:+${allswap} }${swappath}"
+            done
             _LOG "Au moins un swap sur disque a été détecté (${allswap}), pas nécessaire d'en construire un autre"
             return 0
         fi
