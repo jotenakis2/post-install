@@ -330,6 +330,7 @@ SETUP_GRUB() {
         else
             _INFO "GRUB déjà OK (/etc/default/grub)"
         fi
+        _RUNSILENT "" sudo grub2-editenv - unset menu_auto_hide
         {
             sudo ls -l /etc/default/grub
             sudo cat /etc/default/grub
