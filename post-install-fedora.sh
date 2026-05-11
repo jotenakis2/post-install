@@ -4,6 +4,8 @@ set -euo pipefail
 # shellcheck source=./post-install-common.sh
 source ./post-install-common.sh # fonctions distro-agnostique
 
+declare -A SWAPS
+
 ########################################################################################################################
 # FONCTIONS SPECIFIQUES FEDORA                                                                                         #
 ########################################################################################################################

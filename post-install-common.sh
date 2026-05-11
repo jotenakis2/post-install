@@ -7,8 +7,6 @@ set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
 readonly SCRIPTNAME VER=35.2
-# liste des swaps disk
-declare -A SWAPS
 
 # gestion des interruptions et sourcing des fonctions bas niveau ______
 trap '_CLEANUP' ERR
