@@ -6,7 +6,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=35.5
+readonly SCRIPTNAME VER=35.6
 
 # gestion des interruptions et sourcing des fonctions bas niveau ______
 trap '_CLEANUP' ERR
@@ -212,7 +212,7 @@ INSTALL_CARGO_PACKAGES() {
         declare -g INSTALLED_LIST
         local cargolist
         cargolist="/tmp/cargolist$$"
-        _RUN "Listing des paquets cargo" bash -c "cargo install --list 2>/dev/null > ${cargolist}"
+        _RUNSILENT "" bash -c "cargo install --list 2>/dev/null > ${cargolist}"
         INSTALLED_LIST=$(cat "${cargolist}" 2>/dev/null || true) # je passe par un fichier /tmp/cargolist pour avoir un spinner
         export INSTALLED_LIST # variable utilisée par _CARGOPKG_INSTALL
         _MANAGE_TABLE _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
@@ -1260,6 +1260,24 @@ ${harden}"
     if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
         _RUNSILENT "" sudo sysctl -p "${sysctlfile}"
     fi
+
+    # chargement anticipé de bbr et fq
+    local qdisc congestion file dir content
+    qdisc=$(sysctl -n net.core.default_qdisc 2>/dev/null)
+    congestion=$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null)
+    if [[ "${qdisc}" = "fq" ]] || [[ "${congestion}" = "bbr" ]]; then
+        dir="/etc/modules-load.d"
+        file="${dir}/net.conf"
+        content='tcp_bbr
+sch_fq
+'
+        _INSTALL_ETC_FILES "Modules tcp_bbr et sch_fq" "${content}" "${file}" "644"
+        if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+            _RUN "Dracut en cours" sudo dracut -f --regenerate-all
+        fi
+
+    fi
+
 }
 
 ########################################################################################################################
