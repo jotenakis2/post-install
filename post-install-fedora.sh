@@ -81,7 +81,7 @@ REMOVE_SYSTEM_PACKAGES() {
     if ((wants_systemd_networkd_removal)); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
         if _IS_ACTIVE NetworkManager; then
             if _IS_PKG_INSTALLED systemd-networkd; then
-                _RUN "Suppression systemd-networkd" _PKG_REMOVE systemd-networkd
+                _RUN "Suppression systemd-networkd après vérification que NetworkManager est actif" _PKG_REMOVE systemd-networkd
             else
                 _LOG "systemd-networkd déjà supprimé"
             fi
@@ -115,51 +115,55 @@ INSTALL_REPOS() {
         fi
     done
 
-    if _IS_PKG_INSTALLED terra-release; then
-        _INFO "Dépôt Terra déjà présent"
-    else
-        # shellcheck disable=SC2016
-        _RUN "Ajout du dépôt Terra (f${fedora_ver})" sudo dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
-        cache=1
+    if [[ "${TERRA,,}" = "yes" ]]; then
+        if _IS_PKG_INSTALLED terra-release; then
+            _INFO "Dépôt Terra déjà présent"
+        else
+            # shellcheck disable=SC2016
+            _RUN "Ajout du dépôt Terra (f${fedora_ver})" sudo dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
+            cache=1
+        fi
     fi
 
-    if dnf repolist 2>/dev/null | grep -q "bigmenpixel:profile-sync-daemon"; then
-        _INFO "Dépôt COPR profile-sync-daemon déjà présent"
-    else
-        _RUN "Ajout du dépôt COPR profile-sync-daemon" sudo dnf copr enable -y bigmenpixel/profile-sync-daemon
-        cache=1
+    # repo brave si besoin
+    if _IN_ARRAY brave-browser "${SYSTEM_PACKAGES[@]}"; then
+        if dnf repolist 2>/dev/null | grep -q "brave-browser"; then
+            _INFO "Dépôt Brave déjà présent"
+        else
+            _RUN "Ajout du dépôt Brave" sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+            cache=1
+        fi
     fi
 
-    if dnf repolist 2>/dev/null | grep -q "brave-browser"; then
-        _INFO "Dépôt Brave déjà présent"
-    else
-        _RUN "Ajout du dépôt Brave" sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
-        cache=1
+    # copr si besoin psd et cachos
+    if _IN_ARRAY profile-sync-daemon "${SYSTEM_PACKAGES[@]}"; then
+        _LOG "* repo copr psd *"
+        _ADD_COPR "bigmenpixel/profile-sync-daemon" "${cache}"
     fi
-
     if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]]; then
         _LOG "* repos copr cachyos *"
-        local repo1 repo2
-        repo1="bieszczaders/kernel-cachyos"
-        repo2="bieszczaders/kernel-cachyos-addons"
-        if dnf repolist 2>/dev/null | grep -q "${repo1//\//:}"; then
-            _INFO "Dépôt COPR ${repo1} déjà présent"
-        else
-            _RUN "Ajout du dépôt COPR ${repo1}" sudo dnf copr enable -y "${repo1}"
-            cache=1
-        fi
-        if dnf repolist 2>/dev/null | grep -q "${repo2//\//:}"; then
-            _INFO "Dépôt COPR ${repo2} déjà présent"
-        else
-            _RUN "Ajout du dépôt COPR ${repo2}" sudo dnf copr enable -y "${repo2}"
-            cache=1
-        fi
+        _ADD_COPR "bieszczaders/kernel-cachyos" "${cache}"
+        _ADD_COPR "bieszczaders/kernel-cachyos-addons" "${cache}"
     fi
 
     _CLEANUP_APPSTREAM
 
     if [[ "${cache}" -eq 1 ]]; then
         _RUN "Mise à jour du cache des métadonnées des dépôts" sudo dnf makecache --refresh
+    fi
+}
+
+########################################################################################################################
+
+_ADD_COPR(){
+    local repo cache
+    repo="$1:-"
+    cache="$2:-"
+    if dnf repolist 2>/dev/null | grep -q "${repo//\//:}"; then
+        _INFO "Dépôt COPR ${repo} déjà présent"
+    else
+        _RUN "Ajout du dépôt COPR  ${repo}" sudo dnf copr enable -y "${repo}"
+        cache=1
     fi
 }
 
