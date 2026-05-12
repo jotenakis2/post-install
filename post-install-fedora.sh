@@ -101,7 +101,8 @@ REMOVE_SYSTEM_PACKAGES() {
 ########################################################################################################################
 INSTALL_REPOS() {
     _SECTION " Installation des dépôts systèmes additionnels " "━" "${C_GREEN}"
-    local fedora_ver rpmf cache=0 type
+    local fedora_ver rpmf type
+    declare -i cache=0
     local rpmfusion_list="free nonfree"
     fedora_ver=$(rpm -E '%fedora')
 
@@ -158,13 +159,14 @@ INSTALL_REPOS() {
 
 _ADD_COPR(){
     local repo
-    local -n cache="$2"
+    local -n localcache="$2"
     repo="$1"
+    : "${localcache}"
     if dnf repolist 2>/dev/null | grep -q "${repo//\//:}"; then
         _INFO "Dépôt COPR ${repo} déjà OK"
     else
         _RUN "Ajout du dépôt COPR ${repo}" sudo dnf copr enable -y "${repo}"
-        cache=1
+        localcache=1
     fi
 }
 
