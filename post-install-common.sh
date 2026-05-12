@@ -1357,7 +1357,7 @@ _DISABLE_IPV6_IN_SERVICES() {
         readonly chrony_file chrony_content
 
         if _IS_PKG_INSTALLED chrony; then
-            _INSTALL_ETC_FILES "chronyd" "${chrony_content}" "${chrony_file}" "644"
+            _INSTALL_ETC_FILES "chronyd IPv6" "${chrony_content}" "${chrony_file}" "644"
             if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
                 _RUNSILENT "" sudo systemctl try-restart chronyd
                 _LOG "IPv6 désactivé pour chrony"
@@ -1386,7 +1386,7 @@ _DISABLE_IPV6_IN_SERVICES() {
         local avahi_conf
         avahi_conf="/etc/avahi/avahi-daemon.conf"
         if grep -qE '^\s*use-ipv6\s*=\s*no' "${avahi_conf}"; then
-            _INFO "IPv6 déjà désactivé pour avahi-daemon"
+            _INFO "IPv6 déjà désactivé pour avahi-daemon (${avahi_conf})"
         else
             if [[ ! -e "${avahi_conf}.origin" ]]; then
                 _RUNSILENT "" sudo cp -av "${avahi_conf}" "${avahi_conf}.origin"
@@ -1438,13 +1438,13 @@ _DISABLE_IPV6_NETCONFIG() {
     if ! sudo grep -q "^udp6\|^tcp6" "${file}"; then
         _LOG "aucune entrée IPv6 détectée dans ${file}"
         cat "${file}" >> "${LOG_FILE}"
-        _INFO "Entrées IPv6 déjà supprimées dans ${file}"
+        _INFO "IPv6 Netconfig déjà OK (${file})"
         return 0
     fi
 
     tmp="$(mktemp)"
     _RUNSILENT "" bash -c "sudo grep -v \"^udp6\|^tcp6\" ${file} > ${tmp}"
-    _RUN "Désactivation des entrées IPv6 dans ${file}" sudo cp -avf "${tmp}" "${file}"
+    _RUN "Désactivation des entrées IPv6 Netconfig (${file})" sudo cp -avf "${tmp}" "${file}"
     _ETC_FILES_ADD "${file}"
     sudo rm -f "${tmp}"
 }
