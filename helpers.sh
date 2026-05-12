@@ -629,12 +629,13 @@ _GET_SWAPPINESS() {
 
 _GET_SWAP() {
     local filename size_kb size_gb
+    local -n swaps="$1"
     while IFS=$'\t ' read -r filename _ size_kb _; do
         [[ "${filename}" == "Filename" ]] && continue
         [[ "${filename}" == /dev/zram* ]] && continue
         size_gb=$(awk "BEGIN {printf \"%.1f\", ${size_kb}/1024/1024}")
         # shellcheck disable=SC2034
-        SWAPS["${filename}"]="${size_gb}"
+        swaps["${filename}"]="${size_gb}"
     done < /proc/swaps
 }
 
@@ -653,9 +654,15 @@ _IS_CARGOPKG_INSTALLED() {
 }
 
 _CARGOPKG_INSTALL() {
-    cargo binstall --no-confirm "$@"
+    local proc
+    proc=$(( $(nproc) - 1))
+    proc=$(( proc > 0 ? proc : 1 )) # tjs au moins un CPU
+    CARGO_BUILD_JOBS="${proc}" cargo binstall --no-confirm "$@"
 }
 
 _GOPKG_INSTALL() {
-    go install "$@"
+    local proc
+    proc=$(( $(nproc) - 1 ))
+    proc=$(( proc > 0 ? proc : 1 )) # tjs au moins un CPU
+    GOMAXPROCS="${proc}" go install "$@"
 }

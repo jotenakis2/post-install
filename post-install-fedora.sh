@@ -48,11 +48,12 @@ REMOVE_SYSTEM_PACKAGES() {
     wants_akonadi_removal=0
     #
     if [[ "${DISABLE_PLYMOUTH,,}" = "yes" ]]; then
+        _INFO "Suppression boot graphique demandée"
         SYSTEM_REMOVE+=("plymouth-core-libs")
     fi
 
     if [[ "${DISABLE_DNF_GUI,,}" = "yes" ]]; then
- #       _INFO "Suppression outils graphiques de gestion des paquets"
+        _INFO "Suppression GUI de dnf demandée"
         if ! _IN_ARRAY gnome-software "${SYSTEM_REMOVE[@]}" ; then SYSTEM_REMOVE+=("gnome-software"); fi
         if ! _IN_ARRAY plasma-discover "${SYSTEM_REMOVE[@]}" ; then SYSTEM_REMOVE+=("plasma-discover"); fi
         if ! _IN_ARRAY PackageKit-glib "${SYSTEM_REMOVE[@]}" ; then SYSTEM_REMOVE+=("PackageKit-glib"); fi
@@ -107,7 +108,7 @@ INSTALL_REPOS() {
     for rpmf in ${rpmfusion_list}; do
         type="rpmfusion-${rpmf}-release"
         if _IS_PKG_INSTALLED "${type}"; then
-            _INFO "Dépôt ${type} déjà présent"
+            _INFO "Dépôt ${type} déjà OK"
         else
             _RUN "Ajout du dépôt ${type} (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/"${rpmf}"/fedora/"${type}"-"${fedora_ver}".noarch.rpm
             _RUN "Ajout du dépôt ${type}-tainted (f${fedora_ver})" _PKG_INSTALL "${type}"-tainted
@@ -117,7 +118,7 @@ INSTALL_REPOS() {
 
     if [[ "${TERRA,,}" = "yes" ]]; then
         if _IS_PKG_INSTALLED terra-release; then
-            _INFO "Dépôt Terra déjà présent"
+            _INFO "Dépôt Terra déjà OK"
         else
             # shellcheck disable=SC2016
             _RUN "Ajout du dépôt Terra (f${fedora_ver})" sudo dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
@@ -128,7 +129,7 @@ INSTALL_REPOS() {
     # repo brave si besoin
     if _IN_ARRAY brave-browser "${SYSTEM_PACKAGES[@]}"; then
         if dnf repolist 2>/dev/null | grep -q "brave-browser"; then
-            _INFO "Dépôt Brave déjà présent"
+            _INFO "Dépôt Brave déjà OK"
         else
             _RUN "Ajout du dépôt Brave" sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
             cache=1
@@ -138,12 +139,12 @@ INSTALL_REPOS() {
     # copr si besoin psd et cachos
     if _IN_ARRAY profile-sync-daemon "${SYSTEM_PACKAGES[@]}"; then
         _LOG "* repo copr psd *"
-        _ADD_COPR "bigmenpixel/profile-sync-daemon" "${cache}"
+        _ADD_COPR "bigmenpixel/profile-sync-daemon" cache
     fi
     if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]]; then
         _LOG "* repos copr cachyos *"
-        _ADD_COPR "bieszczaders/kernel-cachyos" "${cache}"
-        _ADD_COPR "bieszczaders/kernel-cachyos-addons" "${cache}"
+        _ADD_COPR "bieszczaders/kernel-cachyos" cache
+        _ADD_COPR "bieszczaders/kernel-cachyos-addons" cache
     fi
 
     _CLEANUP_APPSTREAM
@@ -156,13 +157,13 @@ INSTALL_REPOS() {
 ########################################################################################################################
 
 _ADD_COPR(){
-    local repo cache
+    local repo
+    local -n cache="$2"
     repo="$1"
-    cache="$2"
     if dnf repolist 2>/dev/null | grep -q "${repo//\//:}"; then
-        _INFO "Dépôt COPR ${repo} déjà présent"
+        _INFO "Dépôt COPR ${repo} déjà OK"
     else
-        _RUN "Ajout du dépôt COPR  ${repo}" sudo dnf copr enable -y "${repo}"
+        _RUN "Ajout du dépôt COPR ${repo}" sudo dnf copr enable -y "${repo}"
         cache=1
     fi
 }
@@ -269,7 +270,8 @@ INSTALL_SYSTEM_PACKAGES() {
         _SECTION " Installation des paquets systèmes personnalisés " "━" "${C_GREEN}"
 
         if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]]; then
-            _LOG " ajout du noyau Linux de cachyOS dans les paquets à installer " "━" "${C_GREEN}"
+            _LOG " ajout du noyau Linux de cachyOS dans les paquets à installer "
+            _INFO "Noyau linux cachyOS demandé"
 
             if ! _IN_ARRAY kernel-cachyos "${SYSTEM_PACKAGES[@]}"; then
                 SYSTEM_PACKAGES+=("kernel-cachyos")
@@ -419,7 +421,7 @@ SETUP_FIREWALL() {
 SETUP_SWAP() { # que si zswap est demandé
     if [[ "${ZSWAP,,}" = "yes" ]]; then
         _LOG "* swap *"
-        _GET_SWAP # récupère les swap disk part ou file dans le tableau associatif SWAPS
+        _GET_SWAP SWAPS
         if [[ "${#SWAPS[@]}" -gt 0 ]]; then
             local swappath allswap=""
             for swappath in "${!SWAPS[@]}"; do
