@@ -6,7 +6,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=35.4
+readonly SCRIPTNAME VER=35.5
 
 # gestion des interruptions et sourcing des fonctions bas niveau ______
 trap '_CLEANUP' ERR
@@ -864,7 +864,7 @@ SETUP_ETC() {
     _IOSCHEDULER
     _UDEVPERSIST
     _LIBVIRT
-    _CHRONY
+    _DISABLE_IPV6_IN_SERVICES
     _HARDENING
     _DISABLE_FPRINTD
 }
@@ -1198,6 +1198,7 @@ kernel.core_pattern=|/bin/false
     if [[ "${HARDENING,,}" = "yes" ]]; then
         harden='# hardening
 kernel.kptr_restrict = 2
+kernel.printk = 3 3 3 3
 dev.tty.ldisc_autoload = 0
 fs.protected_hardlinks = 1
 fs.protected_symlinks = 1
@@ -1345,22 +1346,107 @@ _LIBVIRT() {
 
 ########################################################################################################################
 
-_CHRONY() {
-    # --- Configuration Chrony (IPv4 only si IPv6 désactivé) ---
-    _LOG "* chrony *"
+_DISABLE_IPV6_IN_SERVICES() {
     if [[ "${DISABLE_IPV6,,}" = "yes" ]]; then
+        _LOG "désactivation IPV6 dans les services"
+
+        # Chrony
         local chrony_file chrony_content
         chrony_file="/etc/sysconfig/chronyd"
         chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
         readonly chrony_file chrony_content
 
-        _INSTALL_ETC_FILES "chronyd" "${chrony_content}" "${chrony_file}" "644"
-        if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
-            _RUNSILENT "" sudo systemctl try-restart chronyd
+        if _IS_PKG_INSTALLED chrony; then
+            _INSTALL_ETC_FILES "chronyd" "${chrony_content}" "${chrony_file}" "644"
+            if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+                _RUNSILENT "" sudo systemctl try-restart chronyd
+                _LOG "IPv6 désactivé pour chrony"
+                cat "${chrony_file}" >> "${LOG_FILE}"
+            fi
+        else
+            _LOG "Chrony n'est pas installé"
         fi
+
+        # /etc/hosts
+        local hostsfile="/etc/hosts"
+        if grep -qE '^\s*(::1|fe80::[^[:space:]]*)' "${hostsfile}"; then
+            if [[ ! -e "${hostsfile}.origin" ]]; then
+                _RUNSILENT "" sudo cp -av "${hostsfile}" "${hostsfile}.origin"
+            fi
+            _RUNSILENT "" sudo cp -fav "${hostsfile}" "${hostsfile}.bak"
+            _RUN "Suppression des entrées IPv6 dans ${hostsfile}" sudo sed -i -E '/^\s*(::1|fe80::[^[:space:]]*)/d' "${hostsfile}"
+            _LOG "Entrées IPv6 supprimées de ${hostsfile} (backup: ${hostsfile}.bak et ${hostsfile}.origin)"
+            cat "${hostsfile}" >> "${LOG_FILE}"
+            _ETC_FILES_ADD "${hostsfile}"
+        else
+            _INFO "Entrée IPv6 dans ${hostsfile} déjà supprimée"
+        fi
+
+        # avahi
+        local avahi_conf
+        avahi_conf="/etc/avahi/avahi-daemon.conf"
+        if grep -qE '^\s*use-ipv6\s*=\s*no' "${avahi_conf}"; then
+            _INFO "IPv6 déjà désactivé pour avahi-daemon"
+        else
+            if [[ ! -e "${avahi_conf}.origin" ]]; then
+                _RUNSILENT "" sudo cp -av "${avahi_conf}" "${avahi_conf}.origin"
+            fi
+            _RUNSILENT "" sudo cp -fav "${avahi_conf}" "${avahi_conf}.bak"
+            if grep -qE '^\s*use-ipv6\s*=' "${avahi_conf}"; then
+                # La clé existe avec une autre valeur → on la remplace
+                _RUN "Désactivation de IPv6 pour avahi-daemon" sudo sed -i -E 's/^\s*use-ipv6\s*=.*/use-ipv6=no/' "${avahi_conf}"
+            else
+                # La clé est absente → on l'injecte sous [server]
+                _RUN "Désactivation de IPv6 pour avahi-daemon" sudo sed -i -E '/^\[server\]/a use-ipv6=no' "${avahi_conf}"
+            fi
+            _LOG "IPv6 désactivé pour ${avahi_conf} (backup: ${avahi_conf}.bak et ${avahi_conf}.origin)"
+            grep use-ipv6 "${avahi_conf}" >> "${LOG_FILE}"
+            _ETC_FILES_ADD "${avahi_conf}"
+        fi
+
+        # NetworkManager
+        local dirNM fileNM contentNM
+        dirNM="/etc/NetworkManager/conf.d"
+        fileNM="${dirNM}/disable-ipv6.conf"
+        _RUNSILENT "" sudo mkdir -pv "${dirNM}"
+        contentNM='[connection]
+ipv6.method=disabled
+'
+        _INSTALL_ETC_FILES "IPv6 NetworkManager" "${contentNM}" "${fileNM}" "644"
+        if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+            _RUNSILENT "" sudo nmcli general reload
+        fi
+
+        # Netconfig
+        _DISABLE_IPV6_NETCONFIG
+
     else
-        _LOG "ipv6 n'est pas désactivé donc on ne change rien à chrony"
+        _LOG "IPv6 est conservé à la demande de l'utilisateur"
     fi
+}
+
+########################################################################################################################
+
+_DISABLE_IPV6_NETCONFIG() {
+    local file tmp
+    file="/etc/netconfig"
+
+    if ! sudo test -f "${file}"; then
+        _LOG "${file} n'existe pas"
+        return 0
+    fi
+    if ! sudo grep -q "^udp6\|^tcp6" "${file}"; then
+        _LOG "aucune entrée IPv6 détectée dans ${file}"
+        cat "${file}" >> "${LOG_FILE}"
+        _INFO "Entrées IPv6 déjà supprimées dans ${file}"
+        return 0
+    fi
+
+    tmp="$(mktemp)"
+    _RUNSILENT "" sudo grep -v "^udp6\|^tcp6" "${file}" > "${tmp}"
+    _RUN "Désactivation des entrées IPv6 dans ${file}" sudo cp -avf "${tmp}" "${file}"
+    _ETC_FILES_ADD "${file}"
+    sudo rm -f "${tmp}"
 }
 
 ########################################################################################################################
@@ -1478,6 +1564,7 @@ _INTERRUPT() {
 
 _HARDENING(){
     if [[ "${HARDENING,,}" = "yes" ]]; then
+        # Ajustement droits fichiers critiques
         _LOG "* hardening : droits sur fichiers critiques *"
         local rights file dir
         dir="/etc/tmpfiles.d"
@@ -1500,6 +1587,7 @@ Z /etc/cron.monthly 0700 root root -
             _RUNSILENT "" sudo systemd-tmpfiles --create "${file}"
         fi
 
+        # Désactivation de protocoles réseaux inutiles
         _LOG "* hardening : Désactivation de certains protocoles réseaux *"
         local net_content net_file dir
         dir="/etc/modprobe.d"
@@ -1528,6 +1616,37 @@ install can /bin/false
 install atm /bin/false
 '
         _INSTALL_ETC_FILES "suppresion de protocoles réseaux inutilisés" "${net_content}" "${net_file}" "644"
+
+        # Firewalld zone public par défaut pour toutes les interfaces
+        local iface current_zone default_zone
+        local reload_needed=0
+
+        default_zone="$(sudo firewall-cmd --get-default-zone 2>/dev/null)"
+        if [[ "${default_zone}" != "public" ]]; then
+            _RUN "Zone publique par défaut définie dans firewalld" sudo firewall-cmd --set-default-zone=public
+        else
+            _INFO "Publique est déjà la zone firewalld par défaut"
+        fi
+
+        tmp="$(mktemp)"
+        _GET_PHYSICAL_IFACE > "${tmp}"
+
+        while IFS= read -r iface; do
+            current_zone="$(sudo firewall-cmd --get-zone-of-interface="${iface}" 2>/dev/null)" || true
+            [[ "${current_zone}" == "public" ]] && continue
+            _RUN "Zone publique pour l'interface ${iface}" sudo firewall-cmd --permanent --zone=public --change-interface="${iface}"
+            reload_needed=1
+        done < "${tmp}"
+        rm -f "${tmp}"
+
+        if [[ "${reload_needed}" -eq 1 ]]; then
+            _RUNSILENT "" sudo firewall-cmd --reload
+        fi
+        _LOG "Zones firewalld"
+        sudo firewall-cmd --get-active-zones | sudo tee -a "${LOG_FILE}" >/dev/null
+
+
+
     else
         _LOG "hardening non demandé"
     fi

@@ -78,13 +78,6 @@ REMOVE_SYSTEM_PACKAGES() {
 
     _MANAGE_TABLE _IS_PKG_REMOVED _PKG_REMOVE "${SYSTEM_REMOVE[@]}"
 
-    if [[ "${ZSWAP,,}" = "yes" ]]; then # on dégage zram si zswap est demandé
-        if _IS_PKG_INSTALLED zram-generator-defaults; then
-            _RUN "Suppression paquet zram-generator-defaults afin de remplacer zram par zswap" _PKG_REMOVE zram-generator-defaults
-        fi
-        _LOG "ZSWAP est demandé : zram est supprimé"
-    fi
-
     if ((wants_systemd_networkd_removal)); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
         if _IS_ACTIVE NetworkManager; then
             if _IS_PKG_INSTALLED systemd-networkd; then
@@ -324,7 +317,7 @@ SETUP_GRUB() {
         _RUNSILENT "" sudo grub2-editenv - unset menu_auto_hide
 
         if [[ "${ZSWAP,,}" = "yes" ]]; then
-            zswap="zswap.enabled=1 zswap.compressor=zstd"
+            zswap="zswap.enabled=1 zswap.shrinker_enabled=1 zswap.compressor=lz4 zswap.max_pool_percent=30 systemd.zram=0"
             _LOG "ZSWAP est demandé : \"${zswap}\" ajouté à GRUB"
         fi
         if [[ "${DISABLE_IPV6,,}" = "yes" ]]; then
