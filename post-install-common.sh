@@ -1443,7 +1443,7 @@ _DISABLE_IPV6_NETCONFIG() {
     fi
 
     tmp="$(mktemp)"
-    _RUNSILENT "" sudo grep -v "^udp6\|^tcp6" "${file}" > "${tmp}"
+    _RUNSILENT "" bash -c "sudo grep -v \"^udp6\|^tcp6\" ${file} > ${tmp}"
     _RUN "Désactivation des entrées IPv6 dans ${file}" sudo cp -avf "${tmp}" "${file}"
     _ETC_FILES_ADD "${file}"
     sudo rm -f "${tmp}"
