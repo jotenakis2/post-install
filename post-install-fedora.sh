@@ -157,8 +157,8 @@ INSTALL_REPOS() {
 
 _ADD_COPR(){
     local repo cache
-    repo="$1:-"
-    cache="$2:-"
+    repo="$1"
+    cache="$2"
     if dnf repolist 2>/dev/null | grep -q "${repo//\//:}"; then
         _INFO "Dépôt COPR ${repo} déjà présent"
     else
