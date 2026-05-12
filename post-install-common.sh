@@ -1357,7 +1357,7 @@ _DISABLE_IPV6_IN_SERVICES() {
         readonly chrony_file chrony_content
 
         if _IS_PKG_INSTALLED chrony; then
-            _INSTALL_ETC_FILES "chronyd IPv6" "${chrony_content}" "${chrony_file}" "644"
+            _INSTALL_ETC_FILES "IPv6 chronyd" "${chrony_content}" "${chrony_file}" "644"
             if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
                 _RUNSILENT "" sudo systemctl try-restart chronyd
                 _LOG "IPv6 désactivé pour chrony"
@@ -1386,7 +1386,7 @@ _DISABLE_IPV6_IN_SERVICES() {
         local avahi_conf
         avahi_conf="/etc/avahi/avahi-daemon.conf"
         if grep -qE '^\s*use-ipv6\s*=\s*no' "${avahi_conf}"; then
-            _INFO "IPv6 déjà désactivé pour avahi-daemon (${avahi_conf})"
+            _INFO "IPv6 avahi-daemon déjà OK (${avahi_conf})"
         else
             if [[ ! -e "${avahi_conf}.origin" ]]; then
                 _RUNSILENT "" sudo cp -av "${avahi_conf}" "${avahi_conf}.origin"
