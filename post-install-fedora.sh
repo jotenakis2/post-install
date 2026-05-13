@@ -111,8 +111,8 @@ INSTALL_REPOS() {
         if _IS_PKG_INSTALLED "${type}"; then
             _INFO "Dépôt ${type} déjà OK"
         else
-            _RUN "Ajout du dépôt ${type} (f${fedora_ver})" _PKG_INSTALL https://mirrors.rpmfusion.org/"${rpmf}"/fedora/"${type}"-"${fedora_ver}".noarch.rpm
-            _RUN "Ajout du dépôt ${type}-tainted (f${fedora_ver})" _PKG_INSTALL "${type}"-tainted
+            _RUN "Ajout du dépôt ${type}" _PKG_INSTALL https://mirrors.rpmfusion.org/"${rpmf}"/fedora/"${type}"-"${fedora_ver}".noarch.rpm
+            _RUN "Ajout du dépôt ${type}-tainted" _PKG_INSTALL "${type}"-tainted
             cache=1
         fi
     done
@@ -122,7 +122,7 @@ INSTALL_REPOS() {
             _INFO "Dépôt Terra déjà OK"
         else
             # shellcheck disable=SC2016
-            _RUN "Ajout du dépôt Terra (f${fedora_ver})" sudo dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
+            _RUN "Ajout du dépôt Terra" sudo dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
             cache=1
         fi
     fi
@@ -605,12 +605,12 @@ SETUP_SUDO_RS() {
         local file="${d_sudoers_rs_d}/90-profile-sync-daemon"
         if sudo test -f "${file}"; then
             if ! sudo grep -q "${pattern}" "${file}" >/dev/null; then
-                _RUN "Mise à jour de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
+                _RUN "Mise à jour de la règle \"profile-sync-daemon\"" sudo bash -c "echo \"${pattern}\" > \"${file}\""
                 change=1
                 _ETC_FILES_ADD "${file}"
             fi
         else
-            _RUN "Création de la règle \"profile-sync-daemon\"." sudo bash -c "echo \"${pattern}\" > \"${file}\""
+            _RUN "Création de la règle \"profile-sync-daemon\"" sudo bash -c "echo \"${pattern}\" > \"${file}\""
             change=1
             _ETC_FILES_ADD "${file}"
         fi
@@ -619,12 +619,12 @@ SETUP_SUDO_RS() {
         local file2="${d_sudoers_rs_d}/99-timeout"
         if sudo test -f "${file2}"; then
             if ! sudo grep -q "${pattern}" "${file2}" >/dev/null; then
-                _RUN "Mise à jour de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
+                _RUN "Mise à jour de la règle \"timeout\"" sudo bash -c "echo \"${pattern}\" > \"${file2}\""
                 change=1
                 _ETC_FILES_ADD "${file2}"
             fi
         else
-            _RUN "Création de la règle \"timeout\"." sudo bash -c "echo \"${pattern}\" > \"${file2}\""
+            _RUN "Création de la règle \"timeout\"" sudo bash -c "echo \"${pattern}\" > \"${file2}\""
             change=1
             _ETC_FILES_ADD "${file2}"
         fi

@@ -1284,7 +1284,7 @@ ${harden}"
         dir="/etc/modules-load.d"
         file="${dir}/net.conf"
         content=$'tcp_bbr\nsch_fq\n'
-        _INSTALL_ETC_FILES "Modules tcp_bbr et sch_fq" "${content}" "${file}" "644"
+        _INSTALL_ETC_FILES "modules tcp_bbr et sch_fq" "${content}" "${file}" "644"
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
             _RUN "Dracut en cours" sudo dracut -f --regenerate-all
         fi
@@ -1429,10 +1429,10 @@ _DISABLE_IPV6_IN_SERVICES() {
             _RUNSILENT "" sudo cp -fav "${avahi_conf}" "${avahi_conf}.bak"
             if grep -qE '^\s*use-ipv6\s*=' "${avahi_conf}"; then
                 # La clé existe avec une autre valeur → on la remplace
-                _RUN "Désactivation de IPv6 pour avahi-daemon" sudo sed -i -E 's/^\s*use-ipv6\s*=.*/use-ipv6=no/' "${avahi_conf}"
+                _RUN "Désactivation de IPv6 pour avahi-daemon (${avahi_conf})" sudo sed -i -E 's/^\s*use-ipv6\s*=.*/use-ipv6=no/' "${avahi_conf}"
             else
                 # La clé est absente → on l'injecte sous [server]
-                _RUN "Désactivation de IPv6 pour avahi-daemon" sudo sed -i -E '/^\[server\]/a use-ipv6=no' "${avahi_conf}"
+                _RUN "Désactivation de IPv6 pour avahi-daemon (${avahi_conf})" sudo sed -i -E '/^\[server\]/a use-ipv6=no' "${avahi_conf}"
             fi
             _LOG "IPv6 désactivé pour ${avahi_conf} (backup: ${avahi_conf}.bak et ${avahi_conf}.origin)"
             grep use-ipv6 "${avahi_conf}" >> "${LOG_FILE}"
@@ -1923,7 +1923,7 @@ _ENSURE_LVM_SWAP() {
     fstab_line="${swap_dev} none swap sw,nofail 0 0"
 
     if ! sudo grep -Eq "^[[:space:]]*${swap_dev//\//\\/}[[:space:]]+none[[:space:]]+swap[[:space:]]" /etc/fstab; then
-        printf '%s\n' "${fstab_line}" >> /etc/fstab
+        printf '%s\n' "${fstab_line}" | sudo tee -a /etc/fstab >/dev/null
     fi
 
     if ! sudo swapon --show=NAME --noheadings 2>/dev/null | awk '{print $1}' | grep -Fxq "${swap_dev}"; then
