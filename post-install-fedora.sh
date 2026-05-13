@@ -313,6 +313,71 @@ INSTALL_SYSTEM_PACKAGES() {
 }
 
 ########################################################################################################################
+# SETUP_GRUB() {
+#     local is_grub
+#     is_grub=$(_DETECT_GRUB)
+#
+#     _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
+#
+#     if [[ "${is_grub}" == "true" ]]; then
+#         local zswap="" ipv6="" plymouth=""
+#         # pour forcer l'affichage du menu des noyaux au boot
+#         _RUNSILENT "" sudo grub2-editenv - unset menu_auto_hide
+#
+#         if [[ "${ZSWAP,,}" = "yes" ]]; then
+#             zswap="zswap.enabled=1 zswap.shrinker_enabled=1 zswap.compressor=lz4 zswap.max_pool_percent=30 systemd.zram=0"
+#             _LOG "ZSWAP est demandé : \"${zswap}\" ajouté à GRUB"
+#         fi
+#         if [[ "${DISABLE_IPV6,,}" = "yes" ]]; then
+#             ipv6="ipv6.disable=1"
+#         fi
+#         if [[ "${DISABLE_PLYMOUTH,,}" != "yes" ]]; then
+#             plymouth="rhgb quiet"
+#         fi
+#
+#         local luks_param="" target_cmdline="" current_cmdline="" current_default=""
+#         if grep -q 'rd\.luks\.uuid=' /etc/default/grub; then
+#             luks_param=$(grep -oP 'rd\.luks\.uuid=\S+' /etc/default/grub | head -n 1)
+#         fi
+#
+#         target_cmdline="${luks_param} ${plymouth} ${zswap} ${ipv6} ${CMDLINE} ${TTY_COLOR}"
+#         target_cmdline=$(echo "${target_cmdline}" | xargs)
+#
+#         current_cmdline=$(grep '^GRUB_CMDLINE_LINUX=' /etc/default/grub | cut -d'"' -f2 || echo "")
+#         current_default=$(grep '^GRUB_DEFAULT=' /etc/default/grub | cut -d'=' -f2 || echo "")
+#         current_timeout=$(grep '^GRUB_TIMEOUT=' /etc/default/grub | cut -d'=' -f2 || echo "")
+#
+#         if [[ "${current_cmdline}" != "${target_cmdline}" ]] || [[ "${current_default}" != "menu" ]] || [[ "${current_timeout}" != "2" ]]; then
+#             if [[ ! -f /etc/default/grub.origin ]]; then
+#                 _RUNSILENT "" sudo cp -av /etc/default/grub /etc/default/grub.origin
+#             fi
+#             _RUNSILENT "" sudo cp -av /etc/default/grub /etc/default/grub.bak
+#
+#             # Application des modifications (avec gestion de l'absence)
+#             _RUN "Mise à jour des paramètres de GRUB (/etc/default/grub)" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
+#             _LOG "Options de démarrage du noyau ajoutées à GRUB : "
+#             _PRINT_LIST "${target_cmdline}" | tee -a "${LOG_FILE:-/dev/null}" >/dev/null
+#
+#             if grep -q '^GRUB_TIMEOUT=' /etc/default/grub; then
+#                 _RUN "Délai GRUB 2 sec (/etc/default/grub)" sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
+#             else
+#                 _RUN "Délai GRUB 2 sec (/etc/default/grub)" sudo bash -c "echo 'GRUB_TIMEOUT=2' >> /etc/default/grub"
+#             fi
+#             _RUN "Regénération de la configuration de GRUB" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+#             _LOG "sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
+#             _ETC_FILES_ADD "/etc/default/grub"
+#         else
+#             _INFO "GRUB déjà OK (/etc/default/grub)"
+#         fi
+#         {
+#             sudo ls -l /etc/default/grub
+#             sudo cat /etc/default/grub
+#         } >>"${LOG_FILE}"
+#     else
+#         _ERR "GRUB n'a pas été détecté, par prudence je ne change rien au bootloader actuel"
+#     fi
+# }
+
 SETUP_GRUB() {
     local is_grub
     is_grub=$(_DETECT_GRUB)
@@ -320,58 +385,49 @@ SETUP_GRUB() {
     _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
 
     if [[ "${is_grub}" == "true" ]]; then
-        local zswap="" ipv6="" plymouth=""
-        # pour forcer l'affichage du menu des noyaux au boot
+        # Force menu GRUB
         _RUNSILENT "" sudo grub2-editenv - unset menu_auto_hide
 
-        if [[ "${ZSWAP,,}" = "yes" ]]; then
-            zswap="zswap.enabled=1 zswap.shrinker_enabled=1 zswap.compressor=lz4 zswap.max_pool_percent=30 systemd.zram=0"
-            _LOG "ZSWAP est demandé : \"${zswap}\" ajouté à GRUB"
-        fi
-        if [[ "${DISABLE_IPV6,,}" = "yes" ]]; then
-            ipv6="ipv6.disable=1"
-        fi
-        if [[ "${DISABLE_PLYMOUTH,,}" != "yes" ]]; then
-            plymouth="rhgb quiet"
-        fi
+        # Nouveaux params à ajouter
+        local new_params=()
+        [[ "${ZSWAP,,}" = "yes" ]] && new_params+=("zswap.enabled=1 zswap.shrinker_enabled=1 zswap.compressor=lz4 zswap.max_pool_percent=30 systemd.zram=0")
+        [[ "${DISABLE_IPV6,,}" = "yes" ]] && new_params+=("ipv6.disable=1")
+        [[ -n "${CMDLINE}" ]] && new_params+=("${CMDLINE}")
+        [[ -n "${TTY_COLOR}" ]] && new_params+=("${TTY_COLOR}")
 
-        local luks_param="" target_cmdline="" current_cmdline="" current_default=""
-        if grep -q 'rd\.luks\.uuid=' /etc/default/grub; then
-            luks_param=$(grep -oP 'rd\.luks\.uuid=\S+' /etc/default/grub | head -n 1)
-        fi
+        local current_cmdline current_default current_timeout grub_file="/etc/default/grub"
+        current_cmdline=$(grep '^GRUB_CMDLINE_LINUX=' "${grub_file}" | cut -d'"' -f2 || echo "")
+        current_default=$(grep '^GRUB_DEFAULT=' "${grub_file}" | cut -d'=' -f2 || echo "")
+        current_timeout=$(grep '^GRUB_TIMEOUT=' "${grub_file}" | cut -d'=' -f2 || echo "")
 
-        target_cmdline="${luks_param} ${plymouth} ${zswap} ${ipv6} ${CMDLINE} ${TTY_COLOR}"
-        target_cmdline=$(echo "${target_cmdline}" | xargs)
+        local full_cmdline="${current_cmdline}"
 
-        current_cmdline=$(grep '^GRUB_CMDLINE_LINUX=' /etc/default/grub | cut -d'"' -f2 || echo "")
-        current_default=$(grep '^GRUB_DEFAULT=' /etc/default/grub | cut -d'=' -f2 || echo "")
-        current_timeout=$(grep '^GRUB_TIMEOUT=' /etc/default/grub | cut -d'=' -f2 || echo "")
-
-        if [[ "${current_cmdline}" != "${target_cmdline}" ]] || [[ "${current_default}" != "menu" ]] || [[ "${current_timeout}" != "2" ]]; then
-            if [[ ! -f /etc/default/grub.origin ]]; then
-                _RUNSILENT "" sudo cp -av /etc/default/grub /etc/default/grub.origin
+        # Append sans doublons
+        for param in "${new_params[@]}"; do
+            if [[ -n "${param}" && ! "${full_cmdline}" =~ ${param// /\|} ]]; then
+                full_cmdline="${full_cmdline} ${param}"
             fi
-            _RUNSILENT "" sudo cp -av /etc/default/grub /etc/default/grub.bak
+        done
+        full_cmdline=$(echo "${full_cmdline}" | xargs)
 
-            # Application des modifications (avec gestion de l'absence)
-            _RUN "Mise à jour des paramètres de GRUB (/etc/default/grub)" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${target_cmdline}\"|" /etc/default/grub
+        if [[ "${current_cmdline}" != "${full_cmdline}" ]] || [[ "${current_default}" != "menu" ]] || [[ "${current_timeout}" != "2" ]]; then
+            if [[ ! -f "${grub_file}.origin" ]]; then
+                _RUNSILENT "" sudo cp -av "${grub_file}" "${grub_file}.origin"
+            fi
+            _RUNSILENT "" sudo cp -av "${grub_file}" "${grub_file}.bak"
+            _RUN "Mise à jour des paramètres de GRUB (/etc/default/grub)" sudo sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${full_cmdline}\"|" "${grub_file}"
             _LOG "Options de démarrage du noyau ajoutées à GRUB : "
-            _PRINT_LIST "${target_cmdline}" | tee -a "${LOG_FILE:-/dev/null}" >/dev/null
-
-            if grep -q '^GRUB_TIMEOUT=' /etc/default/grub; then
-                _RUN "Délai GRUB 2 sec (/etc/default/grub)" sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
-            else
-                _RUN "Délai GRUB 2 sec (/etc/default/grub)" sudo bash -c "echo 'GRUB_TIMEOUT=2' >> /etc/default/grub"
-            fi
+            _RUN "GRUB_DEFAULT=menu + TIMEOUT=2" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' "${grub_file}"
             _RUN "Regénération de la configuration de GRUB" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
-            _LOG "sudo grub2-mkconfig -o /boot/grub2/grub.cfg"
-            _ETC_FILES_ADD "/etc/default/grub"
+            _ETC_FILES_ADD "${grub_file}"
+            _LOG "GRUB mis à jour. CMDLINE: ${full_cmdline}"
         else
             _INFO "GRUB déjà OK (/etc/default/grub)"
         fi
+
         {
-            sudo ls -l /etc/default/grub
-            sudo cat /etc/default/grub
+            sudo ls -l "${grub_file}"
+            sudo cat "${grub_file}"
         } >>"${LOG_FILE}"
     else
         _ERR "GRUB n'a pas été détecté, par prudence je ne change rien au bootloader actuel"
