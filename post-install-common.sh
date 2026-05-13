@@ -608,7 +608,7 @@ SETUP_FSTAB() {
     fi
 
     # NFS
-    if [[ "${NFS_SHARE}" != "" ]]; then
+    if [[ "${NFS_SHARE:-}" != "" ]]; then
         local opts
         opts="rw,_netdev,nofail,nodev,nosuid,noexec,noatime,lazytime,x-systemd.automount,x-systemd.device-timeout=30"
         if ! grep -q "${NFS_SHARE}" "${fstab}" >/dev/null; then
