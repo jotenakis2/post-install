@@ -1926,7 +1926,10 @@ _ENSURE_LVM_SWAP() {
         printf '%s\n' "${fstab_line}" | sudo tee -a /etc/fstab >/dev/null
     fi
 
-    if ! sudo swapon --show=NAME --noheadings 2>/dev/null | awk '{print $1}' | grep -Fxq "${swap_dev}"; then
-        _RUN "activation swap LVM" sudo swapon "${swap_dev}"
+    local swap_dev_real
+    swap_dev_real=$(readlink -f "${swap_dev}" 2>/dev/null) || true
+    if ! grep -Fxq "${swap_dev_real}" </proc/swaps; then
+        swapon "${swap_dev}"
     fi
+
 }
