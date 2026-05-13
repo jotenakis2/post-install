@@ -1922,7 +1922,7 @@ _ENSURE_LVM_SWAP() {
 
     fstab_line="${swap_dev} none swap sw,nofail 0 0"
 
-    if ! sudo grep -Eq "^[[:space:]]*${swap_dev//\//\\/}[[:space:]]+none[[:space:]]+swap[[:space:]]" /etc/fstab; then
+    if ! sudo grep -qF "${swap_dev} none swap" /etc/fstab; then
         printf '%s\n' "${fstab_line}" | sudo tee -a /etc/fstab >/dev/null
     fi
 
