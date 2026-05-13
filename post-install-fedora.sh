@@ -161,7 +161,7 @@ _ADD_COPR(){
     local repo
     local -n localcache="$2"
     repo="$1"
-    : "${localcache}"
+    : "${localcache}" # juste pour shellcheck
     if dnf repolist 2>/dev/null | grep -q "${repo//\//:}"; then
         _INFO "Dépôt COPR ${repo} déjà OK"
     else
@@ -423,6 +423,7 @@ SETUP_FIREWALL() {
 SETUP_SWAP() { # que si zswap est demandé
     if [[ "${ZSWAP,,}" = "yes" ]]; then
         _LOG "* swap *"
+        _ENSURE_LVM_SWAP
         _GET_SWAP SWAPS
         if [[ "${#SWAPS[@]}" -gt 0 ]]; then
             local swappath allswap=""

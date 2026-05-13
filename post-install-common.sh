@@ -6,7 +6,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=35.6
+readonly SCRIPTNAME VER=36
 
 # gestion des interruptions et sourcing des fonctions bas niveau ______
 trap '_CLEANUP' ERR
@@ -59,7 +59,6 @@ MAINMODE() {
     SETUP_SHELL
     SETUP_DOTFILES
     SETUP_ETC
-    _SETUP_ENV_DEV
     SETUP_SYSTEMD
     SETUP_FIREWALL
     SETUP_SWAP
@@ -304,12 +303,12 @@ INSTALL_GO_PACKAGES() {
 ########################################################################################################################
 INSTALL_GIT_REPOS() {
     local repo name target
-    _RUNSILENT "" mkdir -pv "${HOME}/git"
+    _RUNSILENT "" mkdir -pv "${HOME}/Projects"
     _SECTION " Installation des dépôts Git personnalisés " "━" "${C_GREEN}"
 
     for repo in "${GIT_REPOS[@]}" "${DOTFILES_REPO}"; do
         name="${repo##*/}"
-        target="${HOME}/git/${name}"
+        target="${HOME}/Projects/${name}"
 
         if [[ -d "${target}" ]]; then
             if git -C "${target}" rev-parse --git-dir &>/dev/null; then
@@ -320,7 +319,8 @@ INSTALL_GIT_REPOS() {
                         _RUN "  Installation de ${name}" bash -c "cd ${target}; make install"
                     fi
                     if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
-                        _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
+                        #_RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
+                        _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo ln -sf ${target}/${name} /usr/local/bin/${name}"
                     fi
                 else
                     _INFO "${name} déjà présent et pas de mise à jour demandée"
@@ -335,7 +335,8 @@ INSTALL_GIT_REPOS() {
                 _RUN "  Installation de ${name}" bash -c "cd ${target}; make install"
             fi
             if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
-                _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
+                #_RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
+                _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo ln -sf ${target}/${name} /usr/local/bin/${name}"
             fi
         fi
 
@@ -428,12 +429,13 @@ SETUP_DOTFILES() {
 
     # 1- nettoyage avant stow pour éviter erreurs.
     local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/kglobalshortcutsrc" ".config/konsolerc" ".config/user-dirs.dirs" ".config/user-dirs.locale")
-    local file
-    mkdir -p "${HOME}/backup"
+    local file dir
+    dir="${HOME}/.backup"
+    _RUNSILENT "" mkdir -pv "${dir}"
     for file in "${skel_files[@]}"; do
         if [[ -f "${HOME}/${file}" && ! -L "${HOME}/${file}" ]]; then
-            _LOG "déplacement de fichiers qui seront remplacés par le dotfiles via stow dans ~/backup : "
-            _RUNSILENT "" mv -v "${HOME}/${file}" "${HOME}/backup/"
+            _LOG "déplacement de fichiers qui seront remplacés par le dotfiles via stow dans ${dir} : "
+            _RUNSILENT "" mv -v "${HOME}/${file}" "${dir}"
         fi
     done
 
@@ -470,10 +472,24 @@ SETUP_DOTFILES() {
 ########################################################################################################################
 SETUP_SYSTEMD() {
     _LOG "* systemd *"
+
+    # Config
+    _JOURNALD
+    local content file dir
+    dir='/etc/systemd'
+    file="${dir}/system.conf"
+    content=$'[Manager]\nDefaultTimeoutStopSec=20s\n'
+    _INSTALL_ETC_FILES "configuration systemd" "${content}" "${file}" "644"
+    if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+        _RUNSILENT "" sudo systemctl daemon-reexec
+    fi
+
+    # Service
     local service
     local description
     local -a missing=()
     local -a present=()
+
 
     for service in "${!SERVICES_TO_DISABLE[@]}"; do
         description="${SERVICES_TO_DISABLE[${service}]}"
@@ -855,7 +871,6 @@ SETUP_ETC() {
     _SECTION " Configuration générale du système " "━" "${C_GREEN}"
     _MSMTP
     _HOSTNAME
-    _JOURNALD
     _NETWORKMANAGER
     _SYSTEMD_RESOLVED
     _KERNEL
@@ -867,6 +882,7 @@ SETUP_ETC() {
     _DISABLE_IPV6_IN_SERVICES
     _HARDENING
     _DISABLE_FPRINTD
+    _SETUP_ENV_DEV
 }
 
 ########################################################################################################################
@@ -1078,8 +1094,10 @@ END() {
 ########################################################################################################################
 
 _JOURNALD() {
-    local journald_content journald_file
-    journald_file="/etc/systemd/journald.conf"
+    local journald_content journald_file dir
+    dir="/etc/systemd"
+    journald_file="${dir}/journald.conf"
+    _RUNSILENT "" sudo mkdir -pv "${dir}"
     journald_content=$'[Journal]\nSystemMaxUse=500M\nSystemKeepFree=1G\n'
     readonly journald_file journald_content
     _LOG "* journald *"
@@ -1190,10 +1208,7 @@ _KERNEL() {
     local sysctlfile sysctl_header full_sysctl_content nodump="" harden="" swappiness=""
     sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
     if [[ "${DISABLE_COREDUMP,,}" = "yes" ]]; then
-        nodump='# no dump
-fs.suid_dumpable=0
-kernel.core_pattern=|/bin/false
-'
+        nodump=$'# no dump\nfs.suid_dumpable=0\nkernel.core_pattern=|/bin/false\n'
     fi
     if [[ "${HARDENING,,}" = "yes" ]]; then
         harden='# hardening
@@ -1268,9 +1283,7 @@ ${harden}"
     if [[ "${qdisc}" = "fq" ]] || [[ "${congestion}" = "bbr" ]]; then
         dir="/etc/modules-load.d"
         file="${dir}/net.conf"
-        content='tcp_bbr
-sch_fq
-'
+        content=$'tcp_bbr\nsch_fq\n'
         _INSTALL_ETC_FILES "Modules tcp_bbr et sch_fq" "${content}" "${file}" "644"
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
             _RUN "Dracut en cours" sudo dracut -f --regenerate-all
@@ -1301,8 +1314,10 @@ _BRAVEPOLICIES() {
 _IOSCHEDULER() {
     # IO scheduler NVMe = none, SSD = mq-deadline, HDD = bfq
     # Some may prefer kyber for nvme
-    local rules_file rules_content
-    rules_file="/etc/udev/rules.d/60-ioschedulers.rules"
+    local rules_file rules_content dir
+    dir="/etc/udev/rules.d"
+    _RUNSILENT "" sudo mkdir -pv "${dir}"
+    rules_file="${dir}/60-ioschedulers.rules"
     rules_content='# NVMe
 ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
 
@@ -1369,8 +1384,10 @@ _DISABLE_IPV6_IN_SERVICES() {
         _LOG "désactivation IPV6 dans les services"
 
         # Chrony
-        local chrony_file chrony_content
-        chrony_file="/etc/sysconfig/chronyd"
+        local chrony_file chrony_content dir
+        dir="/etc/sysconfig"
+        _RUNSILENT "" sudo mkdir -pv "${dir}"
+        chrony_file="${dir}/chronyd"
         chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
         readonly chrony_file chrony_content
 
@@ -1427,9 +1444,7 @@ _DISABLE_IPV6_IN_SERVICES() {
         dirNM="/etc/NetworkManager/conf.d"
         fileNM="${dirNM}/disable-ipv6.conf"
         _RUNSILENT "" sudo mkdir -pv "${dirNM}"
-        contentNM='[connection]
-ipv6.method=disabled
-'
+        contentNM=$'[connection]\nipv6.method=disabled\n'
         _INSTALL_ETC_FILES "IPv6 NetworkManager" "${contentNM}" "${fileNM}" "644"
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
             _RUNSILENT "" sudo nmcli general reload
@@ -1588,18 +1603,7 @@ _HARDENING(){
         dir="/etc/tmpfiles.d"
         file="${dir}/hardening-perms.conf"
         _RUNSILENT "" sudo mkdir -pv "${dir}"
-        rights='
-z /etc/cron.deny    0600 root root -
-z /etc/cron.allow   0600 root root -
-z /etc/at.deny      0600 root root -
-z /etc/at.allow     0600 root root -
-z /etc/crontab      0600 root root -
-z /etc/cron.d       0700 root root -
-Z /etc/cron.hourly  0700 root root -
-Z /etc/cron.daily   0700 root root -
-Z /etc/cron.weekly  0700 root root -
-Z /etc/cron.monthly 0700 root root -
-'
+        rights=$'\nz /etc/cron.deny    0600 root root -\nz /etc/cron.allow   0600 root root -\nz /etc/at.deny      0600 root root -\nz /etc/at.allow     0600 root root -\nz /etc/crontab      0600 root root -\nz /etc/cron.d       0700 root root -\nZ /etc/cron.hourly  0700 root root -\nZ /etc/cron.daily   0700 root root -\nZ /etc/cron.weekly  0700 root root -\nZ /etc/cron.monthly 0700 root root -\n'
         _INSTALL_ETC_FILES "robustification droits de fichiers critiques" "${rights}" "${file}" "644"
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
             _RUNSILENT "" sudo systemd-tmpfiles --create "${file}"
@@ -1611,57 +1615,37 @@ Z /etc/cron.monthly 0700 root root -
         dir="/etc/modprobe.d"
         _RUNSILENT "" sudo mkdir -pv "${dir}"
         net_file="${dir}/disable-network-protocols.conf"
-        net_content='
-# network special protocols deactivated by post-install script by jotenakis
-install dccp /bin/false
-install sctp /bin/false
-install rds /bin/false
-install tipc /bin/false
-install n-hdlc /bin/false
-install ax25 /bin/false
-install netrom /bin/false
-install x25 /bin/false
-install rose /bin/false
-install decnet /bin/false
-install econet /bin/false
-install af_802154 /bin/false
-install ipx /bin/false
-install appletalk /bin/false
-install psnap /bin/false
-install p8023 /bin/false
-install p8022 /bin/false
-install can /bin/false
-install atm /bin/false
-'
+        net_content=$'# network special protocols deactivated by post-install script by jotenakis\ninstall dccp /bin/false\ninstall sctp /bin/false\ninstall rds /bin/false\ninstall tipc /bin/false\ninstall n-hdlc /bin/false\ninstall ax25 /bin/false\ninstall netrom /bin/false\ninstall x25 /bin/false\ninstall rose /bin/false\ninstall decnet /bin/false\ninstall econet /bin/false\ninstall af_802154 /bin/false\ninstall ipx /bin/false\ninstall appletalk /bin/false\ninstall psnap /bin/false\ninstall p8023 /bin/false\ninstall p8022 /bin/false\ninstall can /bin/false\ninstall atm /bin/false\n'
+
         _INSTALL_ETC_FILES "suppresion de protocoles réseaux inutilisés" "${net_content}" "${net_file}" "644"
 
         # Firewalld zone public par défaut pour toutes les interfaces
-        local iface current_zone default_zone
-        local reload_needed=0
-
-        default_zone="$(sudo firewall-cmd --get-default-zone 2>/dev/null)"
-        if [[ "${default_zone}" != "public" ]]; then
-            _RUN "Zone publique par défaut définie dans firewalld" sudo firewall-cmd --set-default-zone=public
-        else
-            _INFO "Publique est déjà la zone firewalld par défaut"
-        fi
-
-        tmp="$(mktemp)"
-        _GET_PHYSICAL_IFACE > "${tmp}"
-
-        while IFS= read -r iface; do
-            current_zone="$(sudo firewall-cmd --get-zone-of-interface="${iface}" 2>/dev/null)" || true
-            [[ "${current_zone}" == "public" ]] && continue
-            _RUN "Zone publique pour l'interface ${iface}" sudo firewall-cmd --permanent --zone=public --change-interface="${iface}"
-            reload_needed=1
-        done < "${tmp}"
-        rm -f "${tmp}"
-
-        if [[ "${reload_needed}" -eq 1 ]]; then
-            _RUNSILENT "" sudo firewall-cmd --reload
-        fi
-        _LOG "Zones firewalld"
-        sudo firewall-cmd --get-active-zones | sudo tee -a "${LOG_FILE}" >/dev/null
+        # local iface current_zone default_zone
+        # local reload_needed=0
+        #
+        # default_zone="$(sudo firewall-cmd --get-default-zone 2>/dev/null)"
+        # if [[ "${default_zone}" != "public" ]]; then
+        #     _RUN "Zone publique par défaut définie dans firewalld" sudo firewall-cmd --set-default-zone=public
+        # else
+        #     _INFO "Publique est déjà la zone firewalld par défaut"
+        # fi
+        #
+        # tmp="$(mktemp)"
+        # _GET_PHYSICAL_IFACE > "${tmp}"
+        #
+        # while IFS= read -r iface; do
+        #     current_zone="$(sudo firewall-cmd --get-zone-of-interface="${iface}" 2>/dev/null)" || true
+        #     [[ "${current_zone}" == "public" ]] && continue
+        #     _RUN "Zone publique pour l'interface ${iface}" sudo firewall-cmd --permanent --zone=public --change-interface="${iface}"
+        #     reload_needed=1
+        # done < "${tmp}"
+        # rm -f "${tmp}"
+        #
+        # if [[ "${reload_needed}" -eq 1 ]]; then
+        #     _RUNSILENT "" sudo firewall-cmd --reload
+        # fi
+        # _LOG "Zones firewalld"
+        # sudo firewall-cmd --get-active-zones | sudo tee -a "${LOG_FILE}" >/dev/null
 
 
 
@@ -1744,7 +1728,8 @@ _SSHBANNER(){
     dir="/etc/issue.d"
     _RUNSILENT "" sudo mkdir -pv "${dir}"
     banner_file="${dir}/ssh.issue"
-    banner_content='#################################################################
+    banner_content='
+#################################################################
 #                   _    _           _   _                      #
 #                  / \  | | ___ _ __| |_| |                     #
 #                 / _ \ | |/ _ \ |__| __| |                     #
@@ -1889,3 +1874,59 @@ export PATH=\"\$PATH:\$CARGO_HOME/bin:\$GOROOT/bin:\$GOBIN\"
 
 }
 
+########################################################################################################################
+
+_ENSURE_LVM_SWAP() {
+    local vg_name=""
+    local lv_name=""
+    local swap_dev=""
+    local fstab_line=""
+
+    vg_name="$(sudo lvs --noheadings -o vg_name,lv_name --separator '|' 2>/dev/null \
+        | awk -F'|' '
+            {
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
+                if ($2 ~ /(^|[-_])(swap|lv_swap)([-_]|$)/ || $2 == "swap" || $2 == "lv_swap") {
+                    print $1
+                    exit
+                }
+            }')"
+
+    lv_name="$(sudo lvs --noheadings -o vg_name,lv_name --separator '|' 2>/dev/null \
+        | awk -F'|' '
+            {
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
+                if ($2 ~ /(^|[-_])(swap|lv_swap)([-_]|$)/ || $2 == "swap" || $2 == "lv_swap") {
+                    print $2
+                    exit
+                }
+            }')"
+
+    if [[ -z ${vg_name} || -z ${lv_name} ]]; then
+        _LOG "Aucun LV swap LVM détecté"
+        return 1
+    fi
+
+    swap_dev="/dev/mapper/${vg_name//-/'--'}-${lv_name//-/'--'}"
+
+    if [[ ! -b ${swap_dev} ]]; then
+        _LOG "Périphérique introuvable: ${swap_dev}"
+        return 1
+    fi
+
+    if ! sudo blkid -t TYPE=swap "${swap_dev}" >/dev/null 2>&1; then
+        _RUN "formatage swap LVM" sudo mkswap "${swap_dev}"
+    fi
+
+    fstab_line="${swap_dev} none swap sw,nofail 0 0"
+
+    if ! sudo grep -Eq "^[[:space:]]*${swap_dev//\//\\/}[[:space:]]+none[[:space:]]+swap[[:space:]]" /etc/fstab; then
+        printf '%s\n' "${fstab_line}" >> /etc/fstab
+    fi
+
+    if ! sudo swapon --show=NAME --noheadings 2>/dev/null | awk '{print $1}' | grep -Fxq "${swap_dev}"; then
+        _RUN "activation swap LVM" sudo swapon "${swap_dev}"
+    fi
+}
