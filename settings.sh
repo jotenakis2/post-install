@@ -25,7 +25,7 @@ DISABLE_IPV6="yes"           # supprime support ipv6 dans le kernel
 DISABLE_DNF_GUI="yes"        # supprime PackageKit, gnome-logiciels, plasma-diskover, ...
 DISABLE_FINGERPRINT="yes"    # si capteur d'empreinte non supporté autant tout désactiver autour de cette fonction
 ENABLE_CACHYOS_KERNEL="yes"  # installation/configuration du noyau optimisé de cachyOS (copr fedora)
-TERRA="no"                  # pour installer le dépôt additionnel Terra (Fedora)
+TERRA="yes"                  # pour installer le dépôt additionnel Terra (Fedora)
 #-----------------------------------------------------------------------------------------------------------------------------
 
 
