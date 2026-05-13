@@ -1928,7 +1928,7 @@ _ENSURE_LVM_SWAP() {
 
     local swap_dev_real
     swap_dev_real=$(readlink -f "${swap_dev}" 2>/dev/null) || true
-    if ! grep -Fxq "${swap_dev_real}" </proc/swaps; then
+    if ! grep -Fq "${swap_dev_real}" </proc/swaps; then
         sudo swapon "${swap_dev}"
     fi
 

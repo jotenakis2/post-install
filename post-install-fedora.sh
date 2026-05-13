@@ -273,9 +273,9 @@ INSTALL_SYSTEM_PACKAGES() {
 
         if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]]; then
             _LOG " ajout du noyau Linux de cachyOS dans les paquets à installer "
-            _INFO "Noyau linux cachyOS demandé"
 
             if ! _IN_ARRAY kernel-cachyos "${SYSTEM_PACKAGES[@]}"; then
+                _INFO "Noyau linux cachyOS demandé"
                 SYSTEM_PACKAGES+=("kernel-cachyos")
             fi
 
