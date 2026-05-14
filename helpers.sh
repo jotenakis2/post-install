@@ -327,6 +327,21 @@ _RUN() {
         _DIE "Échec — détails : ${LOG_FILE:-/dev/null}"
     fi
 }
+
+_CLEAR() { # fonction pour effacer le terminal en préservant le scrollback.
+    local h
+    h="$(tput lines 2>/dev/null)" || h=0
+
+    if [[ "${h}" -gt 1 ]]; then
+        until [[ "${h}" -le 1 ]]; do
+            printf '\n'
+            h=$((h - 1))
+        done
+    fi
+    command clear -x || true
+    return 0
+}
+
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _EXIST() {

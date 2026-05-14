@@ -131,15 +131,19 @@ INITIALIZE() {
     export STATUSFILE LINKFILE DOWNLOAD_DIR
     #
 
-    clear
-    source /etc/os-release
+    _CLEAR
+    local pretty_name="inconnue"
+    local fileOS="/etc/os-release"
+    if [[ -f "${fileOS}" ]] || [[ -L "${fileOS}" ]]; then
+        pretty_name=$(awk -F= '/^PRETTY_NAME/{gsub(/"/, "", $2); print $2; exit}' "${fileOS}")
+    fi
     _BANNER "blue" "${SCRIPTNAME} (${VER})"
     _SECTION " Préparation de la post-installation " "━" "${C_GREEN}"
-    _INFO "Distribution : ${PRETTY_NAME}"
+    _INFO "Distribution : ${pretty_name}"
     _INFO "Heure de démarrage du script : ${heure}"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
     printf '%s\n' "Paramètres utilisateur retenus : " >>"${LOG_FILE}"
-    tail -n +6 ./settings.sh | grep -E -v '^(#.*shellcheck|[[:space:]]*#.*shellcheck|[[:space:]]*$)' >> "${LOG_FILE}"
+    tail -n +14 ./settings.sh | grep -E -v '^(#.*shellcheck|[[:space:]]*#.*shellcheck|[[:space:]]*$)' >> "${LOG_FILE}"
     INSTALL_DEPS
 
     # RUST
@@ -1027,7 +1031,7 @@ EOF
 ########################################################################################################################
 
 INSTALL_DEPS() {
-    local -a prerequisit=(zsh curl crudini ncurses git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils)
+    local -a prerequisit=(zsh gawk curl crudini ncurses git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils)
     _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
 }
 

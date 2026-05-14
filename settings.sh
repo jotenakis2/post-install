@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-XDG_PICTURES_DIR="$(xdg-user-dir PICTURES)"
-XDG_DOCUMENTS_DIR="$(xdg-user-dir DOCUMENTS)"
-
 ################################################################
 #   Paramètres utilisateur de post-install-fedora.sh           #
 ################################################################
+
+XDG_PICTURES_DIR="$(xdg-user-dir PICTURES)"
+XDG_DOCUMENTS_DIR="$(xdg-user-dir DOCUMENTS)"
 
 ################################################################
 # Activation/désactivation de certaines fonctions : yes/no     #
