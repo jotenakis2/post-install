@@ -12,21 +12,28 @@ XDG_DOCUMENTS_DIR="$(xdg-user-dir DOCUMENTS)"
 ################################################################
 
 # Note: le script ne permet un retour en arrière si l'utilisateur change d'avis !
-SUDORS="yes"                 # remplace sudo par sudo-rs
-ACTIVATE_SSHD="yes"          # activation / configuration server ssh
-ZSWAP="yes"                  # si yes, zram éventuel supprimé et remplacé par zswap avec un backend swapfile
-USE_OH_MY_POSH_PROMPT="yes"  # pour télécharger oh-my-posh pour l'utilisateur qui lance le script
-UPDATE_GIT_REPOS="yes"       # force une maj des repos git à chaque exécution du script
-RESTOW="yes"                 # force une maj des liens symboliques des dotfiles utilisateurs (reSTOW)
-DISABLE_COREDUMP="yes"       # pour empécher la génération de dump mémoire en cas de crash d'une app
-DISABLE_PLYMOUTH="yes"       # pour désactiver le boot graphique (plymouth sera désinstallé)
-HARDENING="yes"              # diverses robustifications de sécurité
-DISABLE_IPV6="yes"           # supprime support ipv6 dans le kernel et services
-DISABLE_DNF_GUI="yes"        # supprime gnome-logiciels et plasma-discover (ainsi que PackageKit)
-DISABLE_FINGERPRINT="yes"    # si capteur d'empreinte non supporté autant tout désactiver autour de cette fonction
-ENABLE_CACHYOS_KERNEL="yes"  # installation/configuration du noyau optimisé de cachyOS (via un copr fedora)
-TERRA="yes"                  # pour installer le dépôt additionnel Terra (Fedora)
-#-----------------------------------------------------------------------------------------------------------------------------
+SUDORS="yes"                        # remplace sudo par sudo-rs
+ACTIVATE_SSHD="yes"                 # activation / configuration server ssh
+ZSWAP="yes"                         # si yes, zram éventuel supprimé et remplacé par zswap avec un backend swapfile
+USE_OH_MY_POSH_PROMPT="yes"         # pour télécharger oh-my-posh pour l'utilisateur qui lance le script
+UPDATE_GIT_REPOS="yes"              # force une maj des repos git à chaque exécution du script
+RESTOW="yes"                        # force une maj des liens symboliques des dotfiles utilisateurs (reSTOW)
+DISABLE_COREDUMP="yes"              # pour empécher la génération de dump mémoire en cas de crash d'une app
+DISABLE_PLYMOUTH="yes"              # pour désactiver le boot graphique (plymouth sera désinstallé)
+HARDENING="yes"                     # diverses robustifications de sécurité
+DISABLE_IPV6="yes"                  # supprime support ipv6 dans le kernel et services
+DISABLE_DNF_GUI="yes"               # supprime gnome-logiciels et plasma-discover (ainsi que PackageKit)
+DISABLE_FINGERPRINT="yes"           # si capteur d'empreinte non supporté autant tout désactiver autour de cette fonction
+ENABLE_CACHYOS_KERNEL="yes"         # installation/configuration du noyau optimisé de cachyOS (via un copr fedora)
+TERRA="yes"                         # pour installer le dépôt additionnel Terra (Fedora)
+VARIANT_COLOR_TELA_ICONS="orange"   # standard, black, blue, brown, green, grey, orange, pink, purple, red, yellow, manjaro, ubuntu, nord, ou dracula.
+
+
+
+
+
+
+
 
 
 ################################################################
@@ -35,8 +42,6 @@ TERRA="yes"                  # pour installer le dépôt additionnel Terra (Fedo
 
 # nom de la machine (si vide on ne change pas le nom de l'installer) ---------------------------------------------------------
 MYHOSTNAME="MyFedoraBTW"
-#-----------------------------------------------------------------------------------------------------------------------------
-
 # paquets système à installer ----------------------------------------------------------------------------------------------------
 SYSTEM_PACKAGES=(
     fastfetch foot fzf bat-extras grc axel rclone procs msmtp s-nail chkrootkit rkhunter
@@ -46,8 +51,6 @@ SYSTEM_PACKAGES=(
     libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro konversation libpcap-devel
     # Ajoute tes autres paquets ici
 )
-#-----------------------------------------------------------------------------------------------------------------------------
-
 # paquets système à désinstaller -------------------------------------------------------------------------------------------------
 SYSTEM_REMOVE=(
     rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan at systemd-networkd
@@ -78,8 +81,6 @@ SYSTEM_REMOVE=(
     intel-gpu-firmware
     # Ajoute tes autres paquets ici
 )
-#-----------------------------------------------------------------------------------------------------------------------------
-
 # polices à installer (les 2 nerd font ici sont dans le dépôt Terra qui est ajouté automatiquement) --------------------------
 FONTS=(
     jetbrainsmono-nerd-fonts
@@ -87,19 +88,16 @@ FONTS=(
     terminus-fonts-console
     # Ajoute tes autres paquets ici
 )
-VCONSOLE_FONT="ter-v24b" # font console
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# paquets flatpak à installer ------------------------------------------------------------------------------------------------
+# font console
+VCONSOLE_FONT="ter-v24b"
+# paquets flatpak à installer
 FLATPAK_PKGS=(
     "com.ktechpit.whatsie"
     "io.github.giantpinkrobots.flatsweep"
     "com.github.tchx84.Flatseal"
     # Ajoute tes autres paquets ici
 )
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# outils cargo (rust) à installer et mapping "nom paquet" <=> "binaire installé" ---------------------------------------------
+# outils cargo (rust) à installer
 CARGO_PACKAGES=(
     cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg 
     amdgpu_top
@@ -108,6 +106,7 @@ CARGO_PACKAGES=(
     zoxide zsh-patina eza netwatch-tui syswatch poshbuddy shuck-cli
     # Ajoute tes autres paquets ici
 )
+# mapping cargo "nom paquet" <=> "binaire installé"
 declare -A BIN_MAPPING=(
     ["yazi-fm"]="yazi"
     ["yazi-cli"]="ya"
@@ -121,9 +120,7 @@ declare -A BIN_MAPPING=(
     ["cargo-update"]="cargo-install-update cargo-install-update-config"
     # Ajoute tes autres correspondances nécessaires ici
 )
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# outils GO ------------------------------------------------------------------------------------------------------------------
+# outils GO
 declare -A GO_PACKAGES=(
     ["stormy"]="github.com/ashish0kumar/stormy@latest"
     ["golazo"]="github.com/0xjuanma/golazo@latest"
@@ -131,9 +128,7 @@ declare -A GO_PACKAGES=(
     ["xytz"]="github.com/xdagiz/xytz@latest"
     # Ajoute tes autres paquets ici
 )
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# Repos git à installer (repo dotfiles obligatoire, autres optionnels) -------------------------------------------------------
+# Repos git à installer (repo dotfiles obligatoire, autres optionnels)
 MYREPOS="https://codeberg.org/jotenakis"
 DOTFILES_REPO="${MYREPOS}/dotfiles"
 DOTFILES_DIR="${HOME}/dotfiles"
@@ -144,18 +139,14 @@ GIT_REPOS=(
     "https://github.com/JeromeTDev/radiosh"
     # Ajoute tes autres repos ici
 )
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# services réseaux à autoriser dans le pare-feu ------------------------------------------------------------------------------
+# services réseaux à autoriser dans le pare-feu
 FIREWALL_SERVICES=(
     "mdns"
     "ipp-client"
     "samba-client"
     # ajoute tes autres services réseaux à autoriser ici
 )
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# services systemd à désactiver ----------------------------------------------------------------------------------------------
+# services systemd à désactiver
 declare -A SERVICES_TO_DISABLE=(
     ["ModemManager.service"]="service ModemManager (modem 4G/5G)"
     ["switcheroo-control.service"]="service switcheroo (GPU hybride)"
@@ -175,16 +166,12 @@ declare -A SERVICES_TO_DISABLE=(
     ["NetworkManager-wait-online.service"]="service d'attente réseau"
     # ajoute tes autres services systemd à désactiver ici
 )
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# services systemd --user à activer ------------------------------------------------------------------------------------------
+# services systemd --user à activer
 declare -A USER_SERVICES_TO_ENABLE=(
     ["psd.service"]="service profile-sync-daemon"
     # ajoute tes autres services systemd à désactiver ici
 )
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# configuration du noyau -----------------------------------------------------------------------------------------------------
+# configuration du noyau
 SYSCTL_CONF='# optimisation by post-install script by jotenakis
 vm.vfs_cache_pressure = 50
 vm.watermark_boost_factor = 0
@@ -204,9 +191,7 @@ kernel.task_delayacct = 1
 kernel.soft_watchdog = 0
 kernel.watchdog = 0
 '
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# configuration pour débloater brave browser ---------------------------------------------------------------------------------
+# configuration pour débloater brave browser
 # shellcheck disable=SC2089
 BRAVE_POLICIES='{
     "BraveRewardsDisabled": true,
@@ -218,49 +203,36 @@ BRAVE_POLICIES='{
     "DnsOverHttpsMode": "automatic"
 }
 '
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# conf DNS #------------------------------------------------------------------------------------------------------------------
+# config DNS
 RESOLVED_DNS_SERVERS='[Resolve]
 DNS=9.9.9.9#dns.quad9.net 149.112.112.112#dns.quad9.net
 FallbackDNS=1.1.1.1#one.one.one.one
 Domains=~.
 DNSOverTLS=yes
 DNSSEC=yes
-' # dot quad9, fallback dot cloudflare, DNSSEC on, pour toutes les résolutions externes.
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# conf SSH #------------------------------------------------------------------------------------------------------------------
+'
+# port du service SSH
 SSHD_CONFIG_PORT="22"
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# Couleur du TTY (console virtuelle non graphique) #--------------------------------------------------------------------------
+# Couleur du TTY (console virtuelle non graphique)
 TTY_COLOR="vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200" #catppuccin mocha
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# paramètres additionels optionnels de la ligne de commande du noyau ---------------------------------------------------------
+# paramètres additionels optionnels de la ligne de commande du noyau
 CMDLINE="skew_tick=1"
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# position du panneau de KDE (top, bottom, right, left) ----------------------------------------------------------------------
+# position du panneau de KDE (top, bottom, right, left)
 KDEPANEL="top"
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# Montage NFS ----------------------------------------------------------------------------------------------------------------
+# Partage NFS
 NFS_SHARE="192.168.50.51:/mnt/usbdrive/data"
+# Point de montage NFS
 NFS_MP="/media/NAS"
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# règle udev persistante (par ex : clé usb) ----------------------------------------------------------------------------------
+# règle udev persistante (par ex : clé usb) personnalisé
 # shellcheck disable=SC2089,SC2016
 UDEVRULE='# clé NVMe
 ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="b6fed99c-7c1a-4146-a445-f2660c01146e", ENV{UDISKS_IGNORE}="1", RUN{program}+="/usr/bin/systemd-mount --no-block --automount=yes --collect $devnode /media/cleNVME", RUN{program}+="/bin/chown -R 1000:1000 /media/cleNVME"
 '
+# description de la règle udev persistante
 UDEVDESCR="Clé NVMe"
-#-----------------------------------------------------------------------------------------------------------------------------
-
-# Données privées à restaurer #-----------------------------------------------------------------------------------------------
+#Données privées à restaurer : dossier source
 SOURCE="/media/NAS/backup/data2restore"
+#Données privées à restaurer : binaire à surveiller
 declare -A COMMANDS=(
     ["FIREFOX"]="firefox"
     ["BRAVE"]="brave"
@@ -269,7 +241,7 @@ declare -A COMMANDS=(
     ["DISCORD"]="vesktop"
     # Ajoute les liens binaires à tuer avant de restaurer pour chaque PROFIL (important pour les navigateurs)
 )
-
+#Données privées à restaurer : dossiers de destinations
 # shellcheck disable=SC2154
 declare -A DESTINATIONS=(
     ["FIREFOX"]="${HOME}/.mozilla/firefox"
@@ -284,7 +256,6 @@ declare -A DESTINATIONS=(
     ["IMAGES"]="${XDG_PICTURES_DIR:-}"
     ["DOCUMENTS"]="${XDG_DOCUMENTS_DIR:-}"
 )
-#-----------------------------------------------------------------------------------------------------------------------------
 
 
 
@@ -345,4 +316,5 @@ export ENABLE_CACHYOS_KERNEL
 export XDG_PICTURES_DIR
 export XDG_DOCUMENTS_DIR
 export TERRA
+export VARIANT_COLOR_TELA_ICONS
 ###############################################################################################################################

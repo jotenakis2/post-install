@@ -239,12 +239,13 @@ INSTALL_GO_PACKAGES() {
     if [[ -n "${GO_PACKAGES[*]}" ]]; then
         _SECTION " Installation des paquets GO personnalisés " "━" "${C_GREEN}"
 
-        local pkg current="" latest="" arch="" os="" gofile=""
+        local pkg current="" latest="" arch="" os="" gofile="" url
+        urlGO="https://go.dev/dl/?mode=json"
 
         if _EXIST go; then
             current="$(go version | awk '{print $3}' || true)"
         fi
-        latest="$(curl -fsSL https://go.dev/dl/?mode=json | jq -r '.[0].version' || true)"
+        latest="$(curl -fsSL "${urlGO}" | jq -r '.[0].version' || true)"
         arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
         os=$(uname | tr '[:upper:]' '[:lower:]' || true)
         gofile="${latest}.${os}-${arch}.tar.gz"
@@ -731,11 +732,24 @@ SETUP_KDE_PLASMA() {
         fi
 
         # 3. Icônes : Tela
+        local c colorok="no"
+        local -a tela_colors=(standard black blue brown green grey orange pink purple red yellow manjaro ubuntu nord dracula)
+
+        for c in "${tela_colors[@]}"; do
+            if [[ "${c}" = "${VARIANT_COLOR_TELA_ICONS,,:-}" ]]; then
+                colorok="yes"
+                break
+            fi
+        done
+        if [[ "${colorok}" = "no" ]]; then
+            _LOG "couleur TELA inconnue (${VARIANT_COLOR_TELA_ICONS}), fallback sur 'standard'"
+            VARIANT_COLOR_TELA_ICONS="standard"
+        fi
         local temp_tela
         if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela*" -print -quit | grep -q . >/dev/null; then
             temp_tela=$(mktemp -d)
             _RUN "Téléchargement des icônes Tela" git clone --depth=1 https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
-            _RUN "Installation des icônes Tela dracula (dans ${HOME}/.local/share/icons/)" bash -c "\"${temp_tela}\"/tela/install.sh -c dracula -d \"${HOME}\"/.local/share/icons"
+            _RUN "Installation des icônes Tela ${VARIANT_COLOR_TELA_ICONS} (dans ${HOME}/.local/share/icons/)" bash -c "\"${temp_tela}\"/tela/install.sh -c \"${VARIANT_COLOR_TELA_ICONS}\" -d \"${HOME}\"/.local/share/icons"
             _RUNSILENT "" rm -rf "${temp_tela}"
             change=1
         fi
@@ -1552,7 +1566,9 @@ _INSTALL_USER_CRONTAB(){ # sheldon update/ tldr update
 ########################################################################################################################
 
 _DO_CLEAN(){
-   local f
+    local f
+    tput cvvis || true # Show cursor, ignore errors if unsupported
+
     for f in "${SUDOTMP[@]+"${SUDOTMP[@]}"}"; do
         if [[ -n "${f}" ]]; then sudo rm -f -- "${f}"; fi
     done
