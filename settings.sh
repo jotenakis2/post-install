@@ -16,15 +16,15 @@ SUDORS="yes"                 # remplace sudo par sudo-rs
 ACTIVATE_SSHD="yes"          # activation / configuration server ssh
 ZSWAP="yes"                  # si yes, zram éventuel supprimé et remplacé par zswap avec un backend swapfile
 USE_OH_MY_POSH_PROMPT="yes"  # pour télécharger oh-my-posh pour l'utilisateur qui lance le script
-UPDATE_GIT_REPOS="yes"       # force une maj des repos git
-RESTOW="yes"                 # force une maj des liens symboliques des dotfiles (reSTOW)
+UPDATE_GIT_REPOS="yes"       # force une maj des repos git à chaque exécution du script
+RESTOW="yes"                 # force une maj des liens symboliques des dotfiles utilisateurs (reSTOW)
 DISABLE_COREDUMP="yes"       # pour empécher la génération de dump mémoire en cas de crash d'une app
 DISABLE_PLYMOUTH="yes"       # pour désactiver le boot graphique (plymouth sera désinstallé)
 HARDENING="yes"              # diverses robustifications de sécurité
-DISABLE_IPV6="yes"           # supprime support ipv6 dans le kernel
-DISABLE_DNF_GUI="yes"        # supprime PackageKit, gnome-logiciels, plasma-diskover, ...
+DISABLE_IPV6="yes"           # supprime support ipv6 dans le kernel et services
+DISABLE_DNF_GUI="yes"        # supprime gnome-logiciels et plasma-discover (ainsi que PackageKit)
 DISABLE_FINGERPRINT="yes"    # si capteur d'empreinte non supporté autant tout désactiver autour de cette fonction
-ENABLE_CACHYOS_KERNEL="yes"  # installation/configuration du noyau optimisé de cachyOS (copr fedora)
+ENABLE_CACHYOS_KERNEL="yes"  # installation/configuration du noyau optimisé de cachyOS (via un copr fedora)
 TERRA="yes"                  # pour installer le dépôt additionnel Terra (Fedora)
 #-----------------------------------------------------------------------------------------------------------------------------
 

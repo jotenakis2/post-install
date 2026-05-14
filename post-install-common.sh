@@ -6,7 +6,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=36
+readonly SCRIPTNAME VER=37
 
 # gestion des interruptions et sourcing des fonctions bas niveau ______
 trap '_CLEANUP' ERR
@@ -64,7 +64,7 @@ MAINMODE() {
     SETUP_SWAP
     SETUP_SSHD
     SETUP_FSTAB
-    #SETUP_CACHYOS_KERNEL
+    SETUP_CACHYOS_KERNEL
     SETUP_GRUB
     SETUP_KDE_PLASMA
     SETUP_PLM
@@ -1906,14 +1906,14 @@ _ENSURE_LVM_SWAP() {
 
     if [[ -z ${vg_name} || -z ${lv_name} ]]; then
         _LOG "Aucun LV swap LVM détecté"
-        return 1
+        return 0
     fi
 
     swap_dev="/dev/mapper/${vg_name//-/'--'}-${lv_name//-/'--'}"
 
     if [[ ! -b ${swap_dev} ]]; then
         _LOG "Périphérique introuvable: ${swap_dev}"
-        return 1
+        return 0
     fi
 
     if ! sudo blkid -t TYPE=swap "${swap_dev}" >/dev/null 2>&1; then
@@ -1932,4 +1932,106 @@ _ENSURE_LVM_SWAP() {
         sudo swapon "${swap_dev}"
     fi
 
+}
+
+########################################################################################################################
+
+SETUP_GRUB() {
+    local is_grub
+    local grub_file="/etc/default/grub"
+    local current_cmdline=""
+    local current_default=""
+    local current_timeout=""
+    local full_cmdline=""
+    local changed="no"
+    local token
+
+    # shellcheck disable=SC2034
+    local -a cmdline_tokens=()
+    local -a zswap_tokens=(
+        "zswap.enabled=1"
+        "zswap.shrinker_enabled=1"
+        "zswap.compressor=lz4"
+        "zswap.max_pool_percent=30"
+        "systemd.zram=0"
+    )
+
+    is_grub=$(_DETECT_GRUB)
+
+    _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
+
+    if [[ "${is_grub}" != "true" ]]; then
+        _ERR "GRUB n'a pas été détecté, par prudence je ne change rien au bootloader actuel"
+        return 0 # on continue (return 1 arrêterait le script à cause de set -e )
+    fi
+
+    if [[ ! -f "${grub_file}" ]]; then
+        _ERR "${grub_file} introuvable"
+        return 0
+    fi
+
+    if _EXIST grub-editenv; then
+        _RUNSILENT "" sudo grub-editenv - unset menu_auto_hide
+    elif _EXIST grub2-editenv; then
+        _RUNSILENT "" sudo grub2-editenv - unset menu_auto_hide
+    fi
+
+    current_cmdline=$(_GRUB_GET_CMDLINE "${grub_file}")
+    current_default=$(_GRUB_GET_VALUE "${grub_file}" "GRUB_DEFAULT")
+    current_timeout=$(_GRUB_GET_VALUE "${grub_file}" "GRUB_TIMEOUT")
+
+    _GRUB_CMDLINE_TO_ARRAY "${current_cmdline}" cmdline_tokens # on stocke la cmdline mots à mots dans un tableau
+
+    if [[ "${DISABLE_PLYMOUTH,,}" == "yes" ]]; then
+        _GRUB_ARRAY_REMOVE_TOKEN cmdline_tokens "rhgb"
+        _GRUB_ARRAY_REMOVE_TOKEN cmdline_tokens "quiet"
+    else
+        _GRUB_ARRAY_ADD_TOKEN cmdline_tokens "rhgb"
+        _GRUB_ARRAY_ADD_TOKEN cmdline_tokens "quiet"
+    fi
+
+    if [[ "${DISABLE_IPV6,,}" == "yes" ]]; then
+        _GRUB_ARRAY_ADD_TOKEN cmdline_tokens "ipv6.disable=1"
+    fi
+
+    if [[ "${ZSWAP,,}" == "yes" ]]; then
+        for token in "${zswap_tokens[@]}"; do
+            _GRUB_ARRAY_ADD_TOKEN cmdline_tokens "${token}"
+        done
+    fi
+
+    _GRUB_ARRAY_ADD_FROM_STRING cmdline_tokens "${CMDLINE}"
+    _GRUB_ARRAY_ADD_FROM_STRING cmdline_tokens "${TTY_COLOR}"
+
+    # on transforme le tableau de mots 'tokens' en chaine
+    full_cmdline=$(_GRUB_ARRAY_JOIN cmdline_tokens)
+
+    if [[ "${current_cmdline}" != "${full_cmdline}" ]] || [[ "${current_default}" != "menu" ]] || [[ "${current_timeout}" != "2" ]]; then
+        if [[ ! -f "${grub_file}.origin" ]]; then
+            _RUNSILENT "" sudo cp -av "${grub_file}" "${grub_file}.origin"
+        fi
+        _RUNSILENT "" sudo cp -av "${grub_file}" "${grub_file}.bak"
+
+        _RUN "Mise à jour de GRUB_DEFAULT" _GRUB_SET_KV "${grub_file}" "GRUB_DEFAULT" "menu"
+        _RUN "Mise à jour de GRUB_TIMEOUT" _GRUB_SET_KV "${grub_file}" "GRUB_TIMEOUT" "2"
+        _RUN "Mise à jour de GRUB_CMDLINE_LINUX" _GRUB_SET_CMDLINE "${grub_file}" "${full_cmdline}"
+
+        _LOG "Options de démarrage du noyau dans GRUB :"
+        _PRINT_LIST "${full_cmdline}" | tee -a "${LOG_FILE:-/dev/null}" >/dev/null
+
+        _RUN "Regénération de la configuration GRUB" _GRUB_REGENERATE_CONFIG
+        _ETC_FILES_ADD "${grub_file}"
+        changed="yes"
+    else
+        _INFO "GRUB déjà OK (${grub_file})"
+    fi
+
+    {
+        sudo ls -l "${grub_file}"
+        sudo cat "${grub_file}"
+    } >> "${LOG_FILE}"
+
+    if [[ "${changed}" == "yes" ]]; then
+        _LOG "Configuration GRUB mise à jour avec succès"
+    fi
 }

@@ -151,6 +151,7 @@ INSTALL_REPOS() {
     _CLEANUP_APPSTREAM
 
     if [[ "${cache}" -eq 1 ]]; then
+        echo ""
         _RUN "Mise à jour du cache des métadonnées des dépôts" sudo dnf makecache --refresh
     fi
 }
@@ -235,13 +236,13 @@ INSTALL_CODECS() {
         _RUN "Échange ffmpeg-free <=> ffmpeg (rpmfusion)" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
         _RUN "Mise à jour groupe multimedia" sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
     else
-        _INFO "ffmpeg (rpmfusion) déjà présent"
+        _INFO "ffmpeg (rpmfusion) déjà OK"
         _LOG "Groupe multimedia déjà à jour"
     fi
     if ! dnf repolist --enabled | grep -q '^fedora-cisco-openh264'; then
         _RUNSILENT "Activation Cisco h264." sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1 -y
     else
-        _LOG "Cisco h264 déjà activé"
+        _LOG "Cisco h264 déjà OK"
     fi
 
     # mesa swap
@@ -251,18 +252,18 @@ INSTALL_CODECS() {
 
     if echo "${gpu_vendor}" | grep -q "amd\|radeon\|advanced micro"; then
         if ! _IS_PKG_INSTALLED mesa-va-drivers-freeworld; then
-            _RUN "Swap mesa-va-drivers → rpmfusion (AMD)" sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld
+            _RUN "Échange mesa-va-drivers (free) <=> mesa-va-drivers (rpmfusion)" sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld
         else
-            _INFO "Mesa (rpmfusion) déjà présent"
+            _INFO "Mesa (rpmfusion) déjà OK"
         fi
     elif echo "${gpu_vendor}" | grep -q "intel"; then
         if ! _IS_PKG_INSTALLED intel-media-driver; then
-            _RUN "intel-media-driver" _PKG_INSTALL intel-media-driver
+            _RUN "Installation intel-media-driver (rpmfusion)" _PKG_INSTALL intel-media-driver
         else
-            _INFO "intel-media-driver déjà présent"
+            _INFO "intel-media-driver (rpmfusion) déjà OK"
         fi
     else
-        _INFO "GPU ni AMD ni Intel, pas de d'échange mesa <=> mesa (rpmfusion) à faire"
+        _INFO "GPU : ni AMD ni Intel, pas de d'échange mesa <=> mesa (rpmfusion) à faire"
     fi
 }
 
@@ -275,7 +276,9 @@ INSTALL_SYSTEM_PACKAGES() {
             _LOG " ajout du noyau Linux de cachyOS dans les paquets à installer "
 
             if ! _IN_ARRAY kernel-cachyos "${SYSTEM_PACKAGES[@]}"; then
-                _INFO "Noyau linux cachyOS demandé"
+                if ! _IS_PKG_INSTALLED kernel-cachyos; then
+                    _INFO "Noyau linux cachyOS demandé"
+                fi
                 SYSTEM_PACKAGES+=("kernel-cachyos")
             fi
 
@@ -378,61 +381,61 @@ INSTALL_SYSTEM_PACKAGES() {
 #     fi
 # }
 
-SETUP_GRUB() {
-    local is_grub
-    is_grub=$(_DETECT_GRUB)
-
-    _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
-
-    if [[ "${is_grub}" == "true" ]]; then
-        # Force menu GRUB
-        _RUNSILENT "" sudo grub2-editenv - unset menu_auto_hide
-
-        # Nouveaux params à ajouter
-        local new_params=()
-        [[ "${ZSWAP,,}" = "yes" ]] && new_params+=("zswap.enabled=1 zswap.shrinker_enabled=1 zswap.compressor=lz4 zswap.max_pool_percent=30 systemd.zram=0")
-        [[ "${DISABLE_IPV6,,}" = "yes" ]] && new_params+=("ipv6.disable=1")
-        [[ -n "${CMDLINE}" ]] && new_params+=("${CMDLINE}")
-        [[ -n "${TTY_COLOR}" ]] && new_params+=("${TTY_COLOR}")
-
-        local current_cmdline current_default current_timeout grub_file="/etc/default/grub"
-        current_cmdline=$(grep '^GRUB_CMDLINE_LINUX=' "${grub_file}" | cut -d'"' -f2 || echo "")
-        current_default=$(grep '^GRUB_DEFAULT=' "${grub_file}" | cut -d'=' -f2 || echo "")
-        current_timeout=$(grep '^GRUB_TIMEOUT=' "${grub_file}" | cut -d'=' -f2 || echo "")
-
-        local full_cmdline="${current_cmdline}"
-
-        # Append sans doublons
-        for param in "${new_params[@]}"; do
-            if [[ -n "${param}" && ! "${full_cmdline}" =~ ${param// /\|} ]]; then
-                full_cmdline="${full_cmdline} ${param}"
-            fi
-        done
-        full_cmdline=$(echo "${full_cmdline}" | xargs)
-
-        if [[ "${current_cmdline}" != "${full_cmdline}" ]] || [[ "${current_default}" != "menu" ]] || [[ "${current_timeout}" != "2" ]]; then
-            if [[ ! -f "${grub_file}.origin" ]]; then
-                _RUNSILENT "" sudo cp -av "${grub_file}" "${grub_file}.origin"
-            fi
-            _RUNSILENT "" sudo cp -av "${grub_file}" "${grub_file}.bak"
-            _RUN "Mise à jour des paramètres de GRUB (/etc/default/grub)" sudo sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${full_cmdline}\"|" "${grub_file}"
-            _LOG "Options de démarrage du noyau ajoutées à GRUB : "
-            _RUN "GRUB_DEFAULT=menu + TIMEOUT=2" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' "${grub_file}"
-            _RUN "Regénération de la configuration de GRUB" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
-            _ETC_FILES_ADD "${grub_file}"
-            _LOG "GRUB mis à jour. CMDLINE: ${full_cmdline}"
-        else
-            _INFO "GRUB déjà OK (/etc/default/grub)"
-        fi
-
-        {
-            sudo ls -l "${grub_file}"
-            sudo cat "${grub_file}"
-        } >>"${LOG_FILE}"
-    else
-        _ERR "GRUB n'a pas été détecté, par prudence je ne change rien au bootloader actuel"
-    fi
-}
+# SETUP_GRUB() {
+#     local is_grub
+#     is_grub=$(_DETECT_GRUB)
+#
+#     _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
+#
+#     if [[ "${is_grub}" == "true" ]]; then
+#         # Force menu GRUB
+#         _RUNSILENT "" sudo grub2-editenv - unset menu_auto_hide
+#
+#         # Nouveaux params à ajouter
+#         local new_params=()
+#         [[ "${ZSWAP,,}" = "yes" ]] && new_params+=("zswap.enabled=1 zswap.shrinker_enabled=1 zswap.compressor=lz4 zswap.max_pool_percent=30 systemd.zram=0")
+#         [[ "${DISABLE_IPV6,,}" = "yes" ]] && new_params+=("ipv6.disable=1")
+#         [[ -n "${CMDLINE}" ]] && new_params+=("${CMDLINE}")
+#         [[ -n "${TTY_COLOR}" ]] && new_params+=("${TTY_COLOR}")
+#
+#         local current_cmdline current_default current_timeout grub_file="/etc/default/grub"
+#         current_cmdline=$(grep '^GRUB_CMDLINE_LINUX=' "${grub_file}" | cut -d'"' -f2 || echo "")
+#         current_default=$(grep '^GRUB_DEFAULT=' "${grub_file}" | cut -d'=' -f2 || echo "")
+#         current_timeout=$(grep '^GRUB_TIMEOUT=' "${grub_file}" | cut -d'=' -f2 || echo "")
+#
+#         local full_cmdline="${current_cmdline}"
+#
+#         # Append sans doublons
+#         for param in "${new_params[@]}"; do
+#             if [[ -n "${param}" && ! "${full_cmdline}" =~ ${param// /\|} ]]; then
+#                 full_cmdline="${full_cmdline} ${param}"
+#             fi
+#         done
+#         full_cmdline=$(echo "${full_cmdline}" | xargs)
+#
+#         if [[ "${current_cmdline}" != "${full_cmdline}" ]] || [[ "${current_default}" != "menu" ]] || [[ "${current_timeout}" != "2" ]]; then
+#             if [[ ! -f "${grub_file}.origin" ]]; then
+#                 _RUNSILENT "" sudo cp -av "${grub_file}" "${grub_file}.origin"
+#             fi
+#             _RUNSILENT "" sudo cp -av "${grub_file}" "${grub_file}.bak"
+#             _RUN "Mise à jour des paramètres de GRUB (/etc/default/grub)" sudo sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"${full_cmdline}\"|" "${grub_file}"
+#             _LOG "Options de démarrage du noyau ajoutées à GRUB : "
+#             _RUN "GRUB_DEFAULT=menu + TIMEOUT=2" sudo sed -i -e 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=menu/' -e 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' "${grub_file}"
+#             _RUN "Regénération de la configuration de GRUB" sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+#             _ETC_FILES_ADD "${grub_file}"
+#             _LOG "GRUB mis à jour. CMDLINE: ${full_cmdline}"
+#         else
+#             _INFO "GRUB déjà OK (/etc/default/grub)"
+#         fi
+#
+#         {
+#             sudo ls -l "${grub_file}"
+#             sudo cat "${grub_file}"
+#         } >>"${LOG_FILE}"
+#     else
+#         _ERR "GRUB n'a pas été détecté, par prudence je ne change rien au bootloader actuel"
+#     fi
+# }
 
 ########################################################################################################################
 SETUP_FIREWALL() {
@@ -817,7 +820,7 @@ SETUP_CACHYOS_KERNEL() {
         linux=$(printf '%s\n' /boot/vmlinuz*cachy* | sort -V | tail -1)
         is_grub=$(_DETECT_GRUB)
         if [[ "${is_grub}" == "true" ]]; then
-            _RUN "Noyau ${linux} configuré par défaut dans GRUB" grubby --set-default="${linux}"
+            _RUN "Noyau ${linux} configuré par défaut dans GRUB" sudo grubby --set-default="${linux}"
         else
             _OK "GRUB non détecté, pas de changement dans l'ordre de priorité des noyaux installés"
             _LOG "Noyau cachyOS : ${linux}"
@@ -832,8 +835,14 @@ SETUP_CACHYOS_KERNEL() {
         if [[ "${sb_enabled}" != "enabled" ]]; then
             _INFO "Secure boot désactivé, le noyau cachyos n'a pas besoin d'être signé"
         else
-            _OK "On va devoir signer le noyau cachyos pour qu'il supporte un Secure boot actif"
+            _OK "On va devoir signer le noyau cachyos pour qu'il supporte un Secure boot actif => TODO"
         fi
+    else
+        _LOG "Pas de configuration du kernel cachyos, soit parce que non explicitement demandé soit parce qu'il n'a pas pu être installé !"
+        {   echo "--- paquets cachyos :"
+            rpm -qa | grep -i cachyos
+            echo "---------------------"
+        } >> "${LOG_FILE}"
     fi
 }
 
