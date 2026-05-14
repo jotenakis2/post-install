@@ -1451,7 +1451,7 @@ _DISABLE_IPV6_IN_SERVICES() {
         fi
 
         # Netconfig
-        #_DISABLE_IPV6_NETCONFIG
+        _DISABLE_IPV6_NETCONFIG
 
     else
         _LOG "IPv6 est conservé à la demande de l'utilisateur"
