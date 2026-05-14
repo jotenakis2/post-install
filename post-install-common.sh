@@ -1461,25 +1461,22 @@ _DISABLE_IPV6_IN_SERVICES() {
 ########################################################################################################################
 
 _DISABLE_IPV6_NETCONFIG() {
-    local file tmp
-    file="/etc/netconfig"
+    local file="/etc/netconfig"
 
     if ! sudo test -f "${file}"; then
         _LOG "${file} n'existe pas"
-        return 0
-    fi
-    if ! sudo grep -q "^udp6\|^tcp6" "${file}"; then
-        _LOG "aucune entrée IPv6 détectée dans ${file}"
-        cat "${file}" >> "${LOG_FILE}"
-        _INFO "IPv6 Netconfig déjà OK (${file})"
-        return 0
+    else
+        if ! sudo grep -q "^udp6\\|^tcp6" "${file}"; then
+            _LOG "aucune entrée IPv6 détectée dans ${file}"
+            cat "${file}" >> "${LOG_FILE}"
+            _INFO "IPv6 Netconfig déjà OK (${file})"
+        else
+            sudo sed -i -E 's/^(udp6|tcp6)/#\1/' "${file}"
+            _INFO "IPv6 netconfig désactivé (${file})"
+            _ETC_FILES_ADD "${file}"
+        fi
     fi
 
-    tmp="$(mktemp)"
-    _RUNSILENT "" bash -c "sudo grep -v \"^udp6\|^tcp6\" ${file} > ${tmp}"
-    _RUN "Désactivation des entrées IPv6 Netconfig (${file})" sudo cp -avf "${tmp}" "${file}"
-    _ETC_FILES_ADD "${file}"
-    sudo rm -f "${tmp}"
 }
 
 ########################################################################################################################
