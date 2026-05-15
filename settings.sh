@@ -229,7 +229,7 @@ UDEVRULE='# clé NVMe
 ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_UUID}=="b6fed99c-7c1a-4146-a445-f2660c01146e", ENV{UDISKS_IGNORE}="1", RUN{program}+="/usr/bin/systemd-mount --no-block --automount=yes --collect $devnode /media/cleNVME", RUN{program}+="/bin/chown -R 1000:1000 /media/cleNVME"
 '
 # description de la règle udev persistante
-UDEVDESCR="Clé NVMe"
+UDEVDESCR="NVMeKEY"
 #Données privées à restaurer : dossier source
 SOURCE="/media/NAS/backup/data2restore"
 #Données privées à restaurer : binaire à surveiller

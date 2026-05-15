@@ -6,18 +6,12 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=37
-
-# gestion des interruptions et sourcing des fonctions bas niveau ______
+readonly SCRIPTNAME VER=37.1
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 trap '_DO_CLEAN' EXIT
 source ./helpers.sh
-# _____________________________________________________________________
-
-# paramètres utilisateurs définis dans settings.sh ################################
-source ./settings.sh                                                              #
-###################################################################################
+source ./settings.sh
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
@@ -825,7 +819,7 @@ SETUP_KDE_PLASMA() {
         if pgrep plasmashell >/dev/null 2>&1; then
             if [[ "${change}" -eq 1 ]]; then
                 _RUN "Redémarrage de l'interface de KDE Plasma 6" bash -c "\
-                kwriteconfig6 --file kdeglobals --group Icons --key Theme Tela-dracula-dark ;\
+                kwriteconfig6 --file kdeglobals --group Icons --key Theme Tela-${VARIANT_COLOR_TELA_ICONS}-dark ;\
                 kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme catppuccin-mocha-lavender-cursors ;\
                 [[ -n \"${tokyoexist}\" ]] && plasma-apply-colorscheme \"${tokyoexist}\" ;\
                 [[ -f \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ]] && plasma-apply-wallpaperimage \"${HOME}/.local/share/wallpapers/SpacePlasma.jpg\" ;\
@@ -1336,15 +1330,7 @@ _IOSCHEDULER() {
     dir="/etc/udev/rules.d"
     _RUNSILENT "" sudo mkdir -pv "${dir}"
     rules_file="${dir}/60-ioschedulers.rules"
-    rules_content='# NVMe
-ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
-
-# SSD SATA / eMMC
-ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
-
-# HDD rotatif
-ACTION=="add|change", KERNEL=="sd[a-z]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
-'
+    rules_content=$'ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]", ATTR{queue/scheduler}="none"\nACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"\nACTION=="add|change", KERNEL=="mmcblk[0-9]", ATTR{queue/scheduler}="mq-deadline"\nACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"\n'
     _LOG "* IO scheduler *"
     _INSTALL_ETC_FILES "règles d'ordonnancement des E/S" "${rules_content}" "${rules_file}" "644"
     if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
