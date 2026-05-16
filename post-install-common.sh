@@ -135,7 +135,7 @@ INITIALIZE() {
     _INFO "Heure de démarrage du script : ${heure}"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
     printf '%s\n' "Paramètres utilisateur retenus : " >>"${LOG_FILE}"
-    tail -n +14 ./settings.sh | grep -E -v '^(#.*shellcheck|[[:space:]]*#.*shellcheck|[[:space:]]*$)' >> "${LOG_FILE}"
+    tail -n +14 ./settings.sh | grep -E -v '^(#.*shellcheck|export[[:space:]]*|[[:space:]]*#.*shellcheck|[[:space:]]*$)' >> "${LOG_FILE}"
     INSTALL_DEPS
 
     # RUST
