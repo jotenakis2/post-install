@@ -6,7 +6,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=37.5
+readonly SCRIPTNAME VER=37.6
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 trap '_DO_CLEAN' EXIT
@@ -151,8 +151,8 @@ INITIALIZE() {
     # Dossiers utilisateur requis
     _RUNSILENT "" mkdir -pv "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
     # Dossiers système requis
-    _RUNSILENT "" sudo mkdir -pv "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
-    _RUNSILENT "" sudo chmod -v 777 "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${GOROOT}"
+    _RUNSILENT "" sudo mkdir -pv /var/tmp/cargo-target "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
+    _RUNSILENT "" sudo chmod -v 777 "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${GOROOT}" /var/tmp/cargo-target
     # Préparation d'une session sudo confortable et longue pour l'installation
     local sudotmp
     declare -ga SUDOTMP=()

@@ -93,8 +93,9 @@ REMOVE_SYSTEM_PACKAGES() {
             restant="${restant} ${item}"
         fi
     done
-    [[ -n "${restant}" ]] && _LOG "Paquets non supprimés : ${restant}"
-
+    if [[ -n "${restant}" ]]; then
+        _LOG "Paquets non supprimés : ${restant}"
+    fi
 
     if ((wants_systemd_networkd_removal)); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
         if _IS_ACTIVE NetworkManager; then
@@ -333,8 +334,9 @@ INSTALL_SYSTEM_PACKAGES() {
                 restant="${restant} ${item}"
             fi
         done
-        [[ -n "${restant}" ]] && _LOG "Paquets non installés : ${restant}"
-        echo PROUT
+        if [[ -n "${restant}" ]]; then
+            _LOG "Paquets non installés : ${restant}"
+        fi
     else
         _LOG "Aucun paquets systèmes additionnels demandés"
     fi

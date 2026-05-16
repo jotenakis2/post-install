@@ -669,10 +669,6 @@ _IS_CARGOPKG_INSTALLED() {
     echo "${INSTALLED_LIST}" | grep -q "$@"
 }
 
-# _CARGOPKG_INSTALL() {
-#     CARGO_BUILD_JOBS=1 RUSTFLAGS='-C codegen-units=1' nice -n 10 cargo binstall --no-confirm "$@"
-# }
-
 _CARGOPKG_INSTALL() {
     local jobs cpu_jobs avail_kib avail_gib ram_jobs
 
@@ -689,7 +685,11 @@ _CARGOPKG_INSTALL() {
     (( jobs < 1 )) && jobs=1
 
     _LOG "cargo: ${jobs} job(s), MemAvailable=${avail_gib} GiB"
-    CARGO_BUILD_JOBS="${jobs}" RUSTFLAGS='-C codegen-units=1' nice -n 10 cargo binstall --no-confirm "$@"
+    TMPDIR=/var/tmp \
+    CARGO_TARGET_DIR=/var/tmp/cargo-target \
+    CARGO_BUILD_JOBS="${jobs}" \
+    RUSTFLAGS='-C codegen-units=1' \
+    nice -n 10 cargo binstall --no-confirm "$@"
 }
 
 _GOPKG_INSTALL() {
