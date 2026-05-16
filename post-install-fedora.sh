@@ -720,7 +720,7 @@ SETUP_CACHYOS_KERNEL() {
         if [[ "${sb_enabled}" = "enabled" ]]; then
             _OK "On va devoir signer le noyau cachyos pour qu'il supporte un Secure boot actif => TODO"
         elif [[ "${sb_enabled}" = "" ]]; then
-            _LOG "EFI non supporté sur ce système ?"
+            _LOG "EFI ou SB non supporté sur ce système ?"
         elif [[ "${sb_enabled}" = "disabled" ]]; then
             _INFO "Secure boot désactivé, le noyau cachyos n'a pas besoin d'être signé"
         else
