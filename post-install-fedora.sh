@@ -2,7 +2,7 @@
 # shellcheck disable=SC2310
 set -euo pipefail
 # shellcheck source=./post-install-common.sh
-source ./post-install-common.sh # fonctions distro-agnostique
+source ./post-install-common.sh
 declare -A SWAPS=()
 
 ########################################################################################################################
@@ -545,20 +545,21 @@ SETUP_SUDO_RS() {
         _RUNSILENT "" sudo chmod -v 0000 "${sys_sudo_bak}"
 
         # 5. Déploiement des règles spécifiques
-        local pattern="%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper"
-        local file="${d_sudoers_rs_d}/90-profile-sync-daemon"
-        if sudo test -f "${file}"; then
-            if ! sudo grep -q "${pattern}" "${file}" >/dev/null; then
-                _RUN "Mise à jour de la règle \"profile-sync-daemon\"" sudo bash -c "echo \"${pattern}\" > \"${file}\""
+        if _IN_ARRAY profile-sync-daemon "${SYSTEM_PACKAGES[@]}"; then
+            local pattern="%wheel ALL=(ALL) NOPASSWD: /usr/bin/psd-overlay-helper"
+            local file="${d_sudoers_rs_d}/90-profile-sync-daemon"
+            if sudo test -f "${file}"; then
+                if ! sudo grep -q "${pattern}" "${file}" >/dev/null; then
+                    _RUN "Mise à jour de la règle \"profile-sync-daemon\"" sudo bash -c "echo \"${pattern}\" > \"${file}\""
+                    change=1
+                    _ETC_FILES_ADD "${file}"
+                fi
+            else
+                _RUN "Création de la règle \"profile-sync-daemon\"" sudo bash -c "echo \"${pattern}\" > \"${file}\""
                 change=1
                 _ETC_FILES_ADD "${file}"
             fi
-        else
-            _RUN "Création de la règle \"profile-sync-daemon\"" sudo bash -c "echo \"${pattern}\" > \"${file}\""
-            change=1
-            _ETC_FILES_ADD "${file}"
         fi
-
         local pattern="Defaults pwfeedback,timestamp_timeout=60"
         local file2="${d_sudoers_rs_d}/99-timeout"
         if sudo test -f "${file2}"; then

@@ -7,11 +7,13 @@ set -euo pipefail
 
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=38.0
+readonly SCRIPTNAME VER=38.1
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 trap '_DO_CLEAN' EXIT
+# shellcheck source=./helpers.sh
 source ./helpers.sh
+# shellcheck source=./settings.sh
 source ./settings.sh
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -427,7 +429,7 @@ SETUP_DOTFILES() {
     fi
 
     # 1- nettoyage avant stow pour éviter erreurs.
-    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/kglobalshortcutsrc" ".config/konsolerc" ".config/user-dirs.dirs" ".config/user-dirs.locale")
+    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/kglobalshortcutsrc" ".config/konsolerc" ".config/vesktop/themes/*" ".config/user-dirs.dirs" ".config/user-dirs.locale")
     local file dir
     dir="${HOME}/.backup"
     _RUNSILENT "" mkdir -pv "${dir}"
@@ -440,7 +442,7 @@ SETUP_DOTFILES() {
 
     # 2- stow pour déployer dotfiles depuis dépôt git
     local pkg name listdot=" " displayed_stow
-    if [[ "${RESTOW}" = "yes" ]]; then
+    if [[ "${RESTOW,,}" = "yes" ]]; then
         displayed_stow="Forçage des liens symboliques (restow)"
     else
         displayed_stow="Vérification des liens symboliques, création si besoin (stow)"
@@ -453,7 +455,7 @@ SETUP_DOTFILES() {
     _PRINT_LIST "${listdot}" | tee -a "${LOG_FILE:-/dev/null}"
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
-        if [[ "${RESTOW}" = "yes" ]]; then
+        if [[ "${RESTOW,,}" = "yes" ]]; then
             stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
         else
             stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" "${name}" &>>"${LOG_FILE}"
@@ -672,6 +674,14 @@ SETUP_DATA() {
                         if _DIR_IS_SAFE_TO_RESTORE "${DESTINATIONS[${profil}]}"; then
                             ffile=$(basename "${file}")
                             _RUN "Restauration de ${profil} (de ${ffile} vers ${HOME})" tar -xzf "${file}" -C "${HOME}"
+                            if [[ "${profil,,}" = "discord" ]]; then
+                                rm -rf "${HOME}/.config/vesktop/themes"
+                                if [[ "${RESTOW,,}" = "yes" ]]; then
+                                    stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "vesktop" &>>"${LOG_FILE}"
+                                else
+                                    stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" "vesktop" &>>"${LOG_FILE}"
+                                fi
+                            fi
                         else
                             _ERR "Le dossier de restauration de ${profil} contient déjà des données, on ne fait rien"
                         fi
@@ -1461,7 +1471,7 @@ _DISABLE_IPV6_IN_SERVICES() {
         fileNM="${dirNM}/disable-ipv6.conf"
         _RUNSILENT "" sudo mkdir -pv "${dirNM}"
         contentNM=$'[connection]\nipv6.method=disabled\n'
-        _INSTALL_ETC_FILES "Configuration IPv6 NetworkManager" "${contentNM}" "${fileNM}" "644"
+        _INSTALL_ETC_FILES "IPv6 NetworkManager" "${contentNM}" "${fileNM}" "644"
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
             _RUNSILENT "" sudo nmcli general reload
         fi
