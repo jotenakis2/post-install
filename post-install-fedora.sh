@@ -48,12 +48,20 @@ REMOVE_SYSTEM_PACKAGES() {
     wants_akonadi_removal=0
     #
     if [[ "${DISABLE_PLYMOUTH,,}" = "yes" ]]; then
-        _INFO "Suppression boot graphique demandée"
+        if _IS_PKG_INSTALLED plymouth-core-libs; then
+            _INFO "Suppression boot graphique demandée"
+        else
+            _LOG "Boot graphique déjà supprimée"
+        fi
         SYSTEM_REMOVE+=("plymouth-core-libs")
     fi
 
     if [[ "${DISABLE_DNF_GUI,,}" = "yes" ]]; then
-        _INFO "Suppression GUI de dnf demandée"
+        if _IS_PKG_INSTALLED PackageKit-glib; then
+            _INFO "Suppression GUI de dnf demandée"
+        else
+            _LOG "GUI de dnf déjà supprimée"
+        fi
         if ! _IN_ARRAY gnome-software "${SYSTEM_REMOVE[@]}" ; then SYSTEM_REMOVE+=("gnome-software"); fi
         if ! _IN_ARRAY plasma-discover "${SYSTEM_REMOVE[@]}" ; then SYSTEM_REMOVE+=("plasma-discover"); fi
         if ! _IN_ARRAY PackageKit-glib "${SYSTEM_REMOVE[@]}" ; then SYSTEM_REMOVE+=("PackageKit-glib"); fi

@@ -1167,7 +1167,7 @@ _NETWORKMANAGER() {
         _OK "Configuration backend DNS de NetworkManager (${file})"
         printf '%s' "${nm_dns_conf}" | sudo tee "${file}" >/dev/null
         _RUNSILENT "" bash -c "sudo chmod -v 644 ${file} >>${LOG_FILE}"
-        _RUN "Redémarrage du service NetworkManager" sudo systemctl restart NetworkManager.service
+        _RUNSILENT "Redémarrage du service NetworkManager" sudo systemctl restart NetworkManager.service
         _ETC_FILES_ADD "${file}"
     fi
 
@@ -1196,7 +1196,7 @@ _SYSTEMD_RESOLVED() {
         printf '%s' "${RESOLVED_DNS_SERVERS}" | sudo tee "${dnsfile}" >/dev/null
         printf '%s' "${resolved_10_conf}" | sudo tee "${llmnrfile}" >/dev/null
         _RUNSILENT "" bash -c "sudo chmod -v 644 ${dnsfile} ${llmnrfile} >>${LOG_FILE}"
-        _RUN "Redémarrage du service systemd-resolved" sudo systemctl restart systemd-resolved
+        _RUNSILENT "Redémarrage du service systemd-resolved" sudo systemctl restart systemd-resolved
         _ETC_FILES_ADD "${dnsfile}"
         _ETC_FILES_ADD "${llmnrfile}"
     else
