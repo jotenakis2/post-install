@@ -6,7 +6,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=37.4
+readonly SCRIPTNAME VER=37.5
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 trap '_DO_CLEAN' EXIT
@@ -895,6 +895,12 @@ SETUP_ETC() {
     _HARDENING
     _DISABLE_FPRINTD
     _SETUP_ENV_DEV
+    if [[ "${RESTARTSYSTEMDRESOLVED}" = "yes" ]]; then
+        _RUNSILENT "Redémarrage du service systemd-resolved" sudo systemctl restart systemd-resolved.service
+    fi
+    if [[ "${RESTARTNM}" = "yes" ]]; then
+        _RUNSILENT "Redémarrage du service NetworkManager" sudo systemctl restart NetworkManager.service
+    fi
 }
 
 ########################################################################################################################
@@ -1158,7 +1164,7 @@ _NETWORKMANAGER() {
     dir="/etc/NetworkManager/conf.d"
     file="${dir}/99-global-dns.conf"
     readonly nm_dns_conf file dir
-
+    declare -g RESTARTNM="no"
     _LOG "* dns : NetworkManager *"
 
     if grep -rq "dns=systemd-resolved" "${dir}"; then
@@ -1167,7 +1173,8 @@ _NETWORKMANAGER() {
         _OK "Configuration backend DNS de NetworkManager (${file})"
         printf '%s' "${nm_dns_conf}" | sudo tee "${file}" >/dev/null
         _RUNSILENT "" bash -c "sudo chmod -v 644 ${file} >>${LOG_FILE}"
-        _RUNSILENT "Redémarrage du service NetworkManager" sudo systemctl restart NetworkManager.service
+        RESTARTNM="yes"
+        #_RUNSILENT "Redémarrage du service NetworkManager" sudo systemctl restart NetworkManager.service
         _ETC_FILES_ADD "${file}"
     fi
 
@@ -1187,7 +1194,7 @@ _SYSTEMD_RESOLVED() {
     llmnrfile="${dir}/10-disable-llmnr.conf"
     resolved_10_conf=$'[Resolve]\nLLMNR=no\n'
     readonly resolved_10_conf dir dnsfile llmnrfile
-
+    declare -g RESTARTSYSTEMDRESOLVED="no"
     _LOG "* dns : systemd-resolved *"
     _RUNSILENT "" _SYMLINK "../run/systemd/resolve/stub-resolv.conf" "/etc/resolv.conf"
 
@@ -1196,7 +1203,8 @@ _SYSTEMD_RESOLVED() {
         printf '%s' "${RESOLVED_DNS_SERVERS}" | sudo tee "${dnsfile}" >/dev/null
         printf '%s' "${resolved_10_conf}" | sudo tee "${llmnrfile}" >/dev/null
         _RUNSILENT "" bash -c "sudo chmod -v 644 ${dnsfile} ${llmnrfile} >>${LOG_FILE}"
-        _RUNSILENT "Redémarrage du service systemd-resolved" sudo systemctl restart systemd-resolved
+        RESTARTSYSTEMDRESOLVED="yes"
+        #_RUNSILENT "Redémarrage du service systemd-resolved" sudo systemctl restart systemd-resolved.service
         _ETC_FILES_ADD "${dnsfile}"
         _ETC_FILES_ADD "${llmnrfile}"
     else
@@ -1298,7 +1306,7 @@ ${harden}"
         content=$'tcp_bbr\nsch_fq\n'
         _INSTALL_ETC_FILES "modules tcp_bbr et sch_fq" "${content}" "${file}" "644"
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
-            _RUN "Dracut en cours" sudo dracut -f --regenerate-all
+            _RUN "Configuration initramfs" sudo dracut -f --regenerate-all
         fi
 
     fi

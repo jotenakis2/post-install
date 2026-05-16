@@ -86,6 +86,16 @@ REMOVE_SYSTEM_PACKAGES() {
     fi
 
     _MANAGE_TABLE _IS_PKG_REMOVED _PKG_REMOVE "${SYSTEM_REMOVE[@]}"
+    # check
+    local item restant=""
+    for item in "${SYSTEM_REMOVE[@]}"; do
+        if ! _IS_PKG_REMOVED "${item}"; then
+            restant="${restant} ${item}"
+        fi
+    done
+    [[ -n "${restant}" ]] && _LOG "Paquets non supprimés : ${restant}"
+
+
 
     if ((wants_systemd_networkd_removal)); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
         if _IS_ACTIVE NetworkManager; then
@@ -317,6 +327,14 @@ INSTALL_SYSTEM_PACKAGES() {
         fi
 
         _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${SYSTEM_PACKAGES[@]}"
+
+        local item restant=""
+        for item in "${SYSTEM_PACKAGES[@]}"; do
+            if ! _IS_PKG_INSTALLED "${item}"; then
+                restant="${restant} ${item}"
+            fi
+        done
+        [[ -n "${restant}" ]] && _LOG "Paquets non installés : ${restant}"
 
     else
         _LOG "Aucun paquets systèmes additionnels demandés"
