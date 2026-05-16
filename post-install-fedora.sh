@@ -831,11 +831,15 @@ SETUP_CACHYOS_KERNEL() {
             _RUNSILENT "" _PKG_INSTALL mokutil
         fi
         local sb_enabled
-        sb_enabled=$(mokutil --sb-state | awk '{print $2}')
-        if [[ "${sb_enabled}" != "enabled" ]]; then
+        sb_enabled=$(mokutil --sb-state 2>/dev/null | awk '{print $2}') || true
+        if [[ "${sb_enabled}" = "enabled" ]]; then
+            _OK "On va devoir signer le noyau cachyos pour qu'il supporte un Secure boot actif => TODO"
+        elif [[ "${sb_enabled}" = "" ]]; then
+            _LOG "EFI non supporté sur ce système ?"
+        elif [[ "${sb_enabled}" = "disabled" ]]; then
             _INFO "Secure boot désactivé, le noyau cachyos n'a pas besoin d'être signé"
         else
-            _OK "On va devoir signer le noyau cachyos pour qu'il supporte un Secure boot actif => TODO"
+            _LOG "état secure boot inconnu ${sb_enabled}"
         fi
     else
         _LOG "Pas de configuration du kernel cachyos, soit parce que non explicitement demandé soit parce qu'il n'a pas pu être installé !"
