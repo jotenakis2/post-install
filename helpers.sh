@@ -480,18 +480,34 @@ _MANAGE_TABLE() {
             fi
             _LOG "Paquets à TRAITER car échouant au test \"${test}\" : "
             _INFO "Paquets à traiter"
-            local a
+            local a b
             a=$(_PRINT_LIST "${missing_fmt}")
             echo "${a}" | tee -a "${LOG_FILE:-/dev/null}"
             _RUN "${treat^} en cours..." "${install_cmd}" "${missing[@]}"
             printf '\e[1A\e[2K' # je remonte d'une ligne et je la vide, pour écraser le "en cours..."
-            _OK "Traitement terminé, ${treat} OK"
+
+            # on vérifie
+            local -a missingconfirm=() missingconfirm_fmt
+            for pkg in "$@"; do
+                if ! "${test_cmd}" "${pkg}"; then
+                    missingconfirm+=("${pkg}")
+                fi
+            done
+            if [[ -z "${missingconfirm[*]}" ]]; then
+                _OK "Traitement terminé, ${treat} OK"
+            else
+                _ERR "Traitement terminé, échec ${treat} pour :"
+                missingconfirm_fmt=$(_FORMAT_LIST "${missingconfirm[@]}")
+                b=$(_PRINT_LIST "${missingconfirm_fmt}")
+                echo "${b}" | tee -a "${LOG_FILE:-/dev/null}"
+            fi
+
         else
             all_fmt=$(_FORMAT_LIST "$@")
-            local a
-            a=$(_PRINT_LIST "${all_fmt}")
+            local c
+            c=$(_PRINT_LIST "${all_fmt}")
             _INFO "Tout a été traité (${treat}) : "
-            echo "${a}" | tee -a "${LOG_FILE:-/dev/null}"
+            echo "${c}" | tee -a "${LOG_FILE:-/dev/null}"
         fi
     else
         _INFO "Rien à traiter, liste transmise vide..."

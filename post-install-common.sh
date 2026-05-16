@@ -6,7 +6,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=37.6
+readonly SCRIPTNAME VER=37.7
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 trap '_DO_CLEAN' EXIT
@@ -53,8 +53,6 @@ MAINMODE() {
     SETUP_SHELL
     SETUP_DOTFILES
     SETUP_ETC
-    SETUP_SYSTEMD
-    SETUP_FIREWALL
     SETUP_SWAP
     SETUP_SSHD
     SETUP_FSTAB
@@ -131,7 +129,7 @@ INITIALIZE() {
     if [[ -f "${fileOS}" ]] || [[ -L "${fileOS}" ]]; then
         pretty_name=$(awk -F= '/^PRETTY_NAME/{gsub(/"/, "", $2); print $2; exit}' "${fileOS}")
     fi
-    _BANNER "blue" "${SCRIPTNAME} (${VER})"
+    _BANNER "blue" " 🖥 ${SCRIPTNAME} (${VER}) 🖥 "
     _SECTION " Préparation de la post-installation " "━" "${C_GREEN}"
     _INFO "Distribution : ${pretty_name}"
     _INFO "Heure de démarrage du script : ${heure}"
@@ -469,7 +467,7 @@ SETUP_DOTFILES() {
 }
 
 ########################################################################################################################
-SETUP_SYSTEMD() {
+_SETUP_SYSTEMD() {
     _LOG "* systemd *"
 
     # Config
@@ -893,6 +891,8 @@ SETUP_ETC() {
     _DISABLE_IPV6_IN_SERVICES
     _SETUP_ENV_DEV
     _HARDENING
+    _SETUP_SYSTEMD
+    _SETUP_FIREWALL
     _DISABLE_FPRINTD
     _LIBVIRT
     if [[ "${RESTARTSYSTEMDRESOLVED}" = "yes" ]]; then
@@ -1297,16 +1297,18 @@ ${harden}"
     fi
 
     # chargement anticipé de bbr et fq
-    local qdisc congestion file dir content
+    local qdisc congestion file dir content initramfsrebuild="dracut"
     qdisc=$(sysctl -n net.core.default_qdisc 2>/dev/null)
     congestion=$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null)
+
     if [[ "${qdisc}" = "fq" ]] || [[ "${congestion}" = "bbr" ]]; then
         dir="/etc/modules-load.d"
         file="${dir}/net.conf"
         content=$'tcp_bbr\nsch_fq\n'
         _INSTALL_ETC_FILES "modules tcp_bbr et sch_fq" "${content}" "${file}" "644"
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
-            _RUN "Configuration initramfs" sudo dracut -f --regenerate-all
+            # shellcheck disable=SC2248
+            _RUN "Configuration initramfs" sudo ${initramfsrebuild} -fv --regenerate-all
         fi
 
     fi
@@ -1928,19 +1930,20 @@ _ENSURE_LVM_SWAP() {
     fi
 
     if ! sudo blkid -t TYPE=swap "${swap_dev}" >/dev/null 2>&1; then
-        _RUN "formatage swap LVM" sudo mkswap "${swap_dev}"
+        _RUNSILENT "" sudo mkswap "${swap_dev}"
     fi
 
     fstab_line="${swap_dev} none swap sw,nofail 0 0"
 
     if ! sudo grep -qF "${swap_dev} none swap" /etc/fstab; then
         printf '%s\n' "${fstab_line}" | sudo tee -a /etc/fstab >/dev/null
+        _RUNSILENT "" sudo systemctl daemon-reload
     fi
 
     local swap_dev_real
     swap_dev_real=$(readlink -f "${swap_dev}" 2>/dev/null) || true
     if ! grep -Fq "${swap_dev_real}" </proc/swaps; then
-        sudo swapon "${swap_dev}"
+        _RUN "Activation du swap (${swap_dev})" sudo swapon "${swap_dev}"
     fi
 
 }
