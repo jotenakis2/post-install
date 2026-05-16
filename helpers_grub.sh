@@ -61,21 +61,21 @@ _GRUB_GET_VALUE() {
 
 _GRUB_CMDLINE_TO_ARRAY() {
     local cmdline=$1
-    local -n out_ref=$2
-    out_ref=()
+    local -n __out_ref=$2
+    __out_ref=()
 
     if [[ -z "${cmdline}" ]]; then
         return 0
     fi
     # shellcheck disable=SC2034
-    read -r -a out_ref <<< "${cmdline}"
+    read -r -a __out_ref <<< "${cmdline}"
 }
 
 ########################################################################################################################
 
 _GRUB_ARRAY_REMOVE_TOKEN() {
     # shellcheck disable=SC2178
-    local -n arr_ref=$1
+    local -n __arr_ref=$1
     local token=$2
     local new_arr=()
     local item
@@ -84,28 +84,28 @@ _GRUB_ARRAY_REMOVE_TOKEN() {
         return 0
     fi
 
-    for item in "${arr_ref[@]}"; do
+    for item in "${__arr_ref[@]}"; do
         if [[ "${item}" != "${token}" ]]; then
             new_arr+=("${item}")
         fi
     done
 
-    arr_ref=("${new_arr[@]}")
+    __arr_ref=("${new_arr[@]}")
 }
 
 ########################################################################################################################
 
 _GRUB_ARRAY_ADD_TOKEN() {
     # shellcheck disable=SC2178
-    local -n arr_ref=$1
+    local -n __arr_ref=$1
     local token=$2
 
     if [[ -z "${token}" ]]; then
         return 0
     fi
 
-    if ! _GRUB_ARRAY_HAS_TOKEN "${token}" "${arr_ref[@]}"; then
-        arr_ref+=("${token}")
+    if ! _GRUB_ARRAY_HAS_TOKEN "${token}" "${__arr_ref[@]}"; then
+        __arr_ref+=("${token}")
     fi
 }
 
@@ -129,7 +129,7 @@ _GRUB_ARRAY_HAS_TOKEN() {
 
 _GRUB_ARRAY_ADD_FROM_STRING() {
     # shellcheck disable=SC2178
-    local -n arr_ref=$1
+    local -n __arr_ref=$1
     local input=$2
     local tmp=()
     local token
@@ -141,7 +141,7 @@ _GRUB_ARRAY_ADD_FROM_STRING() {
     read -r -a tmp <<< "${input}"
 
     for token in "${tmp[@]}"; do
-        _GRUB_ARRAY_ADD_TOKEN arr_ref "${token}"
+        _GRUB_ARRAY_ADD_TOKEN __arr_ref "${token}"
     done
 }
 
@@ -149,15 +149,15 @@ _GRUB_ARRAY_ADD_FROM_STRING() {
 
 _GRUB_ARRAY_JOIN() {
     # shellcheck disable=SC2178
-    local -n arr_ref=$1
+    local -n __arr_ref=$1
     local joined=""
 
-    if ((${#arr_ref[@]} == 0)); then
+    if ((${#__arr_ref[@]} == 0)); then
         printf '\n'
         return 0
     fi
 
-    printf -v joined '%s ' "${arr_ref[@]}"
+    printf -v joined '%s ' "${__arr_ref[@]}"
     printf '%s\n' "${joined% }"
 }
 
