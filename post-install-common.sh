@@ -429,7 +429,7 @@ SETUP_DOTFILES() {
     fi
 
     # 1- nettoyage avant stow pour éviter erreurs.
-    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/kglobalshortcutsrc" ".config/konsolerc" ".config/vesktop/themes/*" ".config/user-dirs.dirs" ".config/user-dirs.locale")
+    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/kglobalshortcutsrc" ".config/konsolerc" ".config/vesktop/themes/*.css" ".config/user-dirs.dirs" ".config/user-dirs.locale")
     local file dir
     dir="${HOME}/.backup"
     _RUNSILENT "" mkdir -pv "${dir}"
