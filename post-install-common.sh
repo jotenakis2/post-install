@@ -407,7 +407,7 @@ SETUP_SHELL() {
                     _RUN "Mise à jour de Oh-My-Posh" oh-my-posh upgrade
                 fi
             else
-                _RUN "Téléchargement du binaire Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
+                _RUN "Installation du gestionnaire de prompt Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
                 _RUNSILENT "" chmod 777 -v "${omp_bin}"
                 _RUNSILENT "" _SYMLINK "${omp_bin}" "/usr/local/bin/oh-my-posh"
             fi
@@ -890,11 +890,11 @@ SETUP_ETC() {
     _BRAVEPOLICIES
     _IOSCHEDULER
     _UDEVPERSIST
-    _LIBVIRT
     _DISABLE_IPV6_IN_SERVICES
+    _SETUP_ENV_DEV
     _HARDENING
     _DISABLE_FPRINTD
-    _SETUP_ENV_DEV
+    _LIBVIRT
     if [[ "${RESTARTSYSTEMDRESOLVED}" = "yes" ]]; then
         _RUNSILENT "Redémarrage du service systemd-resolved" sudo systemctl restart systemd-resolved.service
     fi
@@ -1421,7 +1421,7 @@ _DISABLE_IPV6_IN_SERVICES() {
                 _RUNSILENT "" sudo cp -av "${hostsfile}" "${hostsfile}.origin"
             fi
             _RUNSILENT "" sudo cp -fav "${hostsfile}" "${hostsfile}.bak"
-            _RUN "Suppression des entrées IPv6 dans ${hostsfile}" sudo sed -i -E '/^\s*(::1|fe80::[^[:space:]]*)/d' "${hostsfile}"
+            _RUN "Configuration IPv6 de l'hôte (${hostsfile})" sudo sed -i -E '/^\s*(::1|fe80::[^[:space:]]*)/d' "${hostsfile}"
             _LOG "Entrées IPv6 supprimées de ${hostsfile} (backup: ${hostsfile}.bak et ${hostsfile}.origin)"
             cat "${hostsfile}" >> "${LOG_FILE}"
             _ETC_FILES_ADD "${hostsfile}"
@@ -1441,10 +1441,10 @@ _DISABLE_IPV6_IN_SERVICES() {
             _RUNSILENT "" sudo cp -fav "${avahi_conf}" "${avahi_conf}.bak"
             if grep -qE '^\s*use-ipv6\s*=' "${avahi_conf}"; then
                 # La clé existe avec une autre valeur → on la remplace
-                _RUN "Désactivation de IPv6 pour avahi-daemon (${avahi_conf})" sudo sed -i -E 's/^\s*use-ipv6\s*=.*/use-ipv6=no/' "${avahi_conf}"
+                _RUN "Configuration IPv6 avahi-daemon (${avahi_conf})" sudo sed -i -E 's/^\s*use-ipv6\s*=.*/use-ipv6=no/' "${avahi_conf}"
             else
                 # La clé est absente → on l'injecte sous [server]
-                _RUN "Désactivation de IPv6 pour avahi-daemon (${avahi_conf})" sudo sed -i -E '/^\[server\]/a use-ipv6=no' "${avahi_conf}"
+                _RUN "Configuration IPv6 avahi-daemon (${avahi_conf})" sudo sed -i -E '/^\[server\]/a use-ipv6=no' "${avahi_conf}"
             fi
             _LOG "IPv6 désactivé pour ${avahi_conf} (backup: ${avahi_conf}.bak et ${avahi_conf}.origin)"
             grep use-ipv6 "${avahi_conf}" >> "${LOG_FILE}"
@@ -1457,7 +1457,7 @@ _DISABLE_IPV6_IN_SERVICES() {
         fileNM="${dirNM}/disable-ipv6.conf"
         _RUNSILENT "" sudo mkdir -pv "${dirNM}"
         contentNM=$'[connection]\nipv6.method=disabled\n'
-        _INSTALL_ETC_FILES "IPv6 NetworkManager" "${contentNM}" "${fileNM}" "644"
+        _INSTALL_ETC_FILES "Configuration IPv6 NetworkManager" "${contentNM}" "${fileNM}" "644"
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
             _RUNSILENT "" sudo nmcli general reload
         fi
@@ -1481,10 +1481,10 @@ _DISABLE_IPV6_NETCONFIG() {
         if ! sudo grep -q "^udp6\\|^tcp6" "${file}"; then
             _LOG "aucune entrée IPv6 détectée dans ${file}"
             cat "${file}" >> "${LOG_FILE}"
-            _INFO "IPv6 Netconfig déjà OK (${file})"
+            _INFO "Configuration IPv6 netconfig déjà OK (${file})"
         else
             sudo sed -i -E 's/^(udp6|tcp6)/#\1/' "${file}"
-            _INFO "IPv6 netconfig désactivé (${file})"
+            _OK "Configuration IPv6 netconfig (${file})"
             _ETC_FILES_ADD "${file}"
         fi
     fi
