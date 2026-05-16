@@ -484,13 +484,13 @@ SETUP_SUDO_RS() {
         local d_sudoers_rs_d="/etc/sudoers-rs.d"
 
         if [[ -f "/etc/sudoers" && ! -f "${f_sudoers_rs}" ]]; then
-            _RUN "Création du fichier ${f_sudoers_rs} depuis l'original" sudo cp -a /etc/sudoers "${f_sudoers_rs}"
+            _RUN "Création du fichier ${f_sudoers_rs} depuis /etc/sudoers" sudo cp -a /etc/sudoers "${f_sudoers_rs}"
             _ETC_FILES_ADD "${f_sudoers_rs}"
             change=1
         fi
 
         if [[ -d "/etc/sudoers.d" && ! -d "${d_sudoers_rs_d}" ]]; then
-            _RUN "Création du dossier ${d_sudoers_rs_d} depuis l'original" sudo cp -a /etc/sudoers.d "${d_sudoers_rs_d}"
+            _RUN "Création du dossier ${d_sudoers_rs_d} depuis /etc/sudoers.d" sudo cp -a /etc/sudoers.d "${d_sudoers_rs_d}"
             _ETC_FILES_ADD "${d_sudoers_rs_d}"
             change=1
         fi
@@ -498,7 +498,7 @@ SETUP_SUDO_RS() {
         # 3. Assurer la présence stricte des inclusions dans le nouveau fichier
         # CORRECTION : Utilisation de ~ comme délimiteur sed pour ne pas interférer avec le OU (|)
         if ! sudo grep -q "@includedir /etc/sudoers-rs.d" "${f_sudoers_rs}"; then
-            _RUN "Configuration des includedir dans ${f_sudoers_rs}" sudo bash -c "
+            _RUNSILENT "" sudo bash -c "
                 sed -i -E 's~^(@|#)includedir[[:space:]]+/etc/sudoers\.d~@includedir /etc/sudoers-rs.d~g' '${f_sudoers_rs}'
 
                 if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers-rs\.d' '${f_sudoers_rs}'; then
@@ -525,7 +525,7 @@ SETUP_SUDO_RS() {
 
         if [[ "${current_link}" != "${sudo_rs_bin}" ]]; then
             # CORRECTION : On regroupe le 'mv' et le 'ln' dans le même appel sudo pour ne pas bloquer le système !
-            _RUN "Remplacement radical du binaire sudo" sudo bash -c "
+            _RUN "Remplacement du binaire sudo" sudo bash -c "
                 if [[ -f '${sys_sudo}' && ! -L '${sys_sudo}' ]]; then
                     mv -f '${sys_sudo}' '${sys_sudo_bak}'
                 fi

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-## shellcheck disable=SC2154
+set -euo pipefail
+
 ########################################################################################################################
 # FONCTIONS HELPERS POUR MANIPULER LA CONF DE GRUB                                                                     #
 ########################################################################################################################
@@ -103,7 +104,7 @@ _GRUB_ARRAY_ADD_TOKEN() {
     if [[ -z "${token}" ]]; then
         return 0
     fi
-
+    # shellcheck disable=SC2310
     if ! _GRUB_ARRAY_HAS_TOKEN "${token}" "${__arr_ref[@]}"; then
         __arr_ref+=("${token}")
     fi
@@ -127,25 +128,6 @@ _GRUB_ARRAY_HAS_TOKEN() {
 
 ########################################################################################################################
 
-# _GRUB_ARRAY_ADD_FROM_STRING() {
-#     # shellcheck disable=SC2178
-#     local -n __arr_ref=$1
-#     local input=$2
-#     local tmp=()
-#     local token
-#
-#     if [[ -z "${input}" ]]; then
-#         return 0
-#     fi
-#
-#     read -r -a tmp <<< "${input}"
-#
-#     for token in "${tmp[@]}"; do
-#         _GRUB_ARRAY_ADD_TOKEN __arr_ref "${token}"
-#     done
-# }
-
-
 _GRUB_ARRAY_ADD_FROM_STRING() {
     # shellcheck disable=SC2178
     local -n __arr_ref=$1
@@ -157,6 +139,7 @@ _GRUB_ARRAY_ADD_FROM_STRING() {
 
     read -r -a tmp <<< "${input}"
     for token in "${tmp[@]}"; do
+        # shellcheck disable=SC2310
         if ! _GRUB_ARRAY_HAS_TOKEN "${token}" "${__arr_ref[@]}"; then
             __arr_ref+=("${token}")
         fi

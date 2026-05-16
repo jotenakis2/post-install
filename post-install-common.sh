@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2310
 # TODO sshd : email quand conn.
 #      cachyos kernel
 #      swap : verif si partition swap existe avant de créer un swapfile, verif avant maj fstab aussi - FAIT mais à contrôler.
-# shellcheck disable=SC2310
 set -euo pipefail
+
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=37.7
+readonly SCRIPTNAME VER=38.0
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 trap '_DO_CLEAN' EXIT
@@ -129,7 +130,7 @@ INITIALIZE() {
     if [[ -f "${fileOS}" ]] || [[ -L "${fileOS}" ]]; then
         pretty_name=$(awk -F= '/^PRETTY_NAME/{gsub(/"/, "", $2); print $2; exit}' "${fileOS}")
     fi
-    _BANNER "blue" " 🖥 ${SCRIPTNAME} (${VER}) 🖥 "
+    _BANNER "blue" "${SCRIPTNAME} (${VER}) 🖥"
     _SECTION " Préparation de la post-installation " "━" "${C_GREEN}"
     _INFO "Distribution : ${pretty_name}"
     _INFO "Heure de démarrage du script : ${heure}"
@@ -204,14 +205,15 @@ INSTALL_CARGO_PACKAGES() {
         _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/cargo-binstall"
 
         # 2. Installation des paquets via Cargo (binstall)
-        declare -g INSTALLED_LIST
-        local cargolist
-        cargolist="/tmp/cargolist$$"
-        _RUNSILENT "" bash -c "cargo install --list 2>/dev/null > ${cargolist}"
-        INSTALLED_LIST=$(cat "${cargolist}" 2>/dev/null || true) # je passe par un fichier /tmp/cargolist pour avoir un spinner
-        export INSTALLED_LIST # variable utilisée par _CARGOPKG_INSTALL
-        _MANAGE_TABLE _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
-        rm -f "${cargolist}" 2>/dev/null
+        # declare -g INSTALLED_LIST
+        # local cargolist
+        # cargolist="/tmp/cargolist$$"
+        # _RUNSILENT "" bash -c "cargo install --list 2>/dev/null > ${cargolist}"
+        # INSTALLED_LIST=$(cat "${cargolist}" 2>/dev/null || true) # je passe par un fichier /tmp/cargolist pour avoir un spinner
+        # export INSTALLED_LIST # variable utilisée par _CARGOPKG_INSTALL
+
+       _MANAGE_TABLE _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
+        # rm -f "${cargolist}" 2>/dev/null
 
         # 3. symlinks globaux
         local cmd
