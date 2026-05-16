@@ -127,6 +127,25 @@ _GRUB_ARRAY_HAS_TOKEN() {
 
 ########################################################################################################################
 
+# _GRUB_ARRAY_ADD_FROM_STRING() {
+#     # shellcheck disable=SC2178
+#     local -n __arr_ref=$1
+#     local input=$2
+#     local tmp=()
+#     local token
+#
+#     if [[ -z "${input}" ]]; then
+#         return 0
+#     fi
+#
+#     read -r -a tmp <<< "${input}"
+#
+#     for token in "${tmp[@]}"; do
+#         _GRUB_ARRAY_ADD_TOKEN __arr_ref "${token}"
+#     done
+# }
+
+
 _GRUB_ARRAY_ADD_FROM_STRING() {
     # shellcheck disable=SC2178
     local -n __arr_ref=$1
@@ -134,14 +153,13 @@ _GRUB_ARRAY_ADD_FROM_STRING() {
     local tmp=()
     local token
 
-    if [[ -z "${input}" ]]; then
-        return 0
-    fi
+    [[ -z ${input} ]] && return 0
 
     read -r -a tmp <<< "${input}"
-
     for token in "${tmp[@]}"; do
-        _GRUB_ARRAY_ADD_TOKEN __arr_ref "${token}"
+        if ! _GRUB_ARRAY_HAS_TOKEN "${token}" "${__arr_ref[@]}"; then
+            __arr_ref+=("${token}")
+        fi
     done
 }
 
