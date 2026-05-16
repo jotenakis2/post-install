@@ -669,18 +669,47 @@ _IS_CARGOPKG_INSTALLED() {
     echo "${INSTALLED_LIST}" | grep -q "$@"
 }
 
+# _CARGOPKG_INSTALL() {
+#     CARGO_BUILD_JOBS=1 RUSTFLAGS='-C codegen-units=1' nice -n 10 cargo binstall --no-confirm "$@"
+# }
+
 _CARGOPKG_INSTALL() {
-    local proc
-    proc=$(( $(nproc) - 1))
-    proc=$(( proc > 0 ? proc : 1 )) # tjs au moins un CPU
-    CARGO_BUILD_JOBS="${proc}" cargo binstall --no-confirm "$@"
+    local jobs cpu_jobs avail_kib avail_gib ram_jobs
+
+    cpu_jobs=$(( $(nproc) - 1 ))
+    (( cpu_jobs < 1 )) && cpu_jobs=1
+
+    avail_kib=$(awk '/^MemAvailable:/ { print $2; exit }' /proc/meminfo)
+    avail_gib=$(( avail_kib / 1024 / 1024 ))
+
+    ram_jobs=$(( avail_gib / 2 ))
+    (( ram_jobs < 1 )) && ram_jobs=1
+
+    jobs=$(( cpu_jobs < ram_jobs ? cpu_jobs : ram_jobs ))
+    (( jobs < 1 )) && jobs=1
+
+    _LOG "cargo: ${jobs} job(s), MemAvailable=${avail_gib} GiB"
+    CARGO_BUILD_JOBS="${jobs}" RUSTFLAGS='-C codegen-units=1' nice -n 10 cargo binstall --no-confirm "$@"
 }
 
 _GOPKG_INSTALL() {
-    local proc
-    proc=$(( $(nproc) - 1 ))
-    proc=$(( proc > 0 ? proc : 1 )) # tjs au moins un CPU
-    GOMAXPROCS="${proc}" go install "$@"
+    local jobs cpu_jobs avail_kib avail_gib ram_jobs
+
+    cpu_jobs=$(( $(nproc) - 1 ))
+    (( cpu_jobs < 1 )) && cpu_jobs=1
+
+    avail_kib=$(awk '/^MemAvailable:/ { print $2; exit }' /proc/meminfo)
+    avail_gib=$(( avail_kib / 1024 / 1024 ))
+
+    ram_jobs=$(( avail_gib / 2 ))
+    (( ram_jobs < 1 )) && ram_jobs=1
+
+    jobs=$(( cpu_jobs < ram_jobs ? cpu_jobs : ram_jobs ))
+    (( jobs < 1 )) && jobs=1
+    (( jobs > 4 )) && jobs=4
+
+    _LOG "go: ${jobs} job(s), MemAvailable=${avail_gib} GiB"
+    GOMAXPROCS="${jobs}" nice -n 10 go install "$@"
 }
 
 

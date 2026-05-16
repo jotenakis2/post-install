@@ -6,7 +6,7 @@
 set -euo pipefail
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=37.3
+readonly SCRIPTNAME VER=37.4
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 trap '_DO_CLEAN' EXIT
@@ -252,7 +252,7 @@ INSTALL_GO_PACKAGES() {
             _LOG "la toolchain GO est à jour (${latest})"
         else
             _RUNSILENT "" curl -LO "https://go.dev/dl/${gofile}"
-            _RUN "Installation de la toolchain GO (${latest})" sudo tar -C /opt -xzf "${gofile}"
+            _RUN "Installation de la toolchain GO" sudo tar -C /opt -xzf "${gofile}"
             _RUNSILENT "" rm -vf "${gofile}"
         fi
         _RUNSILENT "" _SYMLINK "${GOROOT}/bin/go" "/usr/local/bin/go"
