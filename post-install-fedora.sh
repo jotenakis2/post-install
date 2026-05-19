@@ -725,7 +725,7 @@ SETUP_CACHYOS_KERNEL() {
             fi
             local contentcachyos dircachyos filecachyos
             dircachyos="/etc/kernel/postinst.d"
-            _RUNSILENT sudo mkdir -pv "${dircachyos}"
+            _RUNSILENT "" sudo mkdir -pv "${dircachyos}"
             filecachyos="${dircachyos}/00-signing"
             # shellcheck disable=SC2016
             contentcachyos='#!/bin/sh
