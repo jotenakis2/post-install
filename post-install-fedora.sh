@@ -721,10 +721,11 @@ SETUP_CACHYOS_KERNEL() {
         if [[ "${sb_enabled}" = "enabled" ]]; then
             #_OK "On va devoir signer le noyau cachyos pour qu'il supporte un Secure boot actif => TODO"
             if ! _EXIST pesign; then
-                _PKG_INSTALL pesign
+                _RUNSILENT "" _PKG_INSTALL pesign
             fi
             local contentcachyos dircachyos filecachyos
-            dircachyos=/etc/kernel/postinst.d/
+            dircachyos="/etc/kernel/postinst.d"
+            _RUNSILENT sudo mkdir -pv "${dircachyos}"
             filecachyos="${dircachyos}/00-signing"
             # shellcheck disable=SC2016
             contentcachyos='#!/bin/sh
