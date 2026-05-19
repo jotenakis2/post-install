@@ -719,7 +719,42 @@ SETUP_CACHYOS_KERNEL() {
         local sb_enabled
         sb_enabled=$(mokutil --sb-state 2>/dev/null | awk '{print $2}') || true
         if [[ "${sb_enabled}" = "enabled" ]]; then
-            _OK "On va devoir signer le noyau cachyos pour qu'il supporte un Secure boot actif => TODO"
+            #_OK "On va devoir signer le noyau cachyos pour qu'il supporte un Secure boot actif => TODO"
+            if ! _EXIST pesign; then
+                _PKG_INSTALL pesign
+            fi
+            local contentcachyos dircachyos filecachyos
+            dircachyos=/etc/kernel/postinst.d/
+            filecachyos="${dircachyos}/00-signing"
+            # shellcheck disable=SC2016
+            contentcachyos='#!/bin/sh
+set -e
+
+KERNEL_IMAGE="$2"
+MOK_KEY_NICKNAME="CachyOS Secure Boot"
+
+if [ "$#" -ne "2" ] ; then
+        echo "Wrong count of command line arguments. This is not meant to be called directly." >&2
+        exit 1
+fi
+
+if [ ! -x "$(command -v pesign)" ] ; then
+        echo "pesign not executable. Bailing." >&2
+        exit 1
+fi
+
+if [ ! -w "$KERNEL_IMAGE" ] ; then
+        echo "Kernel image $KERNEL_IMAGE is not writable." >&2
+        exit 1
+fi
+
+echo "Signing $KERNEL_IMAGE..."
+
+pesign --certificate "$MOK_KEY_NICKNAME" --in "$KERNEL_IMAGE" --sign --out "$KERNEL_IMAGE.signed"
+mv "$KERNEL_IMAGE.signed" "$KERNEL_IMAGE"
+'
+        _INSTALL_ETC_FILES "chiffrement kernel cachyos" "${contentcachyos}" "${filecachyos}" "755"
+
         elif [[ "${sb_enabled}" = "" ]]; then
             _LOG "EFI ou SB non supporté sur ce système ?"
         elif [[ "${sb_enabled}" = "disabled" ]]; then

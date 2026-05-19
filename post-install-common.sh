@@ -7,7 +7,7 @@ set -euo pipefail
 
 SCRIPTNAME="${0##*/}"
 SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=38.1
+readonly SCRIPTNAME VER=38.2
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 trap '_DO_CLEAN' EXIT
@@ -2032,13 +2032,13 @@ SETUP_GRUB() {
     # on transforme le tableau de mots 'tokens' en chaine
     full_cmdline=$(_GRUB_ARRAY_JOIN cmdline_tokens)
 
-    if [[ "${current_cmdline}" != "${full_cmdline}" ]] || [[ "${current_default}" != "menu" ]] || [[ "${current_timeout}" != "2" ]]; then
+    if [[ "${current_cmdline}" != "${full_cmdline}" ]] || [[ "${current_default}" != "saved" ]] || [[ "${current_timeout}" != "2" ]]; then
         if [[ ! -f "${grub_file}.origin" ]]; then
             _RUNSILENT "" sudo cp -av "${grub_file}" "${grub_file}.origin"
         fi
         _RUNSILENT "" sudo cp -av "${grub_file}" "${grub_file}.bak"
 
-        _RUN "Mise à jour de GRUB_DEFAULT" _GRUB_SET_KV "${grub_file}" "GRUB_DEFAULT" "menu"
+        _RUN "Mise à jour de GRUB_DEFAULT" _GRUB_SET_KV "${grub_file}" "GRUB_DEFAULT" "saved"
         _RUN "Mise à jour de GRUB_TIMEOUT" _GRUB_SET_KV "${grub_file}" "GRUB_TIMEOUT" "2"
         _RUN "Mise à jour de GRUB_CMDLINE_LINUX" _GRUB_SET_CMDLINE "${grub_file}" "${full_cmdline}"
 
