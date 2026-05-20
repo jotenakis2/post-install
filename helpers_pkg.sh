@@ -153,7 +153,7 @@ _PKG_INSTALL() {
 _PKG_DOWNLOAD_THEN_INSTALL() {
     local download_dir
     download_dir=$(mktemp -d ./dnf-packages.XXXXXX)
-    echi "${download_dir}"
+    echo "${download_dir}"
     if [[ ! -f /etc/fedora-release ]]; then
         echo "Fedora uniquement."
         exit 1
