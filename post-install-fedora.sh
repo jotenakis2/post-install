@@ -36,7 +36,7 @@ CHECK() {
     #
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
-    echo "Environnement valide — ${fedora_rel}, utilisateur ${USER} avec droits sudo"
+    echo "Environnement valide : ${fedora_rel}, utilisateur ${USER} avec droits sudo OK"
     sleep 1
 }
 

@@ -108,6 +108,23 @@ HELPMODE() {
 
 ########################################################################################################################
 INITIALIZE() {
+    cat <<'EOF'
+
+    Précautions d'usage importantes :
+        - Ce script va créer ou modifier des fichiers de configurations globaux
+        - Ce script ne permet pas un retour en arrière automatique si vous changez d'avis
+        - Ce script sauvegarde les fichiers qu'ils modifient sur le système (.origin et .bak)
+        - Ce script liste tous les fichiers système crées ou modifiés
+        - Ce script est idempotent : si on le relance il ne refait que ce qui est nécessaire
+
+EOF
+
+    read -r -p "On continue ? [o/N] " reponse
+    case "${reponse,,}" in
+        o|oui|y|yes) ;;
+        *) exit 1 ;;
+    esac
+    #
     local heure
     heure=$(date '+%T')
     local logsuffix
@@ -496,11 +513,15 @@ _SETUP_SYSTEMD() {
 
 
     for service in "${!SERVICES_TO_DISABLE[@]}"; do
-        description="${SERVICES_TO_DISABLE[${service}]}"
-        if _IS_ENABLED "${service}"; then
-            missing+=("${service}")
+        if _SERVICE_EXIST "${service}"; then
+            description="${SERVICES_TO_DISABLE[${service}]}"
+            if _IS_ENABLED "${service}"; then
+                missing+=("${service}")
+            else
+                present+=("${service}")
+            fi
         else
-            present+=("${service}")
+            _LOG "Service ${service} introuvable"
         fi
     done
 
@@ -521,11 +542,15 @@ _SETUP_SYSTEMD() {
     fi
 
     for service in "${!USER_SERVICES_TO_ENABLE[@]}"; do
-        description="${USER_SERVICES_TO_ENABLE[${service}]}"
-        if ! _IS_ENABLED_USER "${service}"; then
-            _RUN "Activation du ${description}" systemctl --user enable --now "${service}"
+        if _USER_SERVICE_EXIST "${service}"; then
+            description="${USER_SERVICES_TO_ENABLE[${service}]}"
+            if ! _IS_ENABLED_USER "${service}"; then
+                _RUN "Activation du ${description}" systemctl --user enable --now "${service}"
+            else
+                _INFO "${description^} déjà activé"
+            fi
         else
-            _INFO "${description^} déjà activé"
+            _LOG "Service ${service} introuvable"
         fi
     done
 }
