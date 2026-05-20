@@ -59,7 +59,7 @@ ENABLE_CACHYOS_KERNEL="yes"
 TERRA="yes"
 
 # standard, black, blue, brown, green, grey, orange, pink, purple, red, yellow, manjaro, ubuntu, nord, ou dracula.
-VARIANT_COLOR_TELA_ICONS="nord"
+VARIANT_COLOR_TELA_ICONS="brown"
 
 
 ################################################################

@@ -110,7 +110,8 @@ INITIALIZE() {
     cat <<'EOF'
 
     Précautions d'usage importantes :
-        - Ce script va créer ou modifier des fichiers de configurations globaux
+        - Les choix utilisateurs sont à ajuster dans le fichier ./settings.sh
+        - Ce script va créer ou modifier des fichiers de configuration du système
         - Ce script ne permet pas un retour en arrière automatique si vous changez d'avis
         - Ce script sauvegarde les fichiers qu'ils modifient sur le système (.origin et .bak)
         - Ce script liste tous les fichiers système crées ou modifiés
@@ -121,7 +122,7 @@ EOF
     read -r -p "On continue ? [o/N] " reponse
     case "${reponse,,}" in
         o|oui|y|yes) ;;
-        *) exit 1 ;;
+        *) exit 127 ;;
     esac
     #
     local heure
@@ -498,7 +499,7 @@ _SETUP_SYSTEMD() {
     dir='/etc/systemd'
     file="${dir}/system.conf"
     content=$'[Manager]\nDefaultTimeoutStopSec=20s\n'
-    _INSTALL_ETC_FILES "configuration systemd" "${content}" "${file}" "644"
+    _INSTALL_ETC_FILES "systemd" "${content}" "${file}" "644"
     if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
         _RUNSILENT "" sudo systemctl daemon-reexec
     fi
@@ -1633,7 +1634,6 @@ _DO_CLEAN(){
         if [[ -n "${f}" ]]; then sudo rm -f -- "${f}"; fi
     done
     sudo rm -rf -- "${STATUSFILE:-}" "${LINKFILE:-}"
-    _PRINT_ETC_FILES
 }
 
 ########################################################################################################################
@@ -1652,6 +1652,7 @@ _DO_LOG(){
 _CLEANUP() {
     echo -e "${C_BOLD}${C_RED} Plantage !${C_RESET}"
     _DO_CLEAN
+    _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_RED}"
     _DO_LOG
 }
@@ -1661,6 +1662,7 @@ _CLEANUP() {
 _INTERRUPT() {
     echo -e "${C_BOLD}${C_GREEN} Arrêt du script demandé par l'utilisateur...${C_RESET}"
     _DO_CLEAN
+    _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_GREEN}"
     _DO_LOG
 }
