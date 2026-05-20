@@ -448,7 +448,7 @@ SETUP_DOTFILES() {
     fi
 
     # 1- nettoyage avant stow pour éviter erreurs.
-    local skel_files=(".bashrc" "Trolltech.conf" "kdeglobals" "plasmashellrc" "plasma-localerc" "kwinrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/kglobalshortcutsrc" ".config/konsolerc" ".config/vesktop/themes/*.css" ".config/user-dirs.dirs" ".config/user-dirs.locale")
+    local skel_files=(".bashrc" ".config/Trolltech.conf" ".config/kdeglobals" ".config/plasmashellrc" ".config/plasma-localerc" ".config/kwinrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/kglobalshortcutsrc" ".config/konsolerc" ".config/vesktop/themes/*.css" ".config/user-dirs.dirs" ".config/user-dirs.locale")
     local file dir
     dir="${HOME}/.backup"
     _RUNSILENT "" mkdir -pv "${dir}"
@@ -944,12 +944,13 @@ SETUP_ETC() {
 
 ########################################################################################################################
 SETUP_SSHD() {
+    local sshservice
+    sshservice="sshd.service"
     if [[ "${ACTIVATE_SSHD}" = "yes" ]]; then
         _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
         _RUNSILENT "" sudo mkdir -pv /etc/ssh/sshd_config.d
-        local config_ssh_file full_ssh_content ssh_header sshservice ssh_config noipv6="" banner=""
+        local config_ssh_file full_ssh_content ssh_header ssh_config noipv6="" banner=""
 
-        sshservice="sshd.service"
         config_ssh_file="/etc/ssh/sshd_config.d/90-jotenakis.conf"
         ssh_header="# =======================================================================
 # WARNING: Do not modify this file!
@@ -1238,7 +1239,7 @@ _SYSTEMD_RESOLVED() {
     _RUNSILENT "" _SYMLINK "../run/systemd/resolve/stub-resolv.conf" "/etc/resolv.conf"
 
     if [[ ! -f "${dnsfile}" ]] || [[ ! -f "${llmnrfile}" ]]; then
-        _OK "Configuration DNS (dans ${dir})"
+        _OK "Configuration serveurs DNS (dans ${dir})"
         printf '%s' "${RESOLVED_DNS_SERVERS}" | sudo tee "${dnsfile}" >/dev/null
         printf '%s' "${resolved_10_conf}" | sudo tee "${llmnrfile}" >/dev/null
         _RUNSILENT "" bash -c "sudo chmod -v 644 ${dnsfile} ${llmnrfile} >>${LOG_FILE}"
