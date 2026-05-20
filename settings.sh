@@ -20,7 +20,7 @@ XDG_DOCUMENTS_DIR="$(xdg-user-dir DOCUMENTS)"
 SUDORS="yes"
 
 # activation / configuration server ssh
-ACTIVATE_SSHD="no"
+ACTIVATE_SSHD="yes"
 
 # si yes, zram éventuel supprimé et remplacé par zswap avec un backend swapfile
 ZSWAP="yes"
@@ -59,7 +59,7 @@ ENABLE_CACHYOS_KERNEL="yes"
 TERRA="yes"
 
 # standard, black, blue, brown, green, grey, orange, pink, purple, red, yellow, manjaro, ubuntu, nord, ou dracula.
-VARIANT_COLOR_TELA_ICONS="brown"
+VARIANT_COLOR_TELA_ICONS="orange"
 
 
 ################################################################
@@ -133,10 +133,9 @@ FLATPAK_PKGS=(
 # outils cargo (rust) à installer
 CARGO_PACKAGES=(
     cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg 
-    amdgpu_top
     ripgrep sd sheldon tealdeer 
     yazi-fm yazi-cli
-    zoxide zsh-patina eza netwatch-tui syswatch poshbuddy shuck-cli
+    zoxide zsh-patina eza netwatch-tui syswatch shuck-cli
     # Ajoute tes autres paquets ici
 )
 
@@ -207,7 +206,7 @@ declare -A SERVICES_TO_DISABLE=(
 
 # services systemd --user à activer
 declare -A USER_SERVICES_TO_ENABLE=(
-    #["psd.service"]="service profile-sync-daemon"
+    ["psd.service"]="service profile-sync-daemon"
     # ajoute tes autres services systemd à désactiver ici
 )
 
@@ -297,17 +296,18 @@ declare -A COMMANDS=(
 #Données privées à restaurer : dossiers de destinations
 # shellcheck disable=SC2154
 declare -A DESTINATIONS=(
-#    ["FIREFOX"]="${HOME}/.mozilla/firefox"
-#    ["BRAVE"]="${HOME}/.config/BraveSoftware/Brave-Browser"
+    ["FIREFOX"]="${HOME}/.mozilla/firefox"
+    ["BRAVE"]="${HOME}/.config/BraveSoftware/Brave-Browser"
     ["SSH"]="${HOME}/.ssh"
-#    ["IPTVNATOR"]="${HOME}/.config/iptvnator"
+    ["IPTVNATOR"]="${HOME}/.config/iptvnator"
     ["SSHMANAGER"]="${HOME}/.local/share/sshmanager"
     ["HELIUM"]="${HOME}/.config/net.imput.helium"
-#    ["MSMTP"]="${HOME}/.config/msmtp"
+    ["MSMTP"]="${HOME}/.config/msmtp"
     ["MOK"]="${HOME}/mok-cachyos"
-#    ["DISCORD"]="${HOME}/.config/vesktop"
-#    ["IMAGES"]="${XDG_PICTURES_DIR:-}"
-#    ["DOCUMENTS"]="${XDG_DOCUMENTS_DIR:-}"
+    ["DISCORD"]="${HOME}/.config/vesktop"
+    ["IMAGES"]="${XDG_PICTURES_DIR:-}"
+    ["DOCUMENTS"]="${XDG_DOCUMENTS_DIR:-}"
+    ["ZSH_HISTORY"]="${HOME}/.local/share/zsh"
 )
 
 
