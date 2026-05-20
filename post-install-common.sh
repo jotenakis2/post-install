@@ -498,10 +498,10 @@ _SETUP_SYSTEMD() {
     local content file dir
     dir='/etc/systemd'
     file="${dir}/system.conf"
-    content=$'[Manager]\nDefaultTimeoutStopSec=20s\n'
+    content=$'[Manager]\nDefaultTimeoutStopSec=30s\n'
     _INSTALL_ETC_FILES "systemd" "${content}" "${file}" "644"
     if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
-        _RUNSILENT "" sudo systemctl daemon-reexec
+        _RUN "Redémarrage du démon systemd" sudo systemctl daemon-reexec
     fi
 
     # Service
@@ -512,16 +512,16 @@ _SETUP_SYSTEMD() {
 
 
     for service in "${!SERVICES_TO_DISABLE[@]}"; do
-        if _SERVICE_EXIST "${service}"; then
+        #if _SERVICE_EXIST "${service}"; then
             description="${SERVICES_TO_DISABLE[${service}]}"
             if _IS_ENABLED "${service}"; then
                 missing+=("${service}")
             else
                 present+=("${service}")
             fi
-        else
+        #else
             _LOG "Service ${service} introuvable"
-        fi
+        #fi
     done
 
     local missing_fmt present_fmt
@@ -1340,7 +1340,7 @@ net.ipv4.conf.default.rp_filter = 1
     readonly sysctlfile sysctl_header
     full_sysctl_content="${sysctl_header}
 
-    # swappiness computed by post-install script by Jotenakis based on RAM/ZRAM/ZSWAP
+# swappiness computed by post-install script by Jotenakis based on RAM/ZRAM/ZSWAP
 vm.swappiness = ${swappiness}
 
 ${SYSCTL_CONF}
@@ -1566,15 +1566,6 @@ _DISABLE_COREDUMP(){
 
         _LOG "* coredump disable *"
 
-        # systemd
-        file="${dir}/disable.conf"
-        content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
-        _INSTALL_ETC_FILES "coredump systemd" "${content}" "${file}" "644"
-        if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
-            _RUNSILENT "" sudo systemctl daemon-reload
-        fi
-        { ls -l "${file}" ; cat "${file}" ; echo "" ; } >> "${LOG_FILE}"
-
         # security limits
         limits_file="${dirlimits}/disable-coredump.conf"
         if ! grep -qxF "* soft core 0" "${limits_file}" 2>/dev/null; then
@@ -1585,6 +1576,16 @@ _DISABLE_COREDUMP(){
             _INFO "Coredump déja OK (${limits_file})"
         fi
         { ls -l "${limits_file}" ; cat "${limits_file}" ; echo "" ; } >> "${LOG_FILE}"
+
+        # systemd
+        file="${dir}/disable.conf"
+        content=$'[Coredump]\nStorage=none\nProcessSizeMax=0\n'
+        _INSTALL_ETC_FILES "coredump systemd" "${content}" "${file}" "644"
+        if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+            _RUNSILENT "" sudo systemctl daemon-reload
+        fi
+        { ls -l "${file}" ; cat "${file}" ; echo "" ; } >> "${LOG_FILE}"
+
 
         # shell
         profile="${dirprofile}/coredump.sh"
