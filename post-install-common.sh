@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VER=38.3
+readonly VERSION=38.5
 
 # TODO sshd : email quand conn.
 #      cachyos kernel
@@ -151,7 +151,7 @@ EOF
     if [[ -f "${fileOS}" ]] || [[ -L "${fileOS}" ]]; then
         pretty_name=$(awk -F= '/^PRETTY_NAME/{gsub(/"/, "", $2); print $2; exit}' "${fileOS}")
     fi
-    _BANNER "blue" "${SCRIPTNAME} (${VER}) 🖥"
+    _BANNER "blue" "${SCRIPTNAME} (${VERSION}) 🖥"
     _SECTION " Préparation de la post-installation " "━" "${C_GREEN}"
     _INFO "Distribution : ${pretty_name}"
     _INFO "Heure de démarrage du script : ${heure}"
@@ -448,7 +448,7 @@ SETUP_DOTFILES() {
     fi
 
     # 1- nettoyage avant stow pour éviter erreurs.
-    local skel_files=(".bashrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/kglobalshortcutsrc" ".config/konsolerc" ".config/vesktop/themes/*.css" ".config/user-dirs.dirs" ".config/user-dirs.locale")
+    local skel_files=(".bashrc" "Trolltech.conf" "kdeglobals" "plasmashellrc" "plasma-localerc" "kwinrc" ".bash_logout" ".zshenv" ".zshrc" ".config/plasma-org.kde.plasma.desktop-appletsrc" ".config/kactivitymanagerd-statsrc" ".config/kglobalshortcutsrc" ".config/konsolerc" ".config/vesktop/themes/*.css" ".config/user-dirs.dirs" ".config/user-dirs.locale")
     local file dir
     dir="${HOME}/.backup"
     _RUNSILENT "" mkdir -pv "${dir}"
@@ -583,7 +583,7 @@ SETUP_FSTAB() {
     local fstab_changed=false tmp_dir
     tmp_dir=$(mktemp -d)
     true >"${tmp_dir}/fstab.new" # on crée un fichier vide temporaire
-    echo "# modified by ${SCRIPTNAME} (v${VER}) by jotenakis" >>"${tmp_dir}/fstab.new"
+    echo "# modified by ${SCRIPTNAME} (v${VERSION}) by jotenakis" >>"${tmp_dir}/fstab.new"
     echo "# initial file copied into /etc/fstab.origin" >>"${tmp_dir}/fstab.new"
 
     while IFS= read -r line || [[ -n "${line}" ]]; do
@@ -1124,7 +1124,7 @@ END() {
     local duration file
     _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
     duration=$(_CONVERT_SECONDS "$((SECONDS - START))")
-    _INFO "${SCRIPTNAME} v${VER} a terminé avec succès en ${duration}."
+    _INFO "${SCRIPTNAME} v${VERSION} a terminé avec succès en ${duration}."
     if [[ -n "${ETC_FILES[*]}" ]]; then
         _PRINT_ETC_FILES
         _INFO "REDÉMARREZ pour appliquer les modifications complètement !"
@@ -1306,13 +1306,18 @@ net.ipv4.tcp_max_syn_backlog = 4096
 net.ipv4.conf.default.log_martians = 1
 net.ipv4.icmp_echo_ignore_broadcasts = 1
 net.ipv4.icmp_ignore_bogus_error_responses = 1
-net.ipv4.ip_forward = 0
+
 net.ipv4.tcp_syncookies = 1
 net.ipv4.tcp_timestamps = 1
 net.ipv4.conf.default.rp_filter = 1
 '
     fi
     swappiness=$(_GET_SWAPPINESS)
+    local forward
+    forward="net.ipv4.ip_forward = 0"
+    if _IS_PKG_INSTALLED qemu; then
+        forward="net.ipv4.ip_forward = 1"
+    fi
 
     sysctl_header="# =======================================================================
 # WARNING: Do not modify this file!
@@ -1327,7 +1332,9 @@ net.ipv4.conf.default.rp_filter = 1
 vm.swappiness = ${swappiness}
 ${SYSCTL_CONF}
 ${nodump}
-${harden}"
+${harden}
+${forward}
+"
 
     _LOG "* sysctl *"
     _INSTALL_ETC_FILES "noyau" "${full_sysctl_content}" "${sysctlfile}" "644"
