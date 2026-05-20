@@ -14,20 +14,20 @@ XDG_DOCUMENTS_DIR="$(xdg-user-dir DOCUMENTS)"
 
 # Note: le script ne permet un retour en arrière si l'utilisateur change d'avis !
 SUDORS="yes"                        # remplace sudo par sudo-rs
-ACTIVATE_SSHD="yes"                 # activation / configuration server ssh
-ZSWAP="yes"                         # si yes, zram éventuel supprimé et remplacé par zswap avec un backend swapfile
+ACTIVATE_SSHD="no"                 # activation / configuration server ssh
+ZSWAP="no"                         # si yes, zram éventuel supprimé et remplacé par zswap avec un backend swapfile
 USE_OH_MY_POSH_PROMPT="yes"         # pour télécharger oh-my-posh pour l'utilisateur qui lance le script
 UPDATE_GIT_REPOS="yes"              # force une maj des repos git à chaque exécution du script
 RESTOW="yes"                        # force une maj des liens symboliques des dotfiles utilisateurs (reSTOW)
 DISABLE_COREDUMP="yes"              # pour empécher la génération de dump mémoire en cas de crash d'une app
-DISABLE_PLYMOUTH="yes"              # pour désactiver le boot graphique (plymouth sera désinstallé)
+DISABLE_PLYMOUTH="no"              # pour désactiver le boot graphique (plymouth sera désinstallé)
 HARDENING="yes"                     # diverses robustifications de sécurité
-DISABLE_IPV6="yes"                  # supprime support ipv6 dans le kernel et services
+DISABLE_IPV6="no"                  # supprime support ipv6 dans le kernel et services
 DISABLE_DNF_GUI="yes"               # supprime gnome-logiciels et plasma-discover (ainsi que PackageKit)
 DISABLE_FINGERPRINT="yes"           # si capteur d'empreinte non supporté autant tout désactiver autour de cette fonction
 ENABLE_CACHYOS_KERNEL="yes"         # installation/configuration du noyau optimisé de cachyOS (via un copr fedora)
-TERRA="no"                         # pour installer le dépôt additionnel Terra (Fedora)
-VARIANT_COLOR_TELA_ICONS="orange"   # standard, black, blue, brown, green, grey, orange, pink, purple, red, yellow, manjaro, ubuntu, nord, ou dracula.
+TERRA="yes"                         # pour installer le dépôt additionnel Terra (Fedora)
+VARIANT_COLOR_TELA_ICONS="ubuntu"   # standard, black, blue, brown, green, grey, orange, pink, purple, red, yellow, manjaro, ubuntu, nord, ou dracula.
 
 
 
@@ -45,7 +45,7 @@ VARIANT_COLOR_TELA_ICONS="orange"   # standard, black, blue, brown, green, grey,
 MYHOSTNAME="MyFedoraBTW"
 # paquets système à installer ----------------------------------------------------------------------------------------------------
 SYSTEM_PACKAGES=(
-    fastfetch foot fzf bat-extras grc axel rclone procs msmtp s-nail chkrootkit rkhunter
+    fastfetch alacritty fzf bat-extras grc axel rclone procs msmtp s-nail chkrootkit rkhunter
     wl-clipboard glow expect sqlite btop atop glances nvtop iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
     vesktop telegram-desktop qbittorrent brave-browser qemu virt-manager virt-viewer gum stress-ng lynis
@@ -54,7 +54,7 @@ SYSTEM_PACKAGES=(
 )
 # paquets système à désinstaller -------------------------------------------------------------------------------------------------
 SYSTEM_REMOVE=(
-    rsyslog konsole konsole-part akonadi-server kdeconnectd nano libreswan at systemd-networkd
+    rsyslog akonadi-server kdeconnectd nano libreswan at systemd-networkd
     plasma-drkonqi ibus imsettings maliit-keyboard abrt sudo-python-plugin sssd-common mcelog
     # fonts asiatiques
     default-fonts-cjk-mono
@@ -217,7 +217,7 @@ SSHD_CONFIG_PORT="22"
 # Couleur du TTY (console virtuelle non graphique)
 TTY_COLOR="vt.default_red=30,243,166,249,137,245,148,186,88,243,166,249,137,245,148,166 vt.default_grn=30,139,227,226,180,194,226,194,91,139,227,226,180,194,226,173 vt.default_blu=46,168,161,175,250,231,213,222,112,168,161,175,250,231,213,200" #catppuccin mocha
 # paramètres additionels optionnels de la ligne de commande du noyau
-CMDLINE="skew_tick=1"
+CMDLINE="" #skew_tick=1
 # position du panneau de KDE (top, bottom, right, left)
 KDEPANEL="top"
 # Partage NFS

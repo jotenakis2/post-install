@@ -103,3 +103,126 @@ _IS_ACTIVE_USER() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_PKG_CONFIG() {
+    if [[ ! -f /etc/fedora-release ]]; then
+        echo "Fedora uniquement."
+        exit 1
+    fi
+    local dnf="/etc/dnf/dnf.conf"
+    if ! sudo grep -q "defaultyes=True" "${dnf}" 2>/dev/null || ! sudo grep -q "fastestmirror=True" "${dnf}" 2>/dev/null || ! sudo grep -q "max_parallel_downloads=10" "${dnf}" 2>/dev/null || ! sudo grep -q "countme=False" "${dnf}" 2>/dev/null; then
+        _ETC_FILES_ADD "${dnf}"
+    fi
+    _RUNSILENT "" sudo dnf config-manager setopt max_parallel_downloads=15 fastestmirror=True countme=False defaultyes=True
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_PKG_INSTALL_SKIP() {
+    if [[ ! -f /etc/fedora-release ]]; then
+        echo "Fedora uniquement."
+        exit 1
+    fi
+    sudo dnf install --skip-unavailable -y "$@"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_PKG_INSTALL() {
+    if [[ ! -f /etc/fedora-release ]]; then
+        echo "Fedora uniquement."
+        exit 1
+    fi
+    sudo dnf install -y "$@"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_PKG_DOWNLOAD_THEN_INSTALL() {
+    if [[ ! -f /etc/fedora-release ]]; then
+        echo "Fedora uniquement."
+        exit 1
+    fi
+    if [[ -n "${DOWNLOAD_DIR:-}" ]]; then
+        echo "ERREUR: dossier de téléchargement des paquets non défini."
+        exit 1
+    fi
+    local arch
+    arch=$(uname -m)
+    echo "Téléchargement depuis les dépôts dans ${DOWNLOAD_DIR}... "
+    # shellcheck disable=SC2154
+    _RUNSILENT "" sudo dnf download --skip-unavailable -y --arch "${arch}" --arch noarch --resolve --destdir="${DOWNLOAD_DIR}" "$@"
+    echo "installation depuis le cache local..."
+    if ! compgen -G "${DOWNLOAD_DIR}/*.rpm" > /dev/null; then
+        _ERR "Aucun paquet système à installer"
+        _RUNSILENT "" sudo rm -rvf -- "${DOWNLOAD_DIR}"
+        return 0
+    fi
+    _RUNSILENT "" sudo dnf install --skip-unavailable -y "${DOWNLOAD_DIR}"/*.rpm
+    _RUNSILENT "" sudo rm -rvf -- "${DOWNLOAD_DIR}"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_SYS_UPDATE() {
+    if [[ ! -f /etc/fedora-release ]]; then
+        echo "Fedora uniquement."
+        exit 1
+    fi
+    sudo dnf upgrade -y
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_PKG_REMOVE() {
+    if [[ ! -f /etc/fedora-release ]]; then
+        echo "Fedora uniquement."
+        exit 1
+    fi
+    sudo dnf remove -y "$@"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_IS_PKG_REMOVED() {
+    if [[ ! -f /etc/fedora-release ]]; then
+        echo "Fedora uniquement."
+        exit 1
+    fi
+    ! rpm -q "$@" &>>"${LOG_FILE}"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_IS_PKG_INSTALLED() {
+    if [[ ! -f /etc/fedora-release ]]; then
+        echo "Fedora uniquement."
+        exit 1
+    fi
+    rpm -q "$@" &>>"${LOG_FILE}"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+_REFRESH_SYS_CACHE() {
+    if [[ ! -f /etc/fedora-release ]]; then
+        echo "Fedora uniquement."
+        exit 1
+    fi
+    local sentinel="/var/cache/dnf/.last_makecache"
+    local max_age=3600
+    local now sentinel_mtime age
+
+    now=$(date +%s)
+    sentinel_mtime=$(stat -c %Y "${sentinel}" 2>/dev/null || echo 0)
+    age=$((now - sentinel_mtime))
+
+    if [[ ${age} -gt ${max_age} ]]; then
+        _RUN "Mise à jour du cache des métadonnées des dépôts" sudo dnf makecache --refresh
+        sudo touch "${sentinel}"
+    else
+        _LOG "Cache DNF à jour (${age}s < ${max_age}s)"
+    fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

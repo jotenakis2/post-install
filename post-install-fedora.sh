@@ -595,8 +595,9 @@ SETUP_SUDO_RS() {
             _RUNSILENT "" sudo dnf versionlock add sudo
             change=1
         fi
-        if ! sudo grep -q sudo /etc/dnf/dnf.conf 2>/dev/null; then
-            _RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
+        if ! sudo grep -q "excludepkgs=sudo" /etc/dnf/dnf.conf 2>/dev/null; then
+            #_RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
+            _RUNSILENT "" sudo dnf config-manager setopt excludepkgs=sudo
             change=1
             _ETC_FILES_ADD "/etc/dnf/dnf.conf"
         fi
@@ -624,73 +625,6 @@ _CLEANUP_APPSTREAM() {
         if [[ ${#appstream[@]} -gt 0 ]]; then
             _RUN "Suppression métadonnées appstream RPMFusion" _PKG_REMOVE "${appstream[@]}"
         fi
-    fi
-}
-
-########################################################################################################################
-_PKG_CONFIG() {
-    local dnf="/etc/dnf/dnf.conf"
-    if ! sudo grep -q "defaultyes = true" "${dnf}" 2>/dev/null || ! sudo grep -q "max_parallel_downloads = 10" "${dnf}" 2>/dev/null || ! sudo grep -q "countme = False" "${dnf}" 2>/dev/null; then
-        _ETC_FILES_ADD "${dnf}"
-    fi
-    _RUNSILENT "" sudo crudini --verbose --set "${dnf}" main defaultyes true
-    _RUNSILENT "" sudo crudini --verbose --set "${dnf}" main max_parallel_downloads 10
-    _RUNSILENT "" sudo crudini --verbose --set "${dnf}" main countme False
-}
-
-_PKG_INSTALL_SKIP() {
-    sudo dnf install --skip-unavailable -y "$@"
-}
-
-_PKG_INSTALL() {
-    sudo dnf install -y "$@"
-}
-
-_PKG_DOWNLOAD_THEN_INSTALL() {
-    local arch
-    arch=$(uname -m)
-    echo "Téléchargement depuis les dépôts... "
-    _RUNSILENT "" sudo dnf download --skip-unavailable -y --arch "${arch}" --arch noarch --resolve --destdir="${DOWNLOAD_DIR}" "$@"
-    echo "installation depuis le cache local..."
-    if ! compgen -G "${DOWNLOAD_DIR}/*.rpm" > /dev/null; then
-        _ERR "Aucun paquet système à installer"
-        _RUNSILENT "" sudo rm -rvf "${DOWNLOAD_DIR}"
-        return 0
-    fi
-    _RUNSILENT "" sudo dnf install --skip-unavailable -y "${DOWNLOAD_DIR}"/*.rpm
-    _RUNSILENT "" sudo rm -rvf "${DOWNLOAD_DIR}"
-}
-
-_SYS_UPDATE() {
-    sudo dnf upgrade -y
-}
-
-_PKG_REMOVE() {
-    sudo dnf remove -y "$@"
-}
-
-_IS_PKG_REMOVED() {
-    ! rpm -q "$@" &>>"${LOG_FILE}"
-}
-
-_IS_PKG_INSTALLED() {
-    rpm -q "$@" &>>"${LOG_FILE}"
-}
-
-_REFRESH_SYS_CACHE() {
-    local sentinel="/var/cache/dnf/.last_makecache"
-    local max_age=3600
-    local now sentinel_mtime age
-
-    now=$(date +%s)
-    sentinel_mtime=$(stat -c %Y "${sentinel}" 2>/dev/null || echo 0)
-    age=$((now - sentinel_mtime))
-
-    if [[ ${age} -gt ${max_age} ]]; then
-        _RUN "Mise à jour du cache des métadonnées des dépôts" sudo dnf makecache --refresh
-        sudo touch "${sentinel}"
-    else
-        _LOG "Cache DNF à jour (${age}s < ${max_age}s)"
     fi
 }
 

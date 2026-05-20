@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
+set -euo pipefail
+readonly VER=38.3
+
 # TODO sshd : email quand conn.
 #      cachyos kernel
 #      swap : verif si partition swap existe avant de créer un swapfile, verif avant maj fstab aussi - FAIT mais à contrôler.
-set -euo pipefail
 
-SCRIPTNAME="${0##*/}"
-SCRIPTNAME="${SCRIPTNAME%.sh}"
-readonly SCRIPTNAME VER=38.2
+
+# basename sans l'extension .sh
+SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
+# gestion des interruptions
 trap '_CLEANUP' ERR
 trap '_INTERRUPT' INT
 trap '_DO_CLEAN' EXIT
@@ -1043,7 +1046,7 @@ EOF
 ########################################################################################################################
 
 INSTALL_DEPS() {
-    local -a prerequisit=(zsh gawk curl crudini ncurses git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils)
+    local -a prerequisit=(zsh gawk curl ncurses git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils)
     _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
 }
 
