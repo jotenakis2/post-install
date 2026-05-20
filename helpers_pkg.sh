@@ -158,7 +158,7 @@ _PKG_DOWNLOAD_THEN_INSTALL() {
         echo "Fedora uniquement."
         exit 1
     fi
-    if [[ -n "${download_dir:-}" ]]; then
+    if [[ -z "${download_dir:-}" ]]; then
         echo "ERREUR: dossier de téléchargement des paquets non défini."
         exit 1
     fi
