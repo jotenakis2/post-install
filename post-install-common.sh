@@ -139,11 +139,10 @@ EOF
     #
 
     # FICHIERS TEMPORAIRES
-    declare -g STATUSFILE LINKFILE DOWNLOAD_DIR
+    declare -g STATUSFILE LINKFILE
     STATUSFILE=$(mktemp /tmp/status.XXXXXX)
     LINKFILE=$(mktemp /tmp/link.XXXXXX)
-    DOWNLOAD_DIR=$(mktemp -d ./dnf-packages.XXXXXX)
-    export STATUSFILE LINKFILE DOWNLOAD_DIR
+    export STATUSFILE LINKFILE
     #
 
     _CLEAR
@@ -1612,7 +1611,7 @@ _DO_CLEAN(){
     for f in "${SUDOTMP[@]+"${SUDOTMP[@]}"}"; do
         if [[ -n "${f}" ]]; then sudo rm -f -- "${f}"; fi
     done
-    sudo rm -rf "${STATUSFILE:-}" "${LINKFILE:-}" "${DOWNLOAD_DIR:-}"
+    sudo rm -rf "${STATUSFILE:-}" "${LINKFILE:-}"
 }
 
 ########################################################################################################################

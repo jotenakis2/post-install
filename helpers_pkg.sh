@@ -151,27 +151,29 @@ _PKG_INSTALL() {
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _PKG_DOWNLOAD_THEN_INSTALL() {
+    local download_dir
+    download_dir=$(mktemp -d ./dnf-packages.XXXXXX)
     if [[ ! -f /etc/fedora-release ]]; then
         echo "Fedora uniquement."
         exit 1
     fi
-    if [[ -n "${DOWNLOAD_DIR:-}" ]]; then
+    if [[ -n "${download_dir:-}" ]]; then
         echo "ERREUR: dossier de téléchargement des paquets non défini."
         exit 1
     fi
     local arch
     arch=$(uname -m)
-    echo "Téléchargement depuis les dépôts dans ${DOWNLOAD_DIR}... "
+    echo "Téléchargement depuis les dépôts dans ${download_dir}... "
     # shellcheck disable=SC2154
-    _RUNSILENT "" sudo dnf download --skip-unavailable -y --arch "${arch}" --arch noarch --resolve --destdir="${DOWNLOAD_DIR}" "$@"
+    _RUNSILENT "" sudo dnf download --skip-unavailable -y --arch "${arch}" --arch noarch --resolve --destdir="${download_dir}" "$@"
     echo "installation depuis le cache local..."
-    if ! compgen -G "${DOWNLOAD_DIR}/*.rpm" > /dev/null; then
+    if ! compgen -G "${download_dir}/*.rpm" > /dev/null; then
         _ERR "Aucun paquet système à installer"
-        _RUNSILENT "" sudo rm -rvf -- "${DOWNLOAD_DIR}"
+        _RUNSILENT "" sudo rm -rvf -- "${download_dir}"
         return 0
     fi
-    _RUNSILENT "" sudo dnf install --skip-unavailable -y "${DOWNLOAD_DIR}"/*.rpm
-    _RUNSILENT "" sudo rm -rvf -- "${DOWNLOAD_DIR}"
+    _RUNSILENT "" sudo dnf install --skip-unavailable -y "${download_dir}"/*.rpm
+    _RUNSILENT "" sudo rm -rvf -- "${download_dir}"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
