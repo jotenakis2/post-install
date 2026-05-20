@@ -99,9 +99,9 @@ REMOVE_SYSTEM_PACKAGES() {
         fi
     fi
     if ((wants_akonadi_removal)); then
-        _RUNSILENT "" rm -rf "${HOME}/.local/share/akonadi"*
-        _RUNSILENT "" rm -rf "${HOME}/.config/akonadi"*
-        _RUNSILENT "" rm -rf "${HOME}/.cache/akonadi"*
+        _RUNSILENT "" rm -rf -- "${HOME}/.local/share/akonadi"*
+        _RUNSILENT "" rm -rf -- "${HOME}/.config/akonadi"*
+        _RUNSILENT "" rm -rf -- "${HOME}/.cache/akonadi"*
     fi
 
 }
@@ -398,7 +398,7 @@ SETUP_SWAP() { # que si zswap est demandé
             if [[ "${current_size}" -ne "${target_size}" ]]; then
                 _INFO "${swapdir}/swapfile existant mais taille différente de celle demandée (${current_size} octets). Recréation..."
                 _RUNSILENT "" sudo swapoff "${swapdir}/swapfile"
-                _RUNSILENT "" sudo rm -fv "${swapdir}/swapfile"
+                _RUNSILENT "" sudo rm -fv -- "${swapdir}/swapfile"
                 recreate_swap=true
             else
                 _LOG "${swapdir}/swapfile est déjà correctement installé"
@@ -416,7 +416,7 @@ SETUP_SWAP() { # que si zswap est demandé
                     if btrfs subvolume show "${swapdir}" >/dev/null 2>&1; then
                         _INFO "Sous-volume BTRFS ${swapdir} existe déjà"
                     else
-                        _RUNSILENT "" sudo rm -rvf "${swapdir}"
+                        _RUNSILENT "" sudo rm -rvf -- "${swapdir}"
                         _RUN "Création du sous-volume BTRFS ${swapdir}" sudo btrfs subvolume create "${swapdir}"
                     fi
                 else
@@ -459,7 +459,7 @@ SETUP_SWAP() { # que si zswap est demandé
             _RUNSILENT "" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
             _RUNSILENT "" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
             _RUN "Installation du module SELinux systemd_swap_search" sudo semodule -i "${selinux_tmp}.pp"
-            sudo rm -f "${selinux_tmp}.te" "${selinux_tmp}.mod" "${selinux_tmp}.pp"
+            _RUNSILENT "" sudo rm -vf -- "${selinux_tmp}.te" "${selinux_tmp}.mod" "${selinux_tmp}.pp"
         else
             _LOG "Le module SELinux systemd_swap_search est déjà actif"
         fi
@@ -689,6 +689,40 @@ pesign --certificate "$MOK_KEY_NICKNAME" --in "$KERNEL_IMAGE" --sign --out "$KER
 mv "$KERNEL_IMAGE.signed" "$KERNEL_IMAGE"
 '
         _INSTALL_ETC_FILES "chiffrement kernel cachyos" "${contentcachyos}" "${filecachyos}" "755"
+
+        filecachyos="${dircachyos}/999-setdefaultbootkernel"
+        # shellcheck disable=all
+        contentcachyos='#!/bin/sh
+set -eu
+
+logger -t kernel-postinst "called: $0 args: $*"
+
+kernel="$(find /boot -maxdepth 1 -type f -name 'vmlinuz-*cachy*' -printf '%f\n' | sort -V | tail -n 1)"
+
+[ -n "${kernel}" ] || {
+  logger -t kernel-postinst "no cachy kernel found"
+  exit 1
+}
+
+id="${kernel#vmlinuz-}"
+entry="/boot/loader/entries/*-${id}.conf"
+
+set -- $entry
+[ -f "$1" ] || {
+  logger -t kernel-postinst "no BLS entry for $id"
+  exit 1
+}
+
+saved_entry="$(basename "${1%.conf}")"
+grub2-editenv - set "saved_entry=$saved_entry"
+logger -t kernel-postinst "saved_entry=$saved_entry"
+
+'
+        if [[ "${is_grub}" == "true" ]]; then
+            _INSTALL_ETC_FILES "script post-install kernel cachyos" "${contentcachyos}" "${filecachyos}" "755"
+        else
+            _LOG "GRUB non détecté, pas de script post-install cachyos"
+        fi
 
         elif [[ "${sb_enabled}" = "" ]]; then
             _LOG "EFI ou SB non supporté sur ce système ?"

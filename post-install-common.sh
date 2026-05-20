@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=38.5
+readonly VERSION=38.6
 
 # TODO sshd : email quand conn.
-#      cachyos kernel
-#      swap : verif si partition swap existe avant de créer un swapfile, verif avant maj fstab aussi - FAIT mais à contrôler.
+#      cachyos kernel signature
 
 
 # basename sans l'extension .sh
@@ -274,7 +273,7 @@ INSTALL_GO_PACKAGES() {
         else
             _RUNSILENT "" curl -LO "https://go.dev/dl/${gofile}"
             _RUN "Installation de la toolchain GO" sudo tar -C /opt -xzf "${gofile}"
-            _RUNSILENT "" rm -vf "${gofile}"
+            _RUNSILENT "" rm -vf -- "${gofile}"
         fi
         _RUNSILENT "" _SYMLINK "${GOROOT}/bin/go" "/usr/local/bin/go"
         _RUNSILENT "" _SYMLINK "${GOROOT}/bin/gofmt" "/usr/local/bin/gofmt"
@@ -580,6 +579,9 @@ SETUP_FSTAB() {
     fi
 
     # --- Optimisations Fstab (noatime, lazytime) ---
+    if [[ ! -f /etc/fstab.origin ]]; then
+        _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
+    fi
     local fstab_changed=false tmp_dir
     tmp_dir=$(mktemp -d)
     true >"${tmp_dir}/fstab.new" # on crée un fichier vide temporaire
@@ -677,7 +679,7 @@ SETUP_FSTAB() {
     done <<<"${mounts}"
 
     # Nettoyage
-    sudo rm -rf "${tmp_dir}"
+    _RUNSILENT "" sudo rm -rvf -- "${tmp_dir}"
 }
 
 ######################################################################################################################
@@ -702,7 +704,7 @@ SETUP_DATA() {
                             ffile=$(basename "${file}")
                             _RUN "Restauration de ${profil} (de ${ffile} vers ${HOME})" tar -xzf "${file}" -C "${HOME}"
                             if [[ "${profil,,}" = "discord" ]]; then
-                                rm -rf "${HOME}/.config/vesktop/themes"
+                                rm -rf -- "${HOME}/.config/vesktop/themes"
                                 if [[ "${RESTOW,,}" = "yes" ]]; then
                                     stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "vesktop" &>>"${LOG_FILE}"
                                 else
@@ -780,12 +782,20 @@ SETUP_KDE_PLASMA() {
             _LOG "couleur TELA inconnue (${VARIANT_COLOR_TELA_ICONS}), fallback sur 'standard'"
             VARIANT_COLOR_TELA_ICONS="standard"
         fi
+
+        local testcolor
+        if [[ "${VARIANT_COLOR_TELA_ICONS}" = "standard"  ]]; then
+            testcolor=""
+        else
+            testcolor="-${VARIANT_COLOR_TELA_ICONS}"
+        fi
+
         local temp_tela
-        if ! find "${HOME}/.local/share/icons" -maxdepth 1 -type d -name "*Tela*" -print -quit | grep -q . >/dev/null; then
+        if [[ ! -d "${HOME}/.local/share/icons/Tela${testcolor}" ]] && [[ ! -d "${HOME}/.local/share/icons/Tela${testcolor}-dark" ]] && [[ ! -d "${HOME}/.local/share/icons/Tela${testcolor}-light" ]]; then
             temp_tela=$(mktemp -d)
             _RUN "Téléchargement des icônes Tela" git clone --depth=1 https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
             _RUN "Installation des icônes Tela ${VARIANT_COLOR_TELA_ICONS} (dans ${HOME}/.local/share/icons/)" bash -c "\"${temp_tela}\"/tela/install.sh -c \"${VARIANT_COLOR_TELA_ICONS}\" -d \"${HOME}\"/.local/share/icons"
-            _RUNSILENT "" rm -rf "${temp_tela}"
+            _RUNSILENT "" rm -rfv -- "${temp_tela}"
             change=1
         fi
 
@@ -1307,7 +1317,6 @@ net.ipv4.tcp_max_syn_backlog = 4096
 net.ipv4.conf.default.log_martians = 1
 net.ipv4.icmp_echo_ignore_broadcasts = 1
 net.ipv4.icmp_ignore_bogus_error_responses = 1
-
 net.ipv4.tcp_syncookies = 1
 net.ipv4.tcp_timestamps = 1
 net.ipv4.conf.default.rp_filter = 1
@@ -1329,11 +1338,15 @@ net.ipv4.conf.default.rp_filter = 1
 # ======================================================================="
     readonly sysctlfile sysctl_header
     full_sysctl_content="${sysctl_header}
-# swappiness computed by post-install script by Jotenakis based on RAM/ZRAM/ZSWAP
+
+    # swappiness computed by post-install script by Jotenakis based on RAM/ZRAM/ZSWAP
 vm.swappiness = ${swappiness}
+
 ${SYSCTL_CONF}
 ${nodump}
 ${harden}
+
+# routage
 ${forward}
 "
 
@@ -1619,7 +1632,8 @@ _DO_CLEAN(){
     for f in "${SUDOTMP[@]+"${SUDOTMP[@]}"}"; do
         if [[ -n "${f}" ]]; then sudo rm -f -- "${f}"; fi
     done
-    sudo rm -rf "${STATUSFILE:-}" "${LINKFILE:-}"
+    sudo rm -rf -- "${STATUSFILE:-}" "${LINKFILE:-}"
+    _PRINT_ETC_FILES
 }
 
 ########################################################################################################################
@@ -1638,7 +1652,6 @@ _DO_LOG(){
 _CLEANUP() {
     echo -e "${C_BOLD}${C_RED} Plantage !${C_RESET}"
     _DO_CLEAN
-    _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_RED}"
     _DO_LOG
 }
@@ -1648,7 +1661,6 @@ _CLEANUP() {
 _INTERRUPT() {
     echo -e "${C_BOLD}${C_GREEN} Arrêt du script demandé par l'utilisateur...${C_RESET}"
     _DO_CLEAN
-    _PRINT_ETC_FILES
     echo -e "${C_BOLD}${C_GREEN}"
     _DO_LOG
 }
@@ -1806,7 +1818,7 @@ _SSHBANNER(){
 #################################################################
 '
     if sudo test -L "${banner_file}"; then
-        sudo rm -f "${banner_file}"
+        sudo rm -f -- "${banner_file}"
     fi
     _INSTALL_ETC_FILES "bannière sshd" "${banner_content}" "${banner_file}" "644"
 
@@ -1817,7 +1829,7 @@ _SSHBANNER(){
             _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
             status=$(head -1 "${LINKFILE}")
             if [[ "${status}" = "1" ]]; then
-                _RUNSILENT "" sudo rm -f "${f}"
+                _RUNSILENT "" sudo rm -f -- "${f}"
                 _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
                 if grep -qxF 0 "${LINKFILE}" 2>/dev/null; then
                     _ETC_FILES_ADD "${f}"

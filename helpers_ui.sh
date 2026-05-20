@@ -210,7 +210,7 @@ _RUNSILENT() {
         echo "(voir ${LOG_FILE})" >&2
     fi
 
-    rm -f "${tmperr}"
+    rm -f -- "${tmperr}"
     return "${rc}"
 }
 
@@ -365,3 +365,5 @@ _PRINT_ETC_FILES() {
         _OK "Aucun fichier système crée ou modifié"
     fi
 }
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
