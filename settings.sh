@@ -23,7 +23,7 @@ SUDORS="yes"
 ACTIVATE_SSHD="no"
 
 # si yes, zram éventuel supprimé et remplacé par zswap avec un backend swapfile
-ZSWAP="no"
+ZSWAP="yes"
 
 # pour télécharger oh-my-posh pour l'utilisateur qui lance le script
 USE_OH_MY_POSH_PROMPT="yes"
@@ -38,13 +38,13 @@ RESTOW="yes"
 DISABLE_COREDUMP="yes"
 
 # pour désactiver le boot graphique (plymouth sera désinstallé)
-DISABLE_PLYMOUTH="no"
+DISABLE_PLYMOUTH="yes"
 
 # diverses robustifications de sécurité
 HARDENING="yes"
 
 # supprime support ipv6 dans le kernel et services
-DISABLE_IPV6="no"
+DISABLE_IPV6="yes"
 
 # supprime gnome-logiciels et/ou plasma-discover (ainsi que PackageKit)
 DISABLE_DNF_GUI="yes"
