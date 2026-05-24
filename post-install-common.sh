@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=38.6
+readonly VERSION=39.0
 
 # TODO sshd : email quand conn.
 #      cachyos kernel signature
@@ -70,7 +70,7 @@ MAINMODE() {
 
 ########################################################################################################################
 SHELLONLYMODE() {
-    _SECTION " Mode shellonly (cargo, go, git, shell, dotfiles) " "━" "${C_GREEN}"
+    _SECTION " Mode shellonly (cargo, go, git, shell, dotfiles) 🐚 " "━" "${C_GREEN}"
     INSTALL_CARGO_PACKAGES
     INSTALL_GO_PACKAGES
     INSTALL_GIT_REPOS
@@ -80,7 +80,7 @@ SHELLONLYMODE() {
 
 ########################################################################################################################
 CHECKMODE() {
-    _SECTION " Mode contrôle - paramètres personnalisables de ${SCRIPTNAME} " "━" "${C_GREEN}"
+    _SECTION " Mode contrôle - paramètres personnalisables de ${SCRIPTNAME} ✅ " "━" "${C_GREEN}"
     echo "Fichier : "
     ls -l ./settings.sh 2>/dev/null
     echo ""
@@ -97,7 +97,7 @@ CHECKMODE() {
 
 ########################################################################################################################
 HELPMODE() {
-    _SECTION " Mode aide " "━" "${C_GREEN}"
+    _SECTION " Mode aide 🛟 " "━" "${C_GREEN}"
     _INFO "Usage : ./${SCRIPTNAME} [ --shellonly | --check | --help ]"
     _INFO "Sans option, ${SCRIPTNAME} éxécute la post-installation complète."
     _INFO "Les paramètres personnalisables sont stockés dans ./settings.sh."
@@ -152,7 +152,7 @@ EOF
         pretty_name=$(awk -F= '/^PRETTY_NAME/{gsub(/"/, "", $2); print $2; exit}' "${fileOS}")
     fi
     _BANNER "blue" "${SCRIPTNAME} (${VERSION}) 🖥"
-    _SECTION " Préparation de la post-installation " "━" "${C_GREEN}"
+    _SECTION " Préparation de la post-installation 🚀 " "━" "${C_GREEN}"
     _INFO "Distribution : ${pretty_name}"
     _INFO "Heure de démarrage du script : ${heure}"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
@@ -199,7 +199,7 @@ EOF
 ########################################################################################################################
 INSTALL_CARGO_PACKAGES() {
     if [[ -n "${CARGO_PACKAGES[*]}" ]]; then
-        _SECTION " Installation des paquets cargo RUST personnalisés " "━" "${C_GREEN}"
+        _SECTION " Installation des paquets cargo RUST personnalisés 📦 " "━" "${C_GREEN}"
 
         # 0. toolchain rust
         local check
@@ -256,7 +256,7 @@ INSTALL_CARGO_PACKAGES() {
 ########################################################################################################################
 INSTALL_GO_PACKAGES() {
     if [[ -n "${GO_PACKAGES[*]}" ]]; then
-        _SECTION " Installation des paquets GO personnalisés " "━" "${C_GREEN}"
+        _SECTION " Installation des paquets GO personnalisés 📦 " "━" "${C_GREEN}"
 
         local pkg current="" latest="" arch="" os="" gofile="" url
         urlGO="https://go.dev/dl/?mode=json"
@@ -324,7 +324,7 @@ INSTALL_GO_PACKAGES() {
 INSTALL_GIT_REPOS() {
     local repo name target
     _RUNSILENT "" mkdir -pv "${HOME}/Projects"
-    _SECTION " Installation des dépôts Git personnalisés " "━" "${C_GREEN}"
+    _SECTION " Installation des dépôts Git personnalisés 🔗 " "━" "${C_GREEN}"
 
     for repo in "${GIT_REPOS[@]}" "${DOTFILES_REPO}"; do
         name="${repo##*/}"
@@ -368,7 +368,7 @@ INSTALL_GIT_REPOS() {
 
 ########################################################################################################################
 SETUP_SHELL() {
-    _SECTION " Configuration du shell zsh par défaut " "━" "${C_GREEN}"
+    _SECTION " Configuration du shell zsh par défaut 🐚 " "━" "${C_GREEN}"
     # 1- zsh
     local zsh_bin
     if ! _EXIST zsh; then
@@ -440,7 +440,7 @@ SETUP_SHELL() {
 
 ########################################################################################################################
 SETUP_DOTFILES() {
-    _SECTION " Installation des configurations personnalisées de ${USER} (dotfiles) " "━" "${C_GREEN}"
+    _SECTION " Installation des configurations personnalisées de ${USER} (dotfiles) ⚙️ " "━" "${C_GREEN}"
 
     if [[ ! -d "${DOTFILES_DIR}" ]]; then
         _ERR "Le dossier ${DOTFILES_DIR} est introuvable. Stow ignoré."
@@ -556,7 +556,7 @@ _SETUP_SYSTEMD() {
 
 ########################################################################################################################
 SETUP_FSTAB() {
-    _SECTION " Configuration du fichier FSTAB " "━" "${C_GREEN}"
+    _SECTION " Configuration du fichier FSTAB ⚙️ " "━" "${C_GREEN}"
     local fstab="/etc/fstab" dr="no"
     # SWAPFILE
     if [[ "${ZSWAP,,}" = "yes" ]]; then
@@ -641,7 +641,7 @@ SETUP_FSTAB() {
     # NFS
     if [[ "${NFS_SHARE:-}" != "" ]]; then
         local opts
-        opts="rw,_netdev,nofail,nodev,nosuid,noexec,noatime,lazytime,x-systemd.automount,x-systemd.device-timeout=30"
+        opts="rw,_netdev,nofail,nodev,nosuid,noexec,noatime,lazytime,x-systemd.automount,x-systemd.mount-timeout=30s"
         if ! grep -q "${NFS_SHARE}" "${fstab}" >/dev/null; then
             if grep -q "${NFS_MP}" "${fstab}" >/dev/null; then
                 _INFO "Point de montage demandé (${NFS_MP}) déjà présent dans ${fstab} :"
@@ -685,7 +685,7 @@ SETUP_FSTAB() {
 
 ######################################################################################################################
 SETUP_DATA() {
-    _SECTION " Restauration des données privées de l'utilisateur ${USER} " "━" "${C_GREEN}"
+    _SECTION " Restauration des données privées de l'utilisateur ${USER} 🛢️ " "━" "${C_GREEN}"
     if [[ -e "${SOURCE}" ]]; then
         if ! _IS_PKG_INSTALLED xdg-user-dirs ; then
             _RUNSILENT "" _PKG_INSTALL xdg-user-dirs
@@ -733,7 +733,7 @@ SETUP_DATA() {
 SETUP_KDE_PLASMA() {
     # on check KDE est lancé
     if pgrep -f '\b(plasmashell|kwin|kwin_wayland|plasma-desktop)\b' >/dev/null; then
-        _SECTION " Personnalisation de l'interface KDE Plasma 6 de l'utilisateur ${USER} " "━" "${C_GREEN}"
+        _SECTION " Personnalisation de l'interface KDE Plasma 6 de l'utilisateur ${USER} 🛠️ " "━" "${C_GREEN}"
         local change=0
 
         # Color Scheme : Tokyo Night
@@ -928,7 +928,7 @@ SETUP_PLM() {
 
 ########################################################################################################################
 SETUP_ETC() {
-    _SECTION " Configuration générale du système " "━" "${C_GREEN}"
+    _SECTION " Configuration générale du système ⚙️ " "━" "${C_GREEN}"
     _MSMTP
     _HOSTNAME
     _NETWORKMANAGER
@@ -958,7 +958,7 @@ SETUP_SSHD() {
     local sshservice
     sshservice="sshd.service"
     if [[ "${ACTIVATE_SSHD}" = "yes" ]]; then
-        _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
+        _SECTION " Configuration du service ssh 🔑 " "━" "${C_GREEN}"
         _RUNSILENT "" sudo mkdir -pv /etc/ssh/sshd_config.d
         local config_ssh_file full_ssh_content ssh_header ssh_config noipv6="" banner=""
 
@@ -1033,7 +1033,7 @@ ${banner}
 
     else
         if _IS_ENABLED "${sshservice}"; then
-            _SECTION " Configuration du service ssh " "━" "${C_GREEN}"
+            _SECTION " Configuration du service ssh 🔑 " "━" "${C_GREEN}"
             _LOG "pas de service sshd demandé"
             _RUN "Désactivation de ${sshservice}" sudo systemctl --now disable "${sshservice}" sshd.socket ssh.service ssh.socket
         else
@@ -1090,7 +1090,7 @@ INSTALL_DEPS() {
 
 INSTALL_FLATPAK_PACKAGES() {
     if [[ -n "${FLATPAK_PKGS[*]}" ]]; then
-        _SECTION " Installation des paquets Flatpak personnalisés " "━" "${C_GREEN}"
+        _SECTION " Installation des paquets Flatpak personnalisés 📦 " "━" "${C_GREEN}"
         # 1. Vérification et installation de Flatpak
         if ! _EXIST flatpak; then
             _RUN "Installation de Flatpak" _PKG_INSTALL flatpak
@@ -1134,7 +1134,7 @@ INSTALL_FLATPAK_PACKAGES() {
 
 END() {
     local duration file
-    _SECTION " Finalisation de ${SCRIPTNAME} " "━" "${C_GREEN}"
+    _SECTION " Finalisation de la post-installation 🏁 " "━" "${C_GREEN}"
     duration=$(_CONVERT_SECONDS "$((SECONDS - START))")
     _INFO "${SCRIPTNAME} v${VERSION} a terminé avec succès en ${duration}."
     if [[ -n "${ETC_FILES[*]}" ]]; then
@@ -1191,6 +1191,18 @@ _HOSTNAME() {
     else
         _LOG "hostname déjà correctement défini"
     fi
+    # on ajoute à /etc/hosts
+    hosts=/etc/hosts
+    if [[ ! -f "${hosts}" ]]; then
+        sudo touch "${hosts}"
+    fi
+    if ! grep -Eq "[[:space:]]${MYHOSTNAME}([[:space:]]|\$)" "${hosts}"; then
+        printf '127.0.1.1\t%s\n' "${MYHOSTNAME}" | sudo tee -a "${hosts}" >/dev/null
+        _OK "Configuration de la résolution locale (${hosts})"
+        _ETC_FILES_ADD "${hosts}"
+    else
+        _INFO "Résolution locale déjà OK (${hosts})"
+    fi
 }
 
 ########################################################################################################################
@@ -1218,22 +1230,33 @@ _NETWORKMANAGER() {
     declare -g RESTARTNM="no"
     _LOG "* dns : NetworkManager *"
 
-    if grep -rq "dns=systemd-resolved" "${dir}"; then
-        _INFO "Backend DNS de NetworkManager déjà OK (${file})"
-    else
-        _OK "Configuration backend DNS de NetworkManager (${file})"
-        printf '%s' "${nm_dns_conf}" | sudo tee "${file}" >/dev/null
-        _RUNSILENT "" bash -c "sudo chmod -v 644 ${file} >>${LOG_FILE}"
+    _INSTALL_ETC_FILES "backend DNS de NetworkManager" "${nm_dns_conf}" "${file}" "644"
+    if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
         RESTARTNM="yes"
-        #_RUNSILENT "Redémarrage du service NetworkManager" sudo systemctl restart NetworkManager.service
-        _ETC_FILES_ADD "${file}"
     fi
-
     {
         ls -l "${file}"
         cat "${file}"
         echo ""
     } >>"${LOG_FILE}"
+
+    if [[ "${WIFI_POWERSAVE,,}" = "yes" ]]; then
+        local nm_wifipowersave file2
+        nm_wifipowersave=$'[connection]\nwifi.powersave = 2\n'
+        file2="${dir}/default-wifi-powersave-off.conf"
+        readonly nm_wifipowersave file2
+
+        _INSTALL_ETC_FILES "wifi powersave" "${nm_wifipowersave}" "${file2}" "644"
+        if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
+            RESTARTNM="yes"
+        fi
+        {
+        ls -l "${file2}"
+        cat "${file2}"
+        echo ""
+        } >>"${LOG_FILE}"
+    fi
+
 }
 
 ########################################################################################################################
@@ -1515,16 +1538,25 @@ _DISABLE_IPV6_IN_SERVICES() {
         fi
 
         # NetworkManager
-        local dirNM fileNM contentNM
-        dirNM="/etc/NetworkManager/conf.d"
-        fileNM="${dirNM}/disable-ipv6.conf"
-        _RUNSILENT "" sudo mkdir -pv "${dirNM}"
-        contentNM=$'[connection]\nipv6.method=disabled\n'
-        _INSTALL_ETC_FILES "IPv6 NetworkManager" "${contentNM}" "${fileNM}" "644"
-        if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
-            _RUNSILENT "" sudo nmcli general reload
+        if _IS_ENABLED NetworkManager.service; then
+            local uuid type current
+            if _EXIST nmcli; then
+                sudo nmcli -t -f UUID,TYPE connection show | while IFS=: read -r uuid type; do
+                    if [[ "${type}" = loopback ]]; then continue; fi
+                    current=$(sudo nmcli -g ipv6.method connection show "${uuid}" 2>/dev/null || true)
+                    if [[ "${current}" = disabled ]]; then
+                        _LOG "IPv6 pour la connection NetworkManager ${uuid}:${type} déjà désactivée"
+                        continue
+                    fi
+                    sudo nmcli connection modify "${uuid}" ipv6.method disabled
+                    _OK "Désactivation IPv6 pour la connection NetworkManager ${uuid}:${type}"
+                done
+            else
+                _LOG "nmcli non détecté"
+            fi
+        else
+            _LOG "NetworkManager non détecté, on zappe désactivation IPv6 pour NetworkManager"
         fi
-
         # Netconfig
         _DISABLE_IPV6_NETCONFIG
 
@@ -1693,6 +1725,9 @@ _HARDENING(){
         net_content=$'# network special protocols deactivated by post-install script by jotenakis\ninstall dccp /bin/false\ninstall sctp /bin/false\ninstall rds /bin/false\ninstall tipc /bin/false\ninstall n-hdlc /bin/false\ninstall ax25 /bin/false\ninstall netrom /bin/false\ninstall x25 /bin/false\ninstall rose /bin/false\ninstall decnet /bin/false\ninstall econet /bin/false\ninstall af_802154 /bin/false\ninstall ipx /bin/false\ninstall appletalk /bin/false\ninstall psnap /bin/false\ninstall p8023 /bin/false\ninstall p8022 /bin/false\ninstall can /bin/false\ninstall atm /bin/false\n'
 
         _INSTALL_ETC_FILES "suppresion de protocoles réseaux inutilisés" "${net_content}" "${net_file}" "644"
+
+        # nom de machine dans /etc/hosts
+
 
         # Firewalld zone public par défaut pour toutes les interfaces
         # local iface current_zone default_zone
@@ -2034,7 +2069,7 @@ SETUP_GRUB() {
 
     is_grub=$(_DETECT_GRUB)
 
-    _SECTION " Configuration de GRUB " "━" "${C_GREEN}"
+    _SECTION " Configuration de GRUB ⚙️ " "━" "${C_GREEN}"
 
     if [[ "${is_grub}" != "true" ]]; then
         _ERR "GRUB n'a pas été détecté, par prudence je ne change rien au bootloader actuel"

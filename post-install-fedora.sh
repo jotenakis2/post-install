@@ -42,7 +42,7 @@ CHECK() {
 
 ########################################################################################################################
 REMOVE_SYSTEM_PACKAGES() {
-    _SECTION " Suppression des paquets systèmes indésirables " "━" "${C_GREEN}"
+    _SECTION " Suppression des paquets systèmes indésirables 📤 " "━" "${C_GREEN}"
     local pkg wants_systemd_networkd_removal wants_akonadi_removal
     wants_systemd_networkd_removal=0
     wants_akonadi_removal=0
@@ -108,7 +108,7 @@ REMOVE_SYSTEM_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_REPOS() {
-    _SECTION " Installation des dépôts systèmes additionnels " "━" "${C_GREEN}"
+    _SECTION " Installation des dépôts systèmes additionnels 🔗 " "━" "${C_GREEN}"
     local fedora_ver rpmf type
     declare -i cache=0
     local rpmfusion_list="free nonfree"
@@ -183,7 +183,7 @@ _ADD_COPR(){
 INSTALL_FONTS() {
     local header=""
     if [[ "${FONTS[*]}" != "" ]]; then
-        _SECTION " Installation de polices d'affichage personnelles " "━" "${C_GREEN}"
+        _SECTION " Installation de polices d'affichage personnelles 🔤 " "━" "${C_GREEN}"
         header="yes"
         _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL_SKIP "${FONTS[@]}"
     else
@@ -192,7 +192,7 @@ INSTALL_FONTS() {
 
     if [[ -n "${VCONSOLE_FONT}" ]]; then
         if [[ ${header} = "" ]]; then
-            _SECTION " Installation de polices d'affichage personnelles " "━" "${C_GREEN}"
+            _SECTION " Installation de polices d'affichage personnelles 🔤 " "━" "${C_GREEN}"
         fi
         _SETUP_VCONSOLE_FONT
     fi
@@ -238,7 +238,7 @@ _SETUP_VCONSOLE_FONT() {
 
 ########################################################################################################################
 INSTALL_CODECS() {
-    _SECTION " Installation des codecs multimédias additionnels " "━" "${C_GREEN}"
+    _SECTION " Installation des codecs multimédias additionnels 🎵 " "━" "${C_GREEN}"
     # codecs
     if ! _IS_PKG_INSTALLED ffmpeg; then
         _RUN "Échange ffmpeg-free <=> ffmpeg (rpmfusion)" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
@@ -260,13 +260,13 @@ INSTALL_CODECS() {
 
     if echo "${gpu_vendor}" | grep -q "amd\|radeon\|advanced micro"; then
         if ! _IS_PKG_INSTALLED mesa-va-drivers-freeworld; then
-            _RUN "Échange mesa-va-drivers (free) <=> mesa-va-drivers (rpmfusion)" sudo dnf swap -y mesa-va-drivers mesa-va-drivers-freeworld
+            _RUN "Installation mesa-va-drivers (rpmfusion)" _PKG_INSTALL_SKIP mesa-va-drivers-freeworld
         else
-            _INFO "Mesa (rpmfusion) déjà OK"
+            _INFO "mesa-va-drivers (rpmfusion) déjà OK"
         fi
     elif echo "${gpu_vendor}" | grep -q "intel"; then
         if ! _IS_PKG_INSTALLED intel-media-driver; then
-            _RUN "Installation intel-media-driver (rpmfusion)" _PKG_INSTALL intel-media-driver
+            _RUN "Installation intel-media-driver (rpmfusion)" _PKG_INSTALL_SKIP intel-media-driver
         else
             _INFO "intel-media-driver (rpmfusion) déjà OK"
         fi
@@ -278,7 +278,7 @@ INSTALL_CODECS() {
 ########################################################################################################################
 INSTALL_SYSTEM_PACKAGES() {
     if [[ "${SYSTEM_PACKAGES[*]}" != "" ]]; then
-        _SECTION " Installation des paquets systèmes personnalisés " "━" "${C_GREEN}"
+        _SECTION " Installation des paquets systèmes personnalisés 📥 " "━" "${C_GREEN}"
 
         if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]]; then
             _LOG " ajout du noyau Linux de cachyOS dans les paquets à installer "
@@ -471,7 +471,7 @@ SETUP_SWAP() { # que si zswap est demandé
 ########################################################################################################################
 SETUP_SUDO_RS() {
     if [[ "${SUDORS}" = "yes" ]]; then
-        _SECTION " Configuration de sudo-rs " "━" "${C_GREEN}"
+        _SECTION " Configuration de sudo-rs 🔐 " "━" "${C_GREEN}"
         local change=0
         # 1. On installe sudo-rs
         if ! _EXIST sudo-rs; then
@@ -632,7 +632,7 @@ _CLEANUP_APPSTREAM() {
 
 SETUP_CACHYOS_KERNEL() {
     if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]] && _IS_PKG_INSTALLED kernel-cachyos-core; then
-         _SECTION " Configuration du noyau Linux de cachyOS " "━" "${C_GREEN}"
+         _SECTION " Configuration du noyau Linux de cachyOS 🐧 " "━" "${C_GREEN}"
 
         # Noyau CachyOS par défaut dans grub
         _LOG "* cachysOS GRUB *"
@@ -662,45 +662,55 @@ SETUP_CACHYOS_KERNEL() {
             _RUNSILENT "" sudo mkdir -pv "${dircachyos}"
             filecachyos="${dircachyos}/00-signing"
             # shellcheck disable=SC2016
-            contentcachyos='#!/bin/sh
+            contentcachyos=$(cat <<'EOF'
+#!/bin/sh
 set -e
 
-KERNEL_IMAGE="$2"
-MOK_KEY_NICKNAME="CachyOS Secure Boot"
+MOK_KEY_NICKNAME='CachyOS Secure Boot'
 
-if [ "$#" -ne "2" ] ; then
-        echo "Wrong count of command line arguments. This is not meant to be called directly." >&2
-        exit 1
+logger -t kernel-postinst "script appelé : $0 args: $*"
+
+if [ "$#" -ne 2 ]; then
+    logger -t kernel-postinst "problèmes d'arguments"
+    exit 1
 fi
 
-if [ ! -x "$(command -v pesign)" ] ; then
-        echo "pesign not executable. Bailing." >&2
-        exit 1
+KERNEL_IMAGE=$2
+
+case $KERNEL_IMAGE in
+    *cachyos*) logger -t kernel-postinst "Noyau cachyos à signer" ;;
+    *) logger -t kernel-postinst "Pas de noyau cachyos à signer"; exit 0 ;;
+esac
+
+if ! command -v pesign >/dev/null 2>&1; then
+    logger -t kernel-postinst "pesign non détecté"
+    exit 1
 fi
 
-if [ ! -w "$KERNEL_IMAGE" ] ; then
-        echo "Kernel image $KERNEL_IMAGE is not writable." >&2
-        exit 1
+if [ ! -w "$KERNEL_IMAGE" ]; then
+    logger -t kernel-postinst "kernel image non modifiable donc non signable: $KERNEL_IMAGE"
+    exit 1
 fi
 
-echo "Signing $KERNEL_IMAGE..."
+logger -t kernel-postinst "Signature noyau $KERNEL_IMAGE..."
+pesign --verbose --certificate "$MOK_KEY_NICKNAME" --in "$KERNEL_IMAGE" --sign --out "$KERNEL_IMAGE.signed"
+mv -f -- "$KERNEL_IMAGE.signed" "$KERNEL_IMAGE"
 
-pesign --certificate "$MOK_KEY_NICKNAME" --in "$KERNEL_IMAGE" --sign --out "$KERNEL_IMAGE.signed"
-mv "$KERNEL_IMAGE.signed" "$KERNEL_IMAGE"
-'
+EOF
+)
         _INSTALL_ETC_FILES "chiffrement kernel cachyos" "${contentcachyos}" "${filecachyos}" "755"
 
         filecachyos="${dircachyos}/999-setdefaultbootkernel"
-        # shellcheck disable=all
-        contentcachyos='#!/bin/sh
+        contentcachyos=$(cat <<'EOF'
+#!/bin/sh
 set -eu
 
-logger -t kernel-postinst "called: $0 args: $*"
+logger -t kernel-postinst "script appelé : $0 args: $*"
 
 kernel="$(find /boot -maxdepth 1 -type f -name 'vmlinuz-*cachy*' -printf '%f\n' | sort -V | tail -n 1)"
 
 [ -n "${kernel}" ] || {
-  logger -t kernel-postinst "no cachy kernel found"
+  logger -t kernel-postinst "aucun noyau cachyOS détecté"
   exit 1
 }
 
@@ -709,15 +719,17 @@ entry="/boot/loader/entries/*-${id}.conf"
 
 set -- $entry
 [ -f "$1" ] || {
-  logger -t kernel-postinst "no BLS entry for $id"
+  logger -t kernel-postinst "aucune entrée GRUB trouvée pour $id"
   exit 1
 }
 
 saved_entry="$(basename "${1%.conf}")"
 grub2-editenv - set "saved_entry=$saved_entry"
-logger -t kernel-postinst "saved_entry=$saved_entry"
+logger -t kernel-postinst "entrée GRUB par défaut : $saved_entry"
 
-'
+
+EOF
+)
         if [[ "${is_grub}" == "true" ]]; then
             _INSTALL_ETC_FILES "script post-install kernel cachyos" "${contentcachyos}" "${filecachyos}" "755"
         else

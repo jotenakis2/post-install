@@ -59,8 +59,10 @@ ENABLE_CACHYOS_KERNEL="yes"
 TERRA="yes"
 
 # standard, black, blue, brown, green, grey, orange, pink, purple, red, yellow, manjaro, ubuntu, nord, ou dracula.
-VARIANT_COLOR_TELA_ICONS="orange"
+VARIANT_COLOR_TELA_ICONS="purple"
 
+# WIFI économie d'énergie OFF (parfois utile si déco/reco fréquente)
+WIFI_POWERSAVE="yes"
 
 ################################################################
 # Configurations diverses                                      #
@@ -72,7 +74,7 @@ MYHOSTNAME="MyFedoraBTW"
 # paquets système à installer ----------------------------------------------------------------------------------------------------
 SYSTEM_PACKAGES=(
     fastfetch alacritty fzf bat-extras grc axel rclone procs msmtp s-nail chkrootkit rkhunter
-    wl-clipboard glow expect sqlite btop atop glances nvtop iftop gdu duf speedtest-cli kate shfmt ShellCheck inxi
+    wl-clipboard glow expect sqlite btop atop glances nvtop iftop gdu duf kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
     vesktop qbittorrent qemu virt-manager virt-viewer gum stress-ng lynis
     libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro konversation libpcap-devel
@@ -81,8 +83,10 @@ SYSTEM_PACKAGES=(
 
 # paquets système à désinstaller -------------------------------------------------------------------------------------------------
 SYSTEM_REMOVE=(
-    rsyslog akonadi-server kdeconnectd nano libreswan at systemd-networkd
+    rsyslog akonadi-server kdeconnectd nano libreswan at systemd-networkd catatonit
     plasma-drkonqi ibus imsettings maliit-keyboard abrt sudo-python-plugin sssd-common mcelog
+    # cockpit
+    cockpit-bridge cockpit-networkmanager cockpit-storaged cockpit-system cockpit-ws cockpit-ws-selinux
     # fonts asiatiques
     default-fonts-cjk-mono
     default-fonts-cjk-sans
@@ -135,7 +139,7 @@ CARGO_PACKAGES=(
     cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg 
     ripgrep sd sheldon tealdeer 
     yazi-fm yazi-cli
-    zoxide zsh-patina eza netwatch-tui syswatch shuck-cli
+    zoxide zsh-patina eza netwatch-tui syswatch shuck-cli sdctl
     # Ajoute tes autres paquets ici
 )
 
@@ -160,6 +164,7 @@ declare -A GO_PACKAGES=(
     ["golazo"]="github.com/0xjuanma/golazo@latest"
     ["radiogogo"]="github.com/zi0p4tch0/radiogogo@latest"
     ["xytz"]="github.com/xdagiz/xytz@latest"
+    ["speedtest-go"]="github.com/showwin/speedtest-go@latest"
     # Ajoute tes autres paquets ici
 )
 
@@ -189,14 +194,14 @@ declare -A SERVICES_TO_DISABLE=(
     ["switcheroo-control.service"]="service switcheroo (GPU hybride)"
     ["flatpak-add-fedora-repos.service"]="service fedora flatpak repo"
     ["mdmonitor.service"]="service Software RAID monitoring and management"
-    ["lvm2-monitor.service"]="service Monitoring LVM"
+    #["lvm2-monitor.service"]="service Monitoring LVM"
     ["pcscd.socket"]="socket PC/SC Smart Card Daemon"
     ["lm_sensors.service"]="service Hardware Monitoring Sensors (collecte)"
     ["authselect-apply-changes.service"]="service Apply authselect changes (PAM)"
     ["raid-check.timer"]="timer Weekly RAID setup health check"
     ["iscsid.socket"]="socket Open-iSCSI iscsid"
     ["iscsiuio.socket"]="socket Open-iSCSI iscsiuio"
-    ["lvm2-lvmpolld.socket"]="socket LVM poll"
+    #["lvm2-lvmpolld.socket"]="socket LVM poll"
     ["systemd-oomd.socket"]="socket Out of Memory Killer"
     ["systemd-oomd.service"]="service Out of Memory Killer"
     ["thermald.service"]="service thermald"
@@ -370,5 +375,5 @@ export XDG_PICTURES_DIR
 export XDG_DOCUMENTS_DIR
 export TERRA
 export VARIANT_COLOR_TELA_ICONS
-
+export WIFI_POWERSAVE
 ###############################################################################################################################

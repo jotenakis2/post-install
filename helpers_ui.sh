@@ -111,6 +111,7 @@ _SECTION() {
     declare -i term_cols # Terminal width
     if ! term_cols="${COLUMNS}"; then return 1; fi
     echo -e "${color}"
+    term_cols=$(( term_cols - 2 ))
 
     declare -i str_len="${#msg}" # Length of $msg
     if [[ ${str_len} -ge ${term_cols} ]]; then echo "${msg}"; return 0; fi
