@@ -4,6 +4,8 @@ set -euo pipefail
 # shellcheck source=./post-install-common.sh
 source ./post-install-common.sh
 declare -A SWAPS=()
+ROOT="no"
+export ROOT
 
 ########################################################################################################################
 # FONCTIONS SPECIFIQUES FEDORA                                                                                         #
@@ -19,25 +21,37 @@ CHECK() {
         echo "Bash >= 5 requis (actuel : ${BASH_VERSION})."
         exit 1
     fi
-    if [[ "${EUID}" -eq 0 ]]; then
-        echo "Ne pas lancer en root. Le script gère sudo lui-même."
-        exit 1
-    fi
     if [[ ! -f /etc/fedora-release ]]; then
         echo "Fedora uniquement."
         exit 1
     fi
-
-    # Vérification explicite des droits sudo (groupe wheel)
-    if ! id -nG "${USER}" | grep -qw "wheel"; then
-        echo "L'utilisateur ${USER} n'appartient pas au groupe 'wheel' (sudo). Abandon."
-        exit 1
+    # Vérification explicite des droits root
+    if [[ "${EUID}" -eq 0 ]]; then
+        echo "${SCRIPTNAME} lancé en tant que root, le mode \"SHELL ONLY\" est imposé :"
+        echo " - Les dépots GIT seront clonés (programmes non installés)."
+        echo " - Le SHELL zsh sera configuré."
+        echo " - Les dotfiles clonés seront déployés pour l'utilisateur root."
+        echo " - Pour que tout le script soit exécuté il doit être lancé en utilisateur avec droits sudo."
+        echo ""
+        read -r -p "On continue en mode \"SHELL ONLY\" ? [o/N] " reponse
+        case "${reponse,,}" in
+            o|oui|y|yes) ROOT="yes" ;;
+            *) exit 127 ;;
+        esac
+    else
+        if ! id -nG "${USER}" | grep -qw "wheel"; then
+            echo "L'utilisateur ${USER} n'appartient pas au groupe 'wheel' (sudo). Abandon."
+            exit 1
+        fi
     fi
     #
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
-    echo "Environnement valide : ${fedora_rel}, utilisateur ${USER} avec droits sudo OK"
-    sleep 1
+    if [[ "${ROOT,,}" = "yes" ]]; then
+        echo "Environnement valide : ${fedora_rel}, utilisateur root, mode shellonly."
+    else
+        echo "Environnement valide : ${fedora_rel}, utilisateur ${USER} avec droits sudo OK"
+    fi
 }
 
 ########################################################################################################################

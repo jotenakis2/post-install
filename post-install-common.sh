@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=39.0
+readonly VERSION=39.2
 
 # TODO sshd : email quand conn.
-#      cachyos kernel signature
+
 
 
 # basename sans l'extension .sh
@@ -24,7 +24,8 @@ MAIN() {
     _ENABLE_COLORS
     CHECK
     INITIALIZE
-    if [[ "${args}" = "--shellonly" ]] || [[ "${args}" = "-s" ]]; then
+    # shellcheck disable=SC2154
+    if [[ "${args}" = "--shellonly" ]] || [[ "${args}" = "-s" ]] || [[ "${ROOT,,}" = "yes" ]]; then
         SHELLONLYMODE
     elif [[ "${args}" = "--check" ]] || [[ "${args}" = "-c" ]]; then
         CHECKMODE
@@ -70,9 +71,8 @@ MAINMODE() {
 
 ########################################################################################################################
 SHELLONLYMODE() {
-    _SECTION " Mode shellonly (cargo, go, git, shell, dotfiles) 🐚 " "━" "${C_GREEN}"
-    INSTALL_CARGO_PACKAGES
-    INSTALL_GO_PACKAGES
+    echo ""
+    _BANNER "red" "Mode shellonly (git, shell, dotfiles)"
     INSTALL_GIT_REPOS
     SETUP_SHELL
     SETUP_DOTFILES
@@ -107,7 +107,8 @@ HELPMODE() {
 
 ########################################################################################################################
 INITIALIZE() {
-    cat <<'EOF'
+    if [[ "${ROOT,,}" = "no" ]]; then
+        cat <<'EOF'
 
     Précautions d'usage importantes :
         - Les choix utilisateurs sont à ajuster dans le fichier ./settings.sh
@@ -119,11 +120,12 @@ INITIALIZE() {
 
 EOF
 
-    read -r -p "On continue ? [o/N] " reponse
-    case "${reponse,,}" in
-        o|oui|y|yes) ;;
-        *) exit 127 ;;
-    esac
+        read -r -p "On continue ? [o/N] " reponse
+        case "${reponse,,}" in
+            o|oui|y|yes) ;;
+            *) exit 127 ;;
+        esac
+    fi
     #
     local heure
     heure=$(date '+%T')
@@ -151,8 +153,15 @@ EOF
     if [[ -f "${fileOS}" ]] || [[ -L "${fileOS}" ]]; then
         pretty_name=$(awk -F= '/^PRETTY_NAME/{gsub(/"/, "", $2); print $2; exit}' "${fileOS}")
     fi
-    _BANNER "blue" "${SCRIPTNAME} (${VERSION}) 🖥"
-    _SECTION " Préparation de la post-installation 🚀 " "━" "${C_GREEN}"
+    local color
+    if [[ "${ROOT,,}" = "yes" ]]; then
+        color=${C_RED}
+        _BANNER "red" "${SCRIPTNAME} (${VERSION}) 🖥"
+    else
+        color=${C_GREEN}
+        _BANNER "blue" "${SCRIPTNAME} (${VERSION}) 🖥"
+    fi
+    _SECTION " Préparation de la post-installation 🚀 " "━" "${color}"
     _INFO "Distribution : ${pretty_name}"
     _INFO "Heure de démarrage du script : ${heure}"
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
@@ -322,9 +331,14 @@ INSTALL_GO_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_GIT_REPOS() {
-    local repo name target
+    local repo name target color
     _RUNSILENT "" mkdir -pv "${HOME}/Projects"
-    _SECTION " Installation des dépôts Git personnalisés 🔗 " "━" "${C_GREEN}"
+    if [[ "${ROOT,,}" = "yes" ]]; then
+        color=${C_RED}
+    else
+        color=${C_GREEN}
+    fi
+    _SECTION " Installation des dépôts Git personnalisés 🔗 " "━" "${color}"
 
     for repo in "${GIT_REPOS[@]}" "${DOTFILES_REPO}"; do
         name="${repo##*/}"
@@ -335,12 +349,13 @@ INSTALL_GIT_REPOS() {
                 if [[ "${UPDATE_GIT_REPOS}" = "yes" ]]; then
                     _RUN "Mise à jour de ${name}" git -C "${target}" pull --ff-only
                     # installation
-                    if [[ "${name}" = "fedupdate" ]]; then
-                        _RUN "  Installation de ${name}" bash -c "cd ${target}; make install"
-                    fi
-                    if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
-                        #_RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
-                        _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo ln -sf ${target}/${name} /usr/local/bin/${name}"
+                    if [[ "${ROOT,,}" = "no" ]]; then # en mode ROOT, les dépots sont seulements clonés
+                        if [[ "${name}" = "fedupdate" ]]; then
+                            _RUN "  Installation de ${name}" bash -c "cd ${target}; make install"
+                        fi
+                        if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
+                            _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo ln -sf ${target}/${name} /usr/local/bin/${name}"
+                        fi
                     fi
                 else
                     _INFO "${name} déjà présent et pas de mise à jour demandée"
@@ -351,12 +366,13 @@ INSTALL_GIT_REPOS() {
         else
             _RUN "Téléchargement de ${name}" git clone "${repo}" "${target}"
             # installation
-            if [[ "${name}" = "fedupdate" ]]; then
-                _RUN "  Installation de ${name}" bash -c "cd ${target}; make install"
-            fi
-            if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
-                #_RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo cp -af ${target}/${name} /usr/local/bin"
-                _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo ln -sf ${target}/${name} /usr/local/bin/${name}"
+            if [[ "${ROOT,,}" = "no" ]]; then # en mode ROOT, les dépots sont seulements clonés
+                if [[ "${name}" = "fedupdate" ]]; then
+                    _RUN "  Installation de ${name}" bash -c "cd ${target}; make install"
+                fi
+                if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
+                    _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo ln -sf ${target}/${name} /usr/local/bin/${name}"
+                fi
             fi
         fi
 
@@ -368,7 +384,13 @@ INSTALL_GIT_REPOS() {
 
 ########################################################################################################################
 SETUP_SHELL() {
-    _SECTION " Configuration du shell zsh par défaut 🐚 " "━" "${C_GREEN}"
+    local color
+    if [[ "${ROOT,,}" = "yes" ]]; then
+        color=${C_RED}
+    else
+        color=${C_GREEN}
+    fi
+    _SECTION " Configuration du shell zsh par défaut 🐚 " "━" "${color}"
     # 1- zsh
     local zsh_bin
     if ! _EXIST zsh; then
@@ -440,7 +462,13 @@ SETUP_SHELL() {
 
 ########################################################################################################################
 SETUP_DOTFILES() {
-    _SECTION " Installation des configurations personnalisées de ${USER} (dotfiles) ⚙️ " "━" "${C_GREEN}"
+    local color
+    if [[ "${ROOT,,}" = "yes" ]]; then
+        color=${C_RED}
+    else
+        color=${C_GREEN}
+    fi
+    _SECTION " Installation des configurations personnalisées de ${USER} (dotfiles) ⚙️ " "━" "${color}"
 
     if [[ ! -d "${DOTFILES_DIR}" ]]; then
         _ERR "Le dossier ${DOTFILES_DIR} est introuvable. Stow ignoré."
@@ -927,12 +955,27 @@ SETUP_PLM() {
 }
 
 ########################################################################################################################
+
+_PLYMOUTH(){
+    if [[ "${DISABLE_PLYMOUTH,,}" = "yes" ]]; then
+        local dir file content
+        dir="/etc/dracut.conf.d"
+        file="${dir}/90-omit-plymouth.conf"
+        content=$'omit_dracutmodules+=" plymouth "\n'
+
+        _RUNSILENT "" sudo mkdir -pv "${dir}"
+        _INSTALL_ETC_FILES "dracut sans plymouth" "${content}" "${file}" "644"
+    fi
+}
+
+########################################################################################################################
 SETUP_ETC() {
     _SECTION " Configuration générale du système ⚙️ " "━" "${C_GREEN}"
     _MSMTP
     _HOSTNAME
     _NETWORKMANAGER
     _SYSTEMD_RESOLVED
+    _PLYMOUTH
     _KERNEL
     _DISABLE_COREDUMP
     _BRAVEPOLICIES
@@ -1133,8 +1176,13 @@ INSTALL_FLATPAK_PACKAGES() {
 ########################################################################################################################
 
 END() {
-    local duration file
-    _SECTION " Finalisation de la post-installation 🏁 " "━" "${C_GREEN}"
+    local duration file color
+    if [[ "${ROOT,,}" = "yes" ]]; then
+        color=${C_RED}
+    else
+        color=${C_GREEN}
+    fi
+    _SECTION " Finalisation de la post-installation 🏁 " "━" "${color}"
     duration=$(_CONVERT_SECONDS "$((SECONDS - START))")
     _INFO "${SCRIPTNAME} v${VERSION} a terminé avec succès en ${duration}."
     if [[ -n "${ETC_FILES[*]}" ]]; then
@@ -1181,7 +1229,7 @@ _JOURNALD() {
 
 _HOSTNAME() {
     local currenthost newhost
-    currenthost=$(hostnamectl hostname)
+    currenthost=$(hostnamectl --static)
     _LOG "* nom d'hôte *"
     if [[ -n "${MYHOSTNAME}" ]] && [[ "${currenthost}" != "${MYHOSTNAME}" ]]; then
         _RUN "Configuration nom de la machine (${MYHOSTNAME})" sudo hostnamectl set-hostname "${MYHOSTNAME}"
@@ -1225,7 +1273,7 @@ _NETWORKMANAGER() {
     local nm_dns_conf file dir
     nm_dns_conf=$'[main]\ndns=systemd-resolved\n'
     dir="/etc/NetworkManager/conf.d"
-    file="${dir}/99-global-dns.conf"
+    file="${dir}/90-global-dns.conf"
     readonly nm_dns_conf file dir
     declare -g RESTARTNM="no"
     _LOG "* dns : NetworkManager *"
@@ -1243,7 +1291,7 @@ _NETWORKMANAGER() {
     if [[ "${WIFI_POWERSAVE,,}" = "yes" ]]; then
         local nm_wifipowersave file2
         nm_wifipowersave=$'[connection]\nwifi.powersave = 2\n'
-        file2="${dir}/default-wifi-powersave-off.conf"
+        file2="${dir}/90-wifi-powersave.conf"
         readonly nm_wifipowersave file2
 
         _INSTALL_ETC_FILES "wifi powersave" "${nm_wifipowersave}" "${file2}" "644"
