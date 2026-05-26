@@ -3,10 +3,6 @@
 set -euo pipefail
 readonly VERSION=39.2
 
-# TODO sshd : email quand conn.
-
-
-
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
 # gestion des interruptions

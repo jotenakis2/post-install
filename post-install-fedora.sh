@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
+# TODO sshd : email quand conn.
 set -euo pipefail
 # shellcheck source=./post-install-common.sh
 source ./post-install-common.sh
 declare -A SWAPS=()
-ROOT="no"
+ROOT="no" # variable si script lancé en mode ROOT => shell only mode
 export ROOT
 
 ########################################################################################################################
@@ -27,6 +28,7 @@ CHECK() {
     fi
     # Vérification explicite des droits root
     if [[ "${EUID}" -eq 0 ]]; then
+        local reponse
         echo "${SCRIPTNAME} lancé en tant que root, le mode \"SHELL ONLY\" est imposé :"
         echo " - Les dépots GIT seront clonés (programmes non installés)."
         echo " - Le SHELL zsh sera configuré."
@@ -39,7 +41,7 @@ CHECK() {
             *) exit 127 ;;
         esac
     else
-        if ! id -nG "${USER}" | grep -qw "wheel"; then
+        if ! id -nG "${USER}" | grep -qwE 'wheel|sudo'; then
             echo "L'utilisateur ${USER} n'appartient pas au groupe 'wheel' (sudo). Abandon."
             exit 1
         fi
