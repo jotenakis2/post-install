@@ -169,7 +169,7 @@ declare -A GO_PACKAGES=(
 )
 
 # Repos git à installer (repo dotfiles obligatoire, autres optionnels)
-MYREPOS="https://codeberg.org/jotenakis"
+MYREPOS="https://github.com/jotenakis2"
 DOTFILES_REPO="${MYREPOS}/dotfiles"
 DOTFILES_DIR="${HOME}/dotfiles"
 GIT_REPOS=(
