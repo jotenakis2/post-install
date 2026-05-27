@@ -349,12 +349,12 @@ _DISABLE_SWAP_FSTAB() { # on va commenter les SWAP éventuels dans fstab
     else
         backup_path="${fstab_path}.bak.$(_BAKSUFFIX)"
         _RUNSILENT "" sudo cp -pv -- "${fstab_path}" "${backup_path}"
-        _LOG 'Sauvegarde: %s\n' "${backup_path}"
+        _LOG "Sauvegarde: ${backup_path}"
         _RUN "Désactivation des swap comme demandé" cat -- "${temp_path}" > "${fstab_path}"
         dr="yes"
         export dr
     fi
-    _RUNSILENT sudo rm -fv -- "${temp_path}"
+    _RUNSILENT "" sudo rm -fv -- "${temp_path}"
 
 }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=39.3
+readonly VERSION=39.4
 
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
