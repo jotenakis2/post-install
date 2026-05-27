@@ -353,6 +353,7 @@ _DISABLE_SWAP_FSTAB() { # on va commenter les SWAP éventuels dans fstab
         _RUN "Désactivation des swap comme demandé" sudo sh -c "cat -- \"${temp_path}\" > \"${fstab_path}\""
         dr="yes"
         export dr
+        _ETC_FILES_ADD "/etc/fstab"
     fi
     _RUNSILENT "" sudo rm -fv -- "${temp_path}"
 

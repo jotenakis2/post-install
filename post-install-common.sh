@@ -2124,21 +2124,16 @@ SETUP_GRUB() {
 
     # shellcheck disable=SC2034
     local -a cmdline_tokens=()
-    local -a zswap_tokens
-    if [[ ${NOSWAP,,} = "yes" ]]; then
-        zswap_tokens=(
-            "zswap.enabled=0"
-            "systemd.zram=0"
-        )
-    else
-        zswap_tokens=(
+    local -a zswap_tokens=()
+    local -a noswap_tokens=()
+    noswap_tokens=( "zswap.enabled=0" "systemd.zram=0" )
+    zswap_tokens=(
             "zswap.enabled=1"
             "zswap.shrinker_enabled=1"
             "zswap.compressor=lz4"
             "zswap.max_pool_percent=30"
             "systemd.zram=0"
-        )
-    fi
+    )
 
     is_grub=$(_DETECT_GRUB)
 
@@ -2185,8 +2180,11 @@ SETUP_GRUB() {
     fi
 
     if [[ "${NOSWAP,,}" = "yes" ]]; then # on désactive ZSWAP et ZRAM
-        for token in "${zswap_tokens[@]}"; do
+        for token in "${noswap_tokens[@]}"; do
             _GRUB_ARRAY_ADD_TOKEN cmdline_tokens "${token}"
+        done
+        for token in "${zswap_tokens[@]}"; do
+            _GRUB_ARRAY_REMOVE_TOKEN cmdline_tokens "${token}"
         done
     fi
 
