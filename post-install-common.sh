@@ -2124,9 +2124,12 @@ SETUP_GRUB() {
 
     # shellcheck disable=SC2034
     local -a cmdline_tokens=()
-    local -a zswap_tokens=()
-    local -a noswap_tokens=()
-    noswap_tokens=( "zswap.enabled=0" "systemd.zram=0" )
+    local -a zswap_tokens
+    local -a noswap_tokens
+    noswap_tokens=(
+            "zswap.enabled=0"
+            "systemd.zram=0"
+    )
     zswap_tokens=(
             "zswap.enabled=1"
             "zswap.shrinker_enabled=1"
