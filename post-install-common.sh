@@ -16,6 +16,7 @@ source ./settings.sh
 if [[ "${NOSWAP,,}" = "yes" ]]; then
     ZSWAP="no"
 fi
+echo "ZSWAP = ${ZSWAP}"
 
 # suffix des sauvegardes de fichiers
 _BAKSUFFIX(){
