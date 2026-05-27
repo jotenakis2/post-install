@@ -16,7 +16,6 @@ source ./settings.sh
 if [[ "${NOSWAP,,}" = "yes" ]]; then
     ZSWAP="no"
 fi
-echo "ZSWAP = ${ZSWAP}"
 
 # suffix des sauvegardes de fichiers
 _BAKSUFFIX(){
@@ -2183,11 +2182,11 @@ SETUP_GRUB() {
     fi
 
     if [[ "${NOSWAP,,}" = "yes" ]]; then # on désactive ZSWAP et ZRAM
-        for token in "${noswap_tokens[@]}"; do
-            _GRUB_ARRAY_ADD_TOKEN cmdline_tokens "${token}"
-        done
         for token in "${zswap_tokens[@]}"; do
             _GRUB_ARRAY_REMOVE_TOKEN cmdline_tokens "${token}"
+        done
+        for token in "${noswap_tokens[@]}"; do
+            _GRUB_ARRAY_ADD_TOKEN cmdline_tokens "${token}"
         done
     fi
 
