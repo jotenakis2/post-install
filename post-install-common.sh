@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=39.2
+readonly VERSION=39.3
 
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
@@ -13,6 +13,14 @@ trap '_DO_CLEAN' EXIT
 source ./helpers.sh
 # shellcheck source=./settings.sh
 source ./settings.sh
+if [[ "${NOSWAP,,}" = "yes" ]]; then
+    ZSWAP="no"
+fi
+
+# suffix des sauvegardes de fichiers
+_BAKSUFFIX(){
+    date +%d_%m_%Y-%H.%M.%S
+}
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
@@ -55,7 +63,7 @@ MAINMODE() {
     SETUP_SHELL
     SETUP_DOTFILES
     SETUP_ETC
-    SETUP_SWAP
+    SETUP_SWAP_BACKEND_FOR_ZSWAP
     SETUP_SSHD
     SETUP_FSTAB
     SETUP_CACHYOS_KERNEL
@@ -581,17 +589,21 @@ _SETUP_SYSTEMD() {
 ########################################################################################################################
 SETUP_FSTAB() {
     _SECTION " Configuration du fichier FSTAB ⚙️ " "━" "${C_GREEN}"
-    local fstab="/etc/fstab" dr="no"
+    local fstab="/etc/fstab"
+    declare -g dr
+    dr="no"
     # SWAPFILE
     if [[ "${ZSWAP,,}" = "yes" ]]; then
         local swapdir="/var/swap"
         local swapfile="${swapdir}/swapfile"
-        if [[ -f "${swapfile}" ]]; then # on check qu'on a bien un fichier swap soit crée lors de l'install soit par SETUP_SWAP
+        if [[ -f "${swapfile}" ]]; then
             if ! grep -q "${swapfile}" /etc/fstab; then
                 if [[ ! -f /etc/fstab.origin ]]; then
                     _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
                 fi
-                _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.bak.swap
+                local bak
+                bak=$(_BAKSUFFIX)
+                _RUNSILENT "" sudo cp -av "${fstab}" "/etc/fstab.bak.${bak}"
                 _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap sw,nofail 0 0 | sudo tee -a ${fstab}"
                 _ETC_FILES_ADD "${fstab}"
                 dr="yes"
@@ -600,13 +612,13 @@ SETUP_FSTAB() {
             fi
         fi
     else
+        if [[ "${NOSWAP,,}" = "yes" ]]; then
+            _DISABLE_SWAP_FSTAB
+        fi
         _LOG "Pas de zswap demandé on n'a pas fait de swapfile à ajouter au fstab"
     fi
 
     # --- Optimisations Fstab (noatime, lazytime) ---
-    if [[ ! -f /etc/fstab.origin ]]; then
-        _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
-    fi
     local fstab_changed=false tmp_dir
     tmp_dir=$(mktemp -d)
     true >"${tmp_dir}/fstab.new" # on crée un fichier vide temporaire
@@ -614,8 +626,8 @@ SETUP_FSTAB() {
     echo "# initial file copied into /etc/fstab.origin" >>"${tmp_dir}/fstab.new"
 
     while IFS= read -r line || [[ -n "${line}" ]]; do
-        if [[ "${line}" =~ ^[[:space:]]*# ]] || [[ -z "${line}" ]]; then # commentaire ou ligne vide supprimée
-            #echo "${line}" >>"${tmp_dir}/fstab.new"
+        if [[ "${line}" =~ ^[[:space:]]*# ]] || [[ -z "${line}" ]]; then # commentaire ou ligne vide laissée as is
+            echo "${line}" >>"${tmp_dir}/fstab.new"
             continue
         fi
 
@@ -631,9 +643,6 @@ SETUP_FSTAB() {
             if [[ ! ",${opts}," =~ ,lazytime, ]]; then
                 opts="${opts},lazytime"
             fi
-            # if [[ ! ",${opts}," =~ ,commit=120, ]] && [[ "${fs}" = "ext4" ]]; then
-            #     opts="${opts},commit=120"
-            # fi
             if [[ "${fs}" = "ext4" ]]; then
                 if [[ "${opts}" =~ commit=[0-9]+ ]]; then
                     # shellcheck disable=SC2001
@@ -654,8 +663,13 @@ SETUP_FSTAB() {
     done <"${fstab}"
 
     if [[ "${fstab_changed}" == "true" ]]; then
-        _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.bak.optimizations
-        _RUN "Optimisations des systèmes de fichier" sudo cp -av "${tmp_dir}/fstab.new" "${fstab}"
+        if [[ ! -f /etc/fstab.origin ]]; then
+            _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
+        fi
+        local bak
+        bak=$(_BAKSUFFIX)
+        _RUNSILENT "" sudo cp -av "${fstab}" "/etc/fstab.bak.${bak}"
+        _RUN "Optimisations des systèmes de fichier" sudo cp -pv "${tmp_dir}/fstab.new" "${fstab}"
         dr="yes"
         _ETC_FILES_ADD "${fstab}"
     else
@@ -672,8 +686,14 @@ SETUP_FSTAB() {
                 grep "${NFS_MP}" "${fstab}"
                 _INFO "Abandon de l'installation du partage réseau NFS."
             else
+                if [[ ! -f /etc/fstab.origin ]]; then
+                    _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
+                fi
+                local bak
+                bak=$(_BAKSUFFIX)
+                _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.bak."${bak}"
+
                 _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
-                _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.bak.nfs
                 echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a "${fstab}" >/dev/null
                 _ETC_FILES_ADD "${fstab}"
                 dr="yes"
@@ -686,7 +706,7 @@ SETUP_FSTAB() {
         _LOG "Aucun montage NFS demandé"
     fi
 
-    if [[ "${dr}" = "yes" ]]; then
+    if [[ "${dr,,}" = "yes" ]]; then
         _RUNSILENT "" sudo systemctl daemon-reload
     fi
 
@@ -2103,13 +2123,21 @@ SETUP_GRUB() {
 
     # shellcheck disable=SC2034
     local -a cmdline_tokens=()
-    local -a zswap_tokens=(
-        "zswap.enabled=1"
-        "zswap.shrinker_enabled=1"
-        "zswap.compressor=lz4"
-        "zswap.max_pool_percent=30"
-        "systemd.zram=0"
-    )
+    local -a zswap_tokens
+    if [[ ${NOSWAP,,} = "yes" ]]; then
+        zswap_tokens=(
+            "zswap.enabled=0"
+            "systemd.zram=0"
+        )
+    else
+        zswap_tokens=(
+            "zswap.enabled=1"
+            "zswap.shrinker_enabled=1"
+            "zswap.compressor=lz4"
+            "zswap.max_pool_percent=30"
+            "systemd.zram=0"
+        )
+    fi
 
     is_grub=$(_DETECT_GRUB)
 
@@ -2137,7 +2165,7 @@ SETUP_GRUB() {
 
     _GRUB_CMDLINE_TO_ARRAY "${current_cmdline}" cmdline_tokens # on stocke la cmdline mots à mots dans un tableau
 
-    if [[ "${DISABLE_PLYMOUTH,,}" == "yes" ]]; then
+    if [[ "${DISABLE_PLYMOUTH,,}" = "yes" ]]; then
         _GRUB_ARRAY_REMOVE_TOKEN cmdline_tokens "rhgb"
         _GRUB_ARRAY_REMOVE_TOKEN cmdline_tokens "quiet"
     else
@@ -2145,11 +2173,17 @@ SETUP_GRUB() {
         _GRUB_ARRAY_ADD_TOKEN cmdline_tokens "quiet"
     fi
 
-    if [[ "${DISABLE_IPV6,,}" == "yes" ]]; then
+    if [[ "${DISABLE_IPV6,,}" = "yes" ]]; then
         _GRUB_ARRAY_ADD_TOKEN cmdline_tokens "ipv6.disable=1"
     fi
 
-    if [[ "${ZSWAP,,}" == "yes" ]]; then
+    if [[ "${ZSWAP,,}" = "yes" ]]; then
+        for token in "${zswap_tokens[@]}"; do
+            _GRUB_ARRAY_ADD_TOKEN cmdline_tokens "${token}"
+        done
+    fi
+
+    if [[ "${NOSWAP,,}" = "yes" ]]; then # on désactive ZSWAP et ZRAM
         for token in "${zswap_tokens[@]}"; do
             _GRUB_ARRAY_ADD_TOKEN cmdline_tokens "${token}"
         done

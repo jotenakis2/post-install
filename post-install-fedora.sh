@@ -380,7 +380,7 @@ _SETUP_FIREWALL() {
 }
 
 ########################################################################################################################
-SETUP_SWAP() { # que si zswap est demandé
+SETUP_SWAP_BACKEND_FOR_ZSWAP() {
     if [[ "${ZSWAP,,}" = "yes" ]]; then
         _LOG "* swap *"
         _ENSURE_LVM_SWAP

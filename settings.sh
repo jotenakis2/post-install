@@ -23,7 +23,12 @@ SUDORS="yes"
 ACTIVATE_SSHD="yes"
 
 # si yes, zram éventuel supprimé et remplacé par zswap avec un backend swapfile
+# si no, laisse le comportement par défaut (par exemple Fedora fait un zram)
 ZSWAP="yes"
+
+# si yes => force no zram, no zswap, no swapfile, no swap part (ZSWAP est alors forcé à "no")
+# si yes => les swaps éventuels sont juste non montés (commentés dans fstab), ils ne sont pas détruits.
+NOSWAP="yes"
 
 # pour télécharger oh-my-posh pour l'utilisateur qui lance le script
 USE_OH_MY_POSH_PROMPT="yes"
@@ -376,4 +381,5 @@ export XDG_DOCUMENTS_DIR
 export TERRA
 export VARIANT_COLOR_TELA_ICONS
 export WIFI_POWERSAVE
+export NOSWAP
 ###############################################################################################################################

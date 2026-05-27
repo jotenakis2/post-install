@@ -314,3 +314,47 @@ _GET_SWAP() {
 }
 
 ########################################################################################################################
+
+_DISABLE_SWAP_FSTAB() { # on va commenter les SWAP éventuels dans fstab
+    local fstab_path backup_path temp_path
+    local line
+    local -a fields
+
+    fstab_path="/etc/fstab"
+    temp_path="$(mktemp)"
+
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+        if [[ "${line}" =~ ^[[:space:]]*# ]]; then
+            printf '%s\n' "${line}"
+            continue
+        fi
+
+        if [[ -z "${line//[[:space:]]/}" ]]; then
+            printf '%s\n' "${line}"
+            continue
+        fi
+
+        fields=()
+        read -r -a fields <<< "${line}"
+
+        if [[ "${#fields[@]}" -ge 3 ]] && [[ "${fields[2]}" = "swap" ]]; then
+            printf '#commented out by jotenakis post-install script %s\n' "${line}"
+        else
+            printf '%s\n' "${line}"
+        fi
+    done < "${fstab_path}" > "${temp_path}"
+
+    if sudo cmp -s -- "${temp_path}" "${fstab_path}"; then
+        _LOG "Aucune modification requise dans ${fstab_path}"
+    else
+        backup_path="${fstab_path}.bak.$(_BAKSUFFIX)"
+        _RUNSILENT "" sudo cp -pv -- "${fstab_path}" "${backup_path}"
+        _LOG 'Sauvegarde: %s\n' "${backup_path}"
+        _RUN "Désactivation des swap comme demandé" cat -- "${temp_path}" > "${fstab_path}"
+        dr="yes"
+        export dr
+    fi
+    _RUNSILENT sudo rm -fv -- "${temp_path}"
+
+}
+
