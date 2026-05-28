@@ -206,11 +206,11 @@ _FS_OPTIMIZE(){ # ajout noatime,lazytime,commit=120,,,si besoin
 
     if [[ "${fstab_changed}" == "true" ]]; then
         _BACKUP_FSTAB
-        _RUN "Optimisations des systèmes de fichier" sudo cp -pv "${tmp_dir}/fstab.new" "${fstab}"
+        _RUN "Optimisations FS (${fstab})" sudo cp -pv "${tmp_dir}/fstab.new" "${fstab}"
         dr="yes"
         _ETC_FILES_ADD "${fstab}"
     else
-        _INFO "Options d'optimisations déjà présentes dans ${fstab}"
+        _INFO "Optimisations FS déjà OK (${fstab})"
     fi
     _RUNSILENT "" sudo rm -rvf -- "${tmp_dir}"
 }

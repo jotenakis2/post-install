@@ -896,10 +896,10 @@ SETUP_ETC() {
     _SETUP_FIREWALL
     _DISABLE_FPRINTD
     _LIBVIRT
-    if [[ "${RESTARTSYSTEMDRESOLVED}" = "yes" ]]; then
+    if [[ "${RESTARTSYSTEMDRESOLVED,,}" = "yes" ]]; then
         _RUNSILENT "Redémarrage du service systemd-resolved" sudo systemctl restart systemd-resolved.service
     fi
-    if [[ "${RESTARTNM}" = "yes" ]]; then
+    if [[ "${RESTARTNM,,}" = "yes" ]]; then
         _RUNSILENT "Redémarrage du service NetworkManager" sudo systemctl restart NetworkManager.service
     fi
 }
