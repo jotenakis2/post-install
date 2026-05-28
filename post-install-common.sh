@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=39.5
+readonly VERSION=39.6
 
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
@@ -710,7 +710,7 @@ SETUP_FSTAB() {
     # Nettoyage & formatage
     _BACKUP_FSTAB
     local tmpfstab
-    tmpfstab=$(mktemp /tmp/fstab.XXXXXX)
+    tmpfstab=$(sudo mktemp /tmp/fstab.XXXXXX)
     _RUNSILENT "" _NORMALIZE_FSTAB | sudo tee "${tmpfstab}"
     _RUN "Mise en forme table des systèmes de fichiers (/etc/fstab)" sudo cp -pv "${tmpfstab}" "${fstab}"
     _RUNSILENT "" sudo rm -rvf -- "${tmp_dir}" "${tmpfstab}"
