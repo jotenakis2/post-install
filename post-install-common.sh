@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=39.4
+readonly VERSION=39.5
 
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
@@ -723,7 +723,14 @@ SETUP_FSTAB() {
         fi
     done <<<"${mounts}"
 
-    # Nettoyage
+    # Nettoyage & formatage
+    if [[ ! -f /etc/fstab.origin ]]; then
+        _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
+    fi
+    local bak
+    bak=$(_BAKSUFFIX)
+    _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.bak."${bak}"
+    _RUNSILENT "" _NORMALIZE_FSTAB | sudo tee "${fstab}"
     _RUNSILENT "" sudo rm -rvf -- "${tmp_dir}"
 }
 

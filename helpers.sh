@@ -359,3 +359,82 @@ _DISABLE_SWAP_FSTAB() { # on va commenter les SWAP éventuels dans fstab
 
 }
 
+########################################################################################################################
+
+_NORMALIZE_FSTAB() {
+    local src=${1:-/etc/fstab}
+    local line=
+    local work=
+    local comment=
+    local has_comment=
+    local -a fields=()
+    local -a rows=()
+    local -a widths=(0 0 0 0)
+    local i=
+
+    while IFS= read -r line || [[ -n ${line} ]]; do
+        rows+=("${line}")
+
+        case ${line} in
+        '' | [[:space:]]*'#'*)
+            continue
+            ;;
+        *) true ;;
+        esac
+
+        work=${line}
+        if [[ ${work} == *'#'* ]]; then
+            work=${work%%'#'*}
+        fi
+
+        IFS=$' \t' read -r -a fields <<<"${work}"
+        ((${#fields[@]} < 6)) && continue
+
+        for i in 0 1 2 3; do
+            ((${#fields[i]} > widths[i])) && widths[i]=${#fields[i]}
+        done
+    done <"${src}"
+
+    for line in "${rows[@]}"; do
+        case ${line} in
+        '')
+            printf '\n'
+            ;;
+        [[:space:]]*'#'*)
+            work=${line#"${line%%[![:space:]]*}"}
+            work=${work#\#}
+            work=${work#[[:space:]]}
+            printf '# %s\n' "${work}"
+            ;;
+        *)
+            comment=
+            has_comment=
+            work=${line}
+
+            if [[ ${work} == *'#'* ]]; then
+                comment=${work#*'#'}
+                comment=${comment#[[:space:]]}
+                work=${work%%'#'*}
+                has_comment=1
+            fi
+
+            IFS=$' \t' read -r -a fields <<<"${work}"
+            if ((${#fields[@]} < 6)); then
+                printf '%s\n' "${line}"
+                continue
+            fi
+
+            printf '%-*s\t%-*s\t%-*s\t%-*s  %s %s' \
+                "${widths[0]}" "${fields[0]}" \
+                "${widths[1]}" "${fields[1]}" \
+                "${widths[2]}" "${fields[2]}" \
+                "${widths[3]}" "${fields[3]}" \
+                "${fields[4]}" "${fields[5]}"
+
+            [[ -n ${has_comment} ]] && printf '  # %s' "${comment}"
+            printf '\n'
+            ;;
+        esac
+    done
+}
+
