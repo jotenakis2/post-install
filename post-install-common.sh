@@ -711,7 +711,8 @@ SETUP_FSTAB() {
     _BACKUP_FSTAB
     local tmpfstab
     tmpfstab=$(sudo mktemp /tmp/fstab.XXXXXX)
-    _RUNSILENT "" _NORMALIZE_FSTAB | sudo tee "${tmpfstab}"
+    #_RUNSILENT ""
+    _NORMALIZE_FSTAB | sudo tee "${tmpfstab}" >/dev/null
     _RUN "Mise en forme table des systèmes de fichiers (/etc/fstab)" sudo cp -pv "${tmpfstab}" "${fstab}"
     _RUNSILENT "" sudo rm -rvf -- "${tmp_dir}" "${tmpfstab}"
 }
