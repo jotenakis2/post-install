@@ -598,12 +598,7 @@ SETUP_FSTAB() {
         local swapfile="${swapdir}/swapfile"
         if [[ -f "${swapfile}" ]]; then
             if ! grep -q "${swapfile}" /etc/fstab; then
-                if [[ ! -f /etc/fstab.origin ]]; then
-                    _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
-                fi
-                local bak
-                bak=$(_BAKSUFFIX)
-                _RUNSILENT "" sudo cp -av "${fstab}" "/etc/fstab.bak.${bak}"
+                _BACKUP_FSTAB
                 _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap sw,nofail 0 0 | sudo tee -a ${fstab}"
                 _ETC_FILES_ADD "${fstab}"
                 dr="yes"
@@ -663,12 +658,7 @@ SETUP_FSTAB() {
     done <"${fstab}"
 
     if [[ "${fstab_changed}" == "true" ]]; then
-        if [[ ! -f /etc/fstab.origin ]]; then
-            _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
-        fi
-        local bak
-        bak=$(_BAKSUFFIX)
-        _RUNSILENT "" sudo cp -av "${fstab}" "/etc/fstab.bak.${bak}"
+        _BACKUP_FSTAB
         _RUN "Optimisations des systèmes de fichier" sudo cp -pv "${tmp_dir}/fstab.new" "${fstab}"
         dr="yes"
         _ETC_FILES_ADD "${fstab}"
@@ -686,13 +676,7 @@ SETUP_FSTAB() {
                 grep "${NFS_MP}" "${fstab}"
                 _INFO "Abandon de l'installation du partage réseau NFS."
             else
-                if [[ ! -f /etc/fstab.origin ]]; then
-                    _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
-                fi
-                local bak
-                bak=$(_BAKSUFFIX)
-                _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.bak."${bak}"
-
+                _BACKUP_FSTAB
                 _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
                 echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a "${fstab}" >/dev/null
                 _ETC_FILES_ADD "${fstab}"
@@ -724,14 +708,12 @@ SETUP_FSTAB() {
     done <<<"${mounts}"
 
     # Nettoyage & formatage
-    if [[ ! -f /etc/fstab.origin ]]; then
-        _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.origin
-    fi
-    local bak
-    bak=$(_BAKSUFFIX)
-    _RUNSILENT "" sudo cp -av "${fstab}" /etc/fstab.bak."${bak}"
-    _RUNSILENT "" _NORMALIZE_FSTAB | sudo tee "${fstab}"
-    _RUNSILENT "" sudo rm -rvf -- "${tmp_dir}"
+    _BACKUP_FSTAB
+    local tmpfstab
+    tmpfstab=$(mktemp /tmp/fstab.XXXXXX)
+    _RUNSILENT "" _NORMALIZE_FSTAB | sudo tee "${tmpfstab}"
+    _RUN "Mise en forme table des systèmes de fichiers (/etc/fstab)" sudo cp -pv "${tmpfstab}" "${fstab}"
+    _RUNSILENT "" sudo rm -rvf -- "${tmp_dir}" "${tmpfstab}"
 }
 
 ######################################################################################################################
@@ -987,7 +969,7 @@ _PLYMOUTH(){
         content=$'omit_dracutmodules+=" plymouth "\n'
 
         _RUNSILENT "" sudo mkdir -pv "${dir}"
-        _INSTALL_ETC_FILES "dracut sans plymouth" "${content}" "${file}" "644"
+        _INSTALL_ETC_FILES "initramfs sans plymouth" "${content}" "${file}" "644"
     fi
 }
 
@@ -1612,7 +1594,7 @@ _DISABLE_IPV6_IN_SERVICES() {
         if _IS_ENABLED NetworkManager.service; then
             local uuid type current
             if _EXIST nmcli; then
-                sudo nmcli -t -f UUID,TYPE connection show | while IFS=: read -r uuid type; do
+                sudo nmcli -t -f UUID,TYPE connection show 2>/dev/null | while IFS=: read -r uuid type; do
                     if [[ "${type}" = loopback ]]; then continue; fi
                     current=$(sudo nmcli -g ipv6.method connection show "${uuid}" 2>/dev/null || true)
                     if [[ "${current}" = disabled ]]; then

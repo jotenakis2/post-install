@@ -376,14 +376,12 @@ _NORMALIZE_FSTAB() {
         rows+=("${line}")
 
         case ${line} in
-        '' | [[:space:]]*'#'*)
-            continue
-            ;;
-        *) true ;;
+            '' | [[:space:]]*'#'*)  continue ;;
+            *) true ;;
         esac
 
         work=${line}
-        if [[ ${work} == *'#'* ]]; then
+        if [[ ${work} = *'#'* ]]; then
             work=${work%%'#'*}
         fi
 
@@ -438,3 +436,13 @@ _NORMALIZE_FSTAB() {
     done
 }
 
+
+_BACKUP_FSTAB(){
+    local fstab="/etc/fstab"
+    if [[ ! -f /etc/fstab.origin ]]; then
+        _RUNSILENT "" sudo cp -pv "${fstab}" /etc/fstab.origin
+    fi
+    local bak
+    bak=$(_BAKSUFFIX)
+    _RUNSILENT "" sudo cp -pv "${fstab}" /etc/fstab.bak."${bak}"
+}
