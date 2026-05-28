@@ -714,6 +714,7 @@ SETUP_FSTAB() {
     #_RUNSILENT ""
     _NORMALIZE_FSTAB | sudo tee "${tmpfstab}" >/dev/null
     _RUN "Mise en forme table des systèmes de fichiers (/etc/fstab)" sudo cp -pv "${tmpfstab}" "${fstab}"
+    _RUNSILENT "" sudo chmod -v 644 "${fstab}"
     _RUNSILENT "" sudo rm -rvf -- "${tmp_dir}" "${tmpfstab}"
 }
 
