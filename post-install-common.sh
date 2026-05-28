@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=39.6
+readonly VERSION=39.8
 
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
@@ -13,18 +13,11 @@ trap '_DO_CLEAN' EXIT
 source ./helpers.sh
 # shellcheck source=./settings.sh
 source ./settings.sh
-if [[ "${NOSWAP,,}" = "yes" ]]; then
-    ZSWAP="no"
-fi
-
-# suffix des sauvegardes de fichiers
-_BAKSUFFIX(){
-    date +%d_%m_%Y-%H.%M.%S
-}
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
     args=${1:-}
+    [[ "${NOSWAP,,}" = "yes" ]] && ZSWAP="no"
     _ENABLE_COLORS
     CHECK
     INITIALIZE
@@ -592,20 +585,10 @@ SETUP_FSTAB() {
     local fstab="/etc/fstab"
     declare -g dr
     dr="no"
-    # SWAPFILE
+
+    # SWAP
     if [[ "${ZSWAP,,}" = "yes" ]]; then
-        local swapdir="/var/swap"
-        local swapfile="${swapdir}/swapfile"
-        if [[ -f "${swapfile}" ]]; then
-            if ! grep -q "${swapfile}" /etc/fstab; then
-                _BACKUP_FSTAB
-                _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap sw,nofail 0 0 | sudo tee -a ${fstab}"
-                _ETC_FILES_ADD "${fstab}"
-                dr="yes"
-            else
-                _INFO "Swap déjà présent dans ${fstab}"
-            fi
-        fi
+        _ADD_SWAPFILE
     else
         if [[ "${NOSWAP,,}" = "yes" ]]; then
             _DISABLE_SWAP_FSTAB
@@ -613,109 +596,26 @@ SETUP_FSTAB() {
         _LOG "Pas de zswap demandé on n'a pas fait de swapfile à ajouter au fstab"
     fi
 
-    # --- Optimisations Fstab (noatime, lazytime) ---
-    local fstab_changed=false tmp_dir
-    tmp_dir=$(mktemp -d)
-    true >"${tmp_dir}/fstab.new" # on crée un fichier vide temporaire
-    echo "# modified by ${SCRIPTNAME} (v${VERSION}) by jotenakis" >>"${tmp_dir}/fstab.new"
-    echo "# initial file copied into /etc/fstab.origin" >>"${tmp_dir}/fstab.new"
-
-    while IFS= read -r line || [[ -n "${line}" ]]; do
-        if [[ "${line}" =~ ^[[:space:]]*# ]] || [[ -z "${line}" ]]; then # commentaire ou ligne vide laissée as is
-            echo "${line}" >>"${tmp_dir}/fstab.new"
-            continue
-        fi
-
-        local dev mp fs opts dump pass
-        read -r dev mp fs opts dump pass <<<"${line}"
-
-        if [[ "${fs}" =~ ^(btrfs|ext4|xfs)$ ]]; then # si FS btrfs,ext4,xfs on va ajouter noatime/lazytime si absent
-            local orig_opts="${opts}"
-
-            if [[ ! ",${opts}," =~ ,noatime, ]]; then
-                opts="${opts},noatime"
-            fi
-            if [[ ! ",${opts}," =~ ,lazytime, ]]; then
-                opts="${opts},lazytime"
-            fi
-            if [[ "${fs}" = "ext4" ]]; then
-                if [[ "${opts}" =~ commit=[0-9]+ ]]; then
-                    # shellcheck disable=SC2001
-                    opts=$(sed 's/commit=[0-9]*/commit=120/' <<< "${opts}")
-                else
-                    opts="${opts},commit=120"
-                fi
-            fi
-            if [[ "${orig_opts}" != "${opts}" ]]; then
-                fstab_changed=true
-                printf "%-40s %-24s %-8s %-32s %-2s %s\n" "${dev}" "${mp}" "${fs}" "${opts}" "${dump}" "${pass}" >>"${tmp_dir}/fstab.new"
-                continue
-            fi
-        fi
-
-        echo "${line}" >>"${tmp_dir}/fstab.new"
-
-    done <"${fstab}"
-
-    if [[ "${fstab_changed}" == "true" ]]; then
-        _BACKUP_FSTAB
-        _RUN "Optimisations des systèmes de fichier" sudo cp -pv "${tmp_dir}/fstab.new" "${fstab}"
-        dr="yes"
-        _ETC_FILES_ADD "${fstab}"
-    else
-        _INFO "Options d'optimisations déjà présentes dans ${fstab}"
-    fi
+    # OPTIMISATIONS FS
+    _FS_OPTIMIZE
 
     # NFS
     if [[ "${NFS_SHARE:-}" != "" ]]; then
-        local opts
-        opts="rw,_netdev,nofail,nodev,nosuid,noexec,noatime,lazytime,x-systemd.automount,x-systemd.mount-timeout=30s"
-        if ! grep -q "${NFS_SHARE}" "${fstab}" >/dev/null; then
-            if grep -q "${NFS_MP}" "${fstab}" >/dev/null; then
-                _INFO "Point de montage demandé (${NFS_MP}) déjà présent dans ${fstab} :"
-                grep "${NFS_MP}" "${fstab}"
-                _INFO "Abandon de l'installation du partage réseau NFS."
-            else
-                _BACKUP_FSTAB
-                _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
-                echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a "${fstab}" >/dev/null
-                _ETC_FILES_ADD "${fstab}"
-                dr="yes"
-                _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
-            fi
-        else
-            _INFO "Montage NFS déjà OK"
-        fi
+        _ADD_NFS
     else
         _LOG "Aucun montage NFS demandé"
     fi
 
+    # RESTART SI BESOIN
     if [[ "${dr,,}" = "yes" ]]; then
         _RUNSILENT "" sudo systemctl daemon-reload
     fi
 
-    # fast_commit pour ext4
-    local mounts
-    mounts=$(findmnt -rn -t ext4 -o SOURCE,TARGET,FSTYPE)
-    while read -r dev mp fs _; do
-        if [[ "${fs}" != "ext4" ]]; then continue; fi
-        if [[ "${mp}" == "/boot" ]]; then continue; fi
-        if sudo tune2fs -l "${dev}" 2>/dev/null | grep -q "fast_commit"; then
-            _LOG "fast_commit déjà actif sur ${dev} (montée en ${mp})"
-        else
-            _RUN "Activation flag \"fast_commit\" sur ${dev} (montée en ${mp})" sudo tune2fs -O fast_commit "${dev}"
-        fi
-    done <<<"${mounts}"
-
-    # Nettoyage & formatage
+    # NETTOYAGE & FORMATAGE
     _BACKUP_FSTAB
-    #local tmpfstab
-    #tmpfstab=$(sudo mktemp /tmp/fstab.XXXXXX)
     _NORMALIZE_FSTAB | sudo tee "${fstab}" >/dev/null
-    #_RUN "Mise en forme table des systèmes de fichiers (/etc/fstab)" sudo cp -pv "${tmpfstab}" "${fstab}"
     _RUNSILENT "" sudo chmod -v 644 "${fstab}"
-    _RUNSILENT "" sudo rm -rvf -- "${tmp_dir}"
-    #"${tmpfstab}"
+
 }
 
 ######################################################################################################################
@@ -991,6 +891,7 @@ SETUP_ETC() {
     _DISABLE_IPV6_IN_SERVICES
     _SETUP_ENV_DEV
     _HARDENING
+    _TUNE_EXT4
     _SETUP_SYSTEMD
     _SETUP_FIREWALL
     _DISABLE_FPRINTD

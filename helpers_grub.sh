@@ -192,6 +192,46 @@ _GRUB_SET_CMDLINE() {
 
 ########################################################################################################################
 
+_DETECT_GRUB() {
+    # 1. BIOS/Legacy = forcément GRUB
+    if [[ ! -d /sys/firmware/efi ]]; then
+        echo "true"
+        return 0
+    fi
 
+    # 2. Interrogation bootctl
+    if command -v bootctl >/dev/null 2>&1; then
+        local current_product=""
+        current_product=$(bootctl status 2>/dev/null | awk '/^Current Boot Loader:/ {flag=1} flag && /Product:/ {print $0; exit}' || true)
+
+        if echo "${current_product}" | grep -qi "systemd-boot"; then
+            echo "false"
+            return 0
+        fi
+        if echo "${current_product}" | grep -qi "GRUB"; then
+            echo "true"
+            return 0
+        fi
+    fi
+
+    # 3. Analyse binaire
+    local efi_payload="/boot/efi/EFI/fedora/grubx64.efi"
+    if [[ -f "${efi_payload}" ]] && command -v strings >/dev/null 2>&1; then
+        # shellcheck disable=SC2312
+        if sudo strings "${efi_payload}" | grep -qi "systemd-boot"; then
+            echo "false"
+            return 0
+        fi
+        # shellcheck disable=SC2312
+        if sudo strings "${efi_payload}" | grep -qw "GRUB"; then
+            echo "true"
+            return 0
+        fi
+    fi
+
+    # Par défaut, si introuvable
+    echo "false"
+    return 0
+}
 
 ########################################################################################################################

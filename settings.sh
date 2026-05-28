@@ -26,7 +26,7 @@ ACTIVATE_SSHD="yes"
 # si no, laisse le comportement par défaut (par exemple Fedora fait un zram)
 ZSWAP="yes"
 
-# si yes => force no zram, no zswap, no swapfile, no swap part (ZSWAP est alors forcé à "no")
+# si yes => force no zram, no zswap, no swapfile, no swap partition (ZSWAP est alors forcé à "no")
 # si yes => les swaps éventuels sont juste non montés (commentés dans fstab), ils ne sont pas détruits.
 NOSWAP="yes"
 

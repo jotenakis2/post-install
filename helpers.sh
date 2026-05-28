@@ -10,6 +10,9 @@ source ./helpers_ui.sh
 source ./helpers_grub.sh
 # shellcheck source=./helpers_pkg.sh
 source ./helpers_pkg.sh
+# shellcheck source=./helpers_fstab.sh
+source ./helpers_fstab.sh
+
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -91,49 +94,7 @@ _PLASMA_EVAL() {
 _PLASMA_GET_PANEL_LOCATION() {
     busctl --user call org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell evaluateScript s 'var allPanels = panels(); for (var i = 0; i < allPanels.length; i++) {print(allPanels[i].location);}' | awk '{print $2}' | tr -d '"' || true
 }
-# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-_DETECT_GRUB() {
-    # 1. BIOS/Legacy = forcément GRUB
-    if [[ ! -d /sys/firmware/efi ]]; then
-        echo "true"
-        return 0
-    fi
-
-    # 2. Interrogation bootctl
-    if command -v bootctl >/dev/null 2>&1; then
-        local current_product=""
-        current_product=$(bootctl status 2>/dev/null | awk '/^Current Boot Loader:/ {flag=1} flag && /Product:/ {print $0; exit}' || true)
-
-        if echo "${current_product}" | grep -qi "systemd-boot"; then
-            echo "false"
-            return 0
-        fi
-        if echo "${current_product}" | grep -qi "GRUB"; then
-            echo "true"
-            return 0
-        fi
-    fi
-
-    # 3. Analyse binaire
-    local efi_payload="/boot/efi/EFI/fedora/grubx64.efi"
-    if [[ -f "${efi_payload}" ]] && command -v strings >/dev/null 2>&1; then
-        # shellcheck disable=SC2312
-        if sudo strings "${efi_payload}" | grep -qi "systemd-boot"; then
-            echo "false"
-            return 0
-        fi
-        # shellcheck disable=SC2312
-        if sudo strings "${efi_payload}" | grep -qw "GRUB"; then
-            echo "true"
-            return 0
-        fi
-    fi
-
-    # Par défaut, si introuvable
-    echo "false"
-    return 0
-}
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _DIR_IS_SAFE_TO_RESTORE() {
@@ -315,150 +276,25 @@ _GET_SWAP() {
 
 ########################################################################################################################
 
-_DISABLE_SWAP_FSTAB() { # on va commenter les SWAP éventuels dans fstab
-    local fstab_path backup_path temp_path
-    local line
-    local -a fields
-
-    fstab_path="/etc/fstab"
-    temp_path="$(mktemp)"
-
-    while IFS= read -r line || [[ -n "${line}" ]]; do
-        if [[ "${line}" =~ ^[[:space:]]*# ]]; then
-            printf '%s\n' "${line}"
-            continue
-        fi
-
-        if [[ -z "${line//[[:space:]]/}" ]]; then
-            printf '%s\n' "${line}"
-            continue
-        fi
-
-        fields=()
-        read -r -a fields <<< "${line}"
-
-        if [[ "${#fields[@]}" -ge 3 ]] && [[ "${fields[2]}" = "swap" ]]; then
-            printf '#commented out by jotenakis post-install script %s\n' "${line}"
+_TUNE_EXT4(){
+    # fast_commit pour ext4
+    local mounts
+    mounts=$(findmnt -rn -t ext4 -o SOURCE,TARGET,FSTYPE)
+    while read -r dev mp fs _; do
+        if [[ "${fs}" != "ext4" ]]; then continue; fi
+        if [[ "${mp}" == "/boot" ]]; then continue; fi
+        if sudo tune2fs -l "${dev}" 2>/dev/null | grep -q "fast_commit"; then
+            _LOG "fast_commit déjà actif sur ${dev} (montée en ${mp})"
         else
-            printf '%s\n' "${line}"
+            _RUN "Activation flag \"fast_commit\" sur ${dev} (montée en ${mp})" sudo tune2fs -O fast_commit "${dev}"
         fi
-    done < "${fstab_path}" > "${temp_path}"
-
-    if sudo cmp -s -- "${temp_path}" "${fstab_path}"; then
-        _LOG "Aucune modification requise dans ${fstab_path}"
-    else
-        backup_path="${fstab_path}.bak.$(_BAKSUFFIX)"
-        _RUNSILENT "" sudo cp -pv -- "${fstab_path}" "${backup_path}"
-        _LOG "Sauvegarde: ${backup_path}"
-        _RUN "Désactivation des swap comme demandé" sudo sh -c "cat -- \"${temp_path}\" > \"${fstab_path}\""
-        dr="yes"
-        export dr
-        _ETC_FILES_ADD "/etc/fstab"
-    fi
-    _RUNSILENT "" sudo rm -fv -- "${temp_path}"
-
+    done <<<"${mounts}"
 }
 
 ########################################################################################################################
 
-_NORMALIZE_FSTAB() {
-    local src=${1:-/etc/fstab}
-    local line=
-    local work=
-    local comment=
-    local has_comment=
-    local -a fields=()
-    local -a rows=()
-    local -a widths=(0 0 0 0)
-    local i=
-
-    while IFS= read -r line || [[ -n ${line} ]]; do
-        rows+=("${line}")
-
-        case ${line} in
-            '' | [[:space:]]*'#'*)  continue ;;
-            *) true ;;
-        esac
-
-        work=${line}
-        if [[ ${work} = *'#'* ]]; then
-            work=${work%%'#'*}
-        fi
-
-        IFS=$' \t' read -r -a fields <<<"${work}"
-        ((${#fields[@]} < 6)) && continue
-
-        for i in 0 1 2 3; do
-            ((${#fields[i]} > widths[i])) && widths[i]=${#fields[i]}
-        done
-    done <"${src}"
-
-    for line in "${rows[@]}"; do
-        case ${line} in
-        '')
-            printf '\n'
-            ;;
-        [[:space:]]*'#'*)
-            work=${line#"${line%%[![:space:]]*}"}
-            work=${work#\#}
-            work=${work#[[:space:]]}
-            printf '# %s\n' "${work}"
-            ;;
-        *)
-            comment=
-            has_comment=
-            work=${line}
-
-            if [[ ${work} == *'#'* ]]; then
-                comment=${work#*'#'}
-                comment=${comment#[[:space:]]}
-                work=${work%%'#'*}
-                has_comment=1
-            fi
-
-            IFS=$' \t' read -r -a fields <<<"${work}"
-            if ((${#fields[@]} < 6)); then
-                printf '%s\n' "${line}"
-                continue
-            fi
-
-            printf '%-*s\t%-*s\t%-*s\t%-*s  %s %s' \
-                "${widths[0]}" "${fields[0]}" \
-                "${widths[1]}" "${fields[1]}" \
-                "${widths[2]}" "${fields[2]}" \
-                "${widths[3]}" "${fields[3]}" \
-                "${fields[4]}" "${fields[5]}"
-
-            [[ -n ${has_comment} ]] && printf '  # %s' "${comment}"
-            printf '\n'
-            ;;
-        esac
-    done
+_BAKSUFFIX(){
+    date +%d_%m_%Y-%H.%M.%S
 }
 
 ########################################################################################################################
-
-_BACKUP_FSTAB(){
-    local fstab="/etc/fstab"
-    local origin="/etc/fstab.origin"
-    local bak copied
-
-    # copie originale
-    if ! sudo test -f "${origin}"; then
-        _RUNSILENT "" sudo cp -pv "${fstab}" "${origin}"
-    fi
-
-    # copie timestampée
-    bak=$(_BAKSUFFIX)
-    copied="/etc/fstab.bak.${bak}"
-    if sudo test -f "${copied}"; then
-        sleep 2
-        bak=$(_BAKSUFFIX)
-        copied="/etc/fstab.bak.${bak}"
-    fi
-    _RUNSILENT "" sudo cp -pv "${fstab}" "${copied}"
-
-    # droits
-    _RUNSILENT "" sudo chown -v root:root "${copied}" "${origin}"
-    _RUNSILENT "" sudo chmod -v 644 "${copied}" "${origin}"
-}
