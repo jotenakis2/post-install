@@ -132,28 +132,7 @@ _NORMALIZE_FSTAB() { # formatage du fichier fstab pour alignements nickels
 ########################################################################################################################
 
 _BACKUP_FSTAB(){
-    local fstab="/etc/fstab"
-    local origin="/etc/fstab.origin"
-    local bak copied
-
-    # copie originale
-    if ! sudo test -f "${origin}"; then
-        _RUNSILENT "" sudo cp -pv "${fstab}" "${origin}"
-    fi
-
-    # copie timestampée
-    bak=$(_BAKSUFFIX)
-    copied="/etc/fstab.bak.${bak}"
-    if sudo test -f "${copied}"; then
-        sleep 2
-        bak=$(_BAKSUFFIX)
-        copied="/etc/fstab.bak.${bak}"
-    fi
-    _RUNSILENT "" sudo cp -pv "${fstab}" "${copied}"
-
-    # droits
-    _RUNSILENT "" sudo chown -v root:root "${copied}" "${origin}"
-    _RUNSILENT "" sudo chmod -v 644 "${copied}" "${origin}"
+    _BACKUP_FILE "/etc/fstab"
 }
 
 ########################################################################################################################

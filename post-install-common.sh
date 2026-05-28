@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=39.8
+readonly VERSION=40.0
 
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
@@ -107,10 +107,10 @@ INITIALIZE() {
     if [[ "${ROOT,,}" = "no" ]]; then
         cat <<'EOF'
 
-    Précautions d'usage importantes :
+    /!\ Précautions d'usage importantes /!\
         - Les choix utilisateurs sont à ajuster dans le fichier ./settings.sh
-        - Ce script va créer ou modifier des fichiers de configuration du système
-        - Ce script ne permet pas un retour en arrière automatique si vous changez d'avis
+        - Ce script va créer (ou modifier) des fichiers de configuration du système
+        - Ce script ne permet pas un retour en arrière automatique si vous changez d'avis dans ./settings.sh
         - Ce script sauvegarde les fichiers qu'ils modifient sur le système (.origin et .bak)
         - Ce script liste tous les fichiers système crées ou modifiés
         - Ce script est idempotent : si on le relance il ne refait que ce qui est nécessaire
@@ -123,7 +123,7 @@ EOF
             *) exit 127 ;;
         esac
     fi
-    #
+
     local heure
     heure=$(date '+%T')
     local logsuffix
@@ -131,7 +131,7 @@ EOF
     _PASS
     # LOG
     LOG_DIR="${HOME}/.local/log"
-    logsuffix="$(date +%d_%m_%Y-%H.%M.%S)"
+    logsuffix="$(_BAKSUFFIX)"
     LOG_FILE="${LOG_DIR}/${SCRIPTNAME}-${logsuffix}.log"
     export LOG_DIR LOG_FILE
     mkdir -p "${LOG_DIR}" ; true > "${LOG_FILE}"
@@ -144,7 +144,7 @@ EOF
     export STATUSFILE LINKFILE
     #
 
-    _CLEAR
+    clear -x
     local pretty_name="inconnue"
     local fileOS="/etc/os-release"
     if [[ -f "${fileOS}" ]] || [[ -L "${fileOS}" ]]; then
@@ -197,7 +197,7 @@ EOF
     # liste des fichiers système crées ou modifiés par le script
     declare -ga ETC_FILES=()
 
-    # liste des fichiers user crées ou modifiés par le script
+    # liste des fichiers user crées ou modifiés par le script  A FAIRE ou pas
 #    declare -a HOME_FILES=()
 
 }
@@ -231,16 +231,8 @@ INSTALL_CARGO_PACKAGES() {
         fi
         _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo-binstall" "/usr/local/bin/cargo-binstall"
 
-        # 2. Installation des paquets via Cargo (binstall)
-        # declare -g INSTALLED_LIST
-        # local cargolist
-        # cargolist="/tmp/cargolist$$"
-        # _RUNSILENT "" bash -c "cargo install --list 2>/dev/null > ${cargolist}"
-        # INSTALLED_LIST=$(cat "${cargolist}" 2>/dev/null || true) # je passe par un fichier /tmp/cargolist pour avoir un spinner
-        # export INSTALLED_LIST # variable utilisée par _CARGOPKG_INSTALL
-
+        # 2. installation programmes demandés
        _MANAGE_TABLE _IS_CARGOPKG_INSTALLED _CARGOPKG_INSTALL "${CARGO_PACKAGES[@]}"
-        # rm -f "${cargolist}" 2>/dev/null
 
         # 3. symlinks globaux
         local cmd
@@ -314,8 +306,11 @@ INSTALL_GO_PACKAGES() {
                     _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
                 fi
             fi
+            local name
             for pkg in "${missing[@]}"; do
-                _RUN "Installation de ${pkg}" go install "${pkg}"
+                name=${pkg%@*}
+                name=${name##*/}
+                _RUN "Installation de ${name}" go install "${pkg}"
             done
             for pkg in "${missingbin[@]}"; do
                 _RUNSILENT "" _SYMLINK "${GOBIN}/${pkg}" "/usr/local/bin/${pkg}"
@@ -373,9 +368,9 @@ INSTALL_GIT_REPOS() {
             fi
         fi
 
-        if [[ "${repo}" == "${DOTFILES_REPO}" && "${target}" != "${DOTFILES_DIR}" ]]; then
-            _RUNSILENT "" _SYMLINK "${target}" "${DOTFILES_DIR}"
-        fi
+        # if [[ "${repo}" == "${DOTFILES_REPO}" && "${target}" != "${DOTFILES_DIR}" ]]; then
+        #     _RUNSILENT "" _SYMLINK "${target}" "${DOTFILES_DIR}"
+        # fi
     done
 }
 
@@ -891,8 +886,8 @@ SETUP_ETC() {
     _DISABLE_IPV6_IN_SERVICES
     _SETUP_ENV_DEV
     _HARDENING
-    _TUNE_EXT4
     _SETUP_SYSTEMD
+    _TUNE_EXT4
     _SETUP_FIREWALL
     _DISABLE_FPRINTD
     _LIBVIRT
@@ -1459,10 +1454,7 @@ _DISABLE_IPV6_IN_SERVICES() {
         # /etc/hosts
         local hostsfile="/etc/hosts"
         if grep -qE '^\s*(::1|fe80::[^[:space:]]*)' "${hostsfile}"; then
-            if [[ ! -e "${hostsfile}.origin" ]]; then
-                _RUNSILENT "" sudo cp -av "${hostsfile}" "${hostsfile}.origin"
-            fi
-            _RUNSILENT "" sudo cp -fav "${hostsfile}" "${hostsfile}.bak"
+            _BACKUP_FILE "${hostsfile}"
             _RUN "Configuration IPv6 de l'hôte (${hostsfile})" sudo sed -i -E '/^\s*(::1|fe80::[^[:space:]]*)/d' "${hostsfile}"
             _LOG "Entrées IPv6 supprimées de ${hostsfile} (backup: ${hostsfile}.bak et ${hostsfile}.origin)"
             cat "${hostsfile}" >> "${LOG_FILE}"
@@ -1477,10 +1469,7 @@ _DISABLE_IPV6_IN_SERVICES() {
         if grep -qE '^\s*use-ipv6\s*=\s*no' "${avahi_conf}"; then
             _INFO "IPv6 avahi-daemon déjà OK (${avahi_conf})"
         else
-            if [[ ! -e "${avahi_conf}.origin" ]]; then
-                _RUNSILENT "" sudo cp -av "${avahi_conf}" "${avahi_conf}.origin"
-            fi
-            _RUNSILENT "" sudo cp -fav "${avahi_conf}" "${avahi_conf}.bak"
+            _BACKUP_FILE "${avahi_conf}"
             if grep -qE '^\s*use-ipv6\s*=' "${avahi_conf}"; then
                 # La clé existe avec une autre valeur → on la remplace
                 _RUN "Configuration IPv6 avahi-daemon (${avahi_conf})" sudo sed -i -E 's/^\s*use-ipv6\s*=.*/use-ipv6=no/' "${avahi_conf}"
@@ -1504,7 +1493,7 @@ _DISABLE_IPV6_IN_SERVICES() {
                         _LOG "IPv6 pour la connection NetworkManager ${uuid}:${type} déjà désactivée"
                         continue
                     fi
-                    sudo nmcli connection modify "${uuid}" ipv6.method disabled
+                    sudo nmcli connection modify "${uuid}" ipv6.method disabled &>/dev/null
                     _OK "Désactivation IPv6 pour la connection NetworkManager ${uuid}:${type}"
                 done
             else
@@ -2089,10 +2078,7 @@ SETUP_GRUB() {
     full_cmdline=$(_GRUB_ARRAY_JOIN cmdline_tokens)
 
     if [[ "${current_cmdline}" != "${full_cmdline}" ]] || [[ "${current_default}" != "saved" ]] || [[ "${current_timeout}" != "2" ]]; then
-        if [[ ! -f "${grub_file}.origin" ]]; then
-            _RUNSILENT "" sudo cp -av "${grub_file}" "${grub_file}.origin"
-        fi
-        _RUNSILENT "" sudo cp -av "${grub_file}" "${grub_file}.bak"
+        _BACKUP_FILE "${grub_file}"
 
         _RUN "Mise à jour de GRUB_DEFAULT" _GRUB_SET_KV "${grub_file}" "GRUB_DEFAULT" "saved"
         _RUN "Mise à jour de GRUB_TIMEOUT" _GRUB_SET_KV "${grub_file}" "GRUB_TIMEOUT" "2"

@@ -28,7 +28,7 @@ ZSWAP="yes"
 
 # si yes => force no zram, no zswap, no swapfile, no swap partition (ZSWAP est alors forcé à "no")
 # si yes => les swaps éventuels sont juste non montés (commentés dans fstab), ils ne sont pas détruits.
-NOSWAP="yes"
+NOSWAP="no"
 
 # pour télécharger oh-my-posh pour l'utilisateur qui lance le script
 USE_OH_MY_POSH_PROMPT="yes"

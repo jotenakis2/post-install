@@ -612,7 +612,6 @@ SETUP_SUDO_RS() {
             change=1
         fi
         if ! sudo grep -q "excludepkgs=sudo" /etc/dnf/dnf.conf 2>/dev/null; then
-            #_RUNSILENT "" sudo crudini --verbose --set /etc/dnf/dnf.conf main excludepkgs 'sudo'
             _RUNSILENT "" sudo dnf config-manager setopt excludepkgs=sudo
             change=1
             _ETC_FILES_ADD "/etc/dnf/dnf.conf"

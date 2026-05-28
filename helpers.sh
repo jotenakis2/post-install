@@ -298,3 +298,34 @@ _BAKSUFFIX(){
 }
 
 ########################################################################################################################
+
+_BACKUP_FILE(){
+    local file="$1:-"
+    local origin="${file}.origin"
+    local bak copied
+
+    # si oubli de spécifier le fichier à sauvegarder, on quitte avec message explicite.
+    if [[ -z "${file}" ]]; then
+        _DIE "Aucun fichier spécifié pour la sauvegarde avec _BACKUP_FILE"
+    fi
+
+    # copie originale
+    if ! sudo test -f "${origin}"; then
+        _RUNSILENT "" sudo cp -pfv "${file}" "${origin}"
+    fi
+
+    # copie timestampée
+    bak=$(_BAKSUFFIX)
+    copied="${file}.bak.${bak}"
+    if sudo test -f "${copied}"; then
+        sleep 2
+        bak=$(_BAKSUFFIX)
+        copied="${file}.bak.${bak}"
+    fi
+    _RUNSILENT "" sudo cp -pfv "${file}" "${copied}"
+
+    # droits
+    #_RUNSILENT "" sudo chown -v root:root "${copied}" "${origin}"
+    #_RUNSILENT "" sudo chmod -v 644 "${copied}" "${origin}"
+}
+

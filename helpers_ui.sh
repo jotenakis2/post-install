@@ -250,22 +250,6 @@ _RUN() {
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-_CLEAR() { # fonction pour effacer le terminal en préservant le scrollback.
-    local h
-    h="$(tput lines 2>/dev/null)" || h=0
-
-    if [[ "${h}" -gt 1 ]]; then
-        until [[ "${h}" -le 1 ]]; do
-            printf '\n'
-            h=$((h - 1))
-        done
-    fi
-    command clear -x || true
-    return 0
-}
-
-# ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
 _CONVERT_SECONDS() {
     local total=${1:-0}
     local days hours mins secs
