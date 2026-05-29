@@ -606,12 +606,13 @@ SETUP_FSTAB() {
     # RESTART SI BESOIN
     if [[ "${dr,,}" = "yes" ]]; then
         _RUNSILENT "" sudo systemctl daemon-reload
+        # NETTOYAGE & FORMATAGE
+        _BACKUP_FSTAB
+        _NORMALIZE_FSTAB | sudo tee "${fstab}" >/dev/null
+        _RUNSILENT "" sudo chmod -v 644 "${fstab}"
     fi
 
-    # NETTOYAGE & FORMATAGE
-    _BACKUP_FSTAB
-    _NORMALIZE_FSTAB | sudo tee "${fstab}" >/dev/null
-    _RUNSILENT "" sudo chmod -v 644 "${fstab}"
+
 
 }
 
@@ -1166,8 +1167,8 @@ _HOSTNAME() {
     if [[ ! -f "${hosts}" ]]; then
         sudo touch "${hosts}"
     fi
-    _BACKUP_FILE "${hosts}"
     if ! grep -Eq "[[:space:]]${MYHOSTNAME}([[:space:]]|\$)" "${hosts}"; then
+        _BACKUP_FILE "${hosts}"
         printf '127.0.1.1\t%s\n' "${MYHOSTNAME}" | sudo tee -a "${hosts}" >/dev/null
         _OK "Configuration de la résolution locale (${hosts})"
         _ETC_FILES_ADD "${hosts}"
