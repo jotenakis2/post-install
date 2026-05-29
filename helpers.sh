@@ -24,7 +24,7 @@ _INSTALL_ETC_FILES() {
     readonly msg content file rights
     _LOG "${msg^^}"
     if sudo test -f "${file}" && printf '%s' "${content}" | sudo cmp -s - "${file}"; then
-        _INFO "${msg^} déjà OK (${file})"
+        _INFO "Déjà OK : ${msg}"
         # shellcheck disable=SC2154
         echo 1 >"${STATUSFILE}"
     else
@@ -186,7 +186,7 @@ _MANAGE_TABLE() {
             all_fmt=$(_FORMAT_LIST "$@")
             local c
             c=$(_PRINT_LIST "${all_fmt}")
-            _INFO "Tout a été traité (${treat}) : "
+            _INFO "Déjà OK (${treat}) : "
             echo "${c}" | tee -a "${LOG_FILE:-/dev/null}"
         fi
     else

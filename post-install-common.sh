@@ -296,7 +296,9 @@ INSTALL_GO_PACKAGES() {
             if [[ -z "${missing[*]}" ]]; then
                 local present_fmt
                 present_fmt=$(_FORMAT_LIST "${present[@]}")
-                _INFO "Tout a été traité (installation) : "
+                present_fmt=${present_fmt%@*}
+                present_fmt=${present_fmt##*/}
+                _INFO "Déjà OK (installation) : "
                 _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
             else
                 if [[ -n "${present[*]}" ]]; then
@@ -402,7 +404,7 @@ SETUP_SHELL() {
                 _RUN "Shell zsh pour ${user}" sudo chsh -s "${zsh_bin}" "${user}"
                 _ETC_FILES_ADD "/etc/passwd"
             else
-                _INFO "${user} a déjà zsh par défaut"
+                _INFO "Déjà OK : zsh ${user}"
             fi
         fi
     done </etc/passwd
