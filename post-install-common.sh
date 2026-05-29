@@ -1089,7 +1089,7 @@ INSTALL_FLATPAK_PACKAGES() {
 ########################################################################################################################
 
 END() {
-    local duration file color
+    local duration file color nofile="yes"
     if [[ "${ROOT,,}" = "yes" ]]; then
         color=${C_RED}
     else
@@ -1101,6 +1101,7 @@ END() {
     if [[ -n "${ETC_FILES[*]}" ]]; then
         _PRINT_ETC_FILES
         _INFO "REDÉMARREZ pour appliquer les modifications complètement !"
+        nofile="no"
     else
         _INFO "Aucun fichier système crée ou modifié"
         _INFO "Il est plus prudent néanmoins de redémarrer"
@@ -1118,6 +1119,12 @@ END() {
         _OK "Log téléversé : ${file}"
     fi
     #
+    echo ""
+    local list="/root/list-of-system-files-created-or-modified-by-${SCRIPTNAME}.log"
+    if sudo test -f "${list}" && [[ ${nofile,,} = "yes" ]]; then
+        _INFO "Historique des fichiers modifiés par ${SCRIPTNAME} :"
+        sudo cat ${file}
+    fi
     echo ""
 }
 
@@ -1532,7 +1539,7 @@ _DISABLE_IPV6_NETCONFIG() {
         if ! sudo grep -q "^udp6\\|^tcp6" "${file}"; then
             _LOG "aucune entrée IPv6 détectée dans ${file}"
             cat "${file}" >> "${LOG_FILE}"
-            _INFO "Déjà OK : configuration IPv6 netconfig(${file})"
+            _INFO "Déjà OK : configuration IPv6 netconfig"
         else
             sudo sed -i -E 's/^(udp6|tcp6)/#\1/' "${file}"
             _OK "Configuration IPv6 netconfig (${file})"
