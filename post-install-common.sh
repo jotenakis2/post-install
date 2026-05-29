@@ -368,9 +368,9 @@ INSTALL_GIT_REPOS() {
             fi
         fi
 
-        # if [[ "${repo}" == "${DOTFILES_REPO}" && "${target}" != "${DOTFILES_DIR}" ]]; then
-        #     _RUNSILENT "" _SYMLINK "${target}" "${DOTFILES_DIR}"
-        # fi
+        if [[ "${repo}" == "${DOTFILES_REPO}" && "${target}" != "${DOTFILES_DIR}" ]]; then
+            _RUNSILENT "" _SYMLINK "${target}" "${DOTFILES_DIR}"
+        fi
     done
 }
 
