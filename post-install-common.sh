@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=40.2
+readonly VERSION=40.3
 
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
@@ -610,6 +610,7 @@ SETUP_FSTAB() {
         # NETTOYAGE & FORMATAGE
         _BACKUP_FSTAB
         _NORMALIZE_FSTAB | sudo tee "${fstab}" >/dev/null
+        _RUNSILENT "" sudo chown -v root:root "${fstab}"
         _RUNSILENT "" sudo chmod -v 644 "${fstab}"
     fi
 

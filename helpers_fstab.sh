@@ -182,9 +182,10 @@ _FS_OPTIMIZE(){ # ajout noatime,lazytime,commit=120,,,si besoin
         echo "${line}" >>"${tmp_dir}/fstab.new"
 
     done <"${fstab}"
-    _RUNSILENT "" sudo chown -v root:root "${tmp_dir}/fstab.new"
-    _RUNSILENT "" sudo chmod -v 644 "${tmp_dir}/fstab.new"
+
     if [[ "${fstab_changed}" = "true" ]]; then
+        _RUNSILENT "" sudo chown -v root:root "${tmp_dir}/fstab.new"
+        _RUNSILENT "" sudo chmod -v 644 "${tmp_dir}/fstab.new"
         _BACKUP_FSTAB
         _RUN "Optimisations FS" sudo cp -pv "${tmp_dir}/fstab.new" "${fstab}"
         dr="yes"
@@ -211,7 +212,7 @@ _ADD_NFS(){
         else
             _BACKUP_FSTAB
             _RUNSILENT "" sudo mkdir -pv "${NFS_MP}"
-            echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a "${fstab}" >/dev/null
+            sudo echo "${NFS_SHARE}   ${NFS_MP}   nfs   ${opts}      0 0" | sudo tee -a "${fstab}" >/dev/null
             _ETC_FILES_ADD "${fstab}"
             dr="yes"
             _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
