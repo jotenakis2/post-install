@@ -233,7 +233,7 @@ _SETUP_VCONSOLE_FONT() {
     else
         if grep -q "^FONT=" "${vconsole}" 2>/dev/null; then
             if grep -q "^FONT=${font}" "${vconsole}" 2>/dev/null; then
-                _INFO "Police console TTY déjà à jour (${vconsole})"
+                _INFO "Déjà OK : police console TTY"
                 grep FONT "${vconsole}" >>"${LOG_FILE}"
             else
                 _RUNSILENT "" sudo sed -i "s/^FONT=.*/FONT=${font}/" "${vconsole}"

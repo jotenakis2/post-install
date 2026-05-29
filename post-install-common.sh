@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=40.1
+readonly VERSION=40.2
 
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
@@ -1038,7 +1038,7 @@ EOF
 ########################################################################################################################
 
 INSTALL_DEPS() {
-    local -a prerequisit=(zsh gawk curl ncurses git stow pciutils coreutils dnf-plugins-core binutils policycoreutils-python-utils)
+    local -a prerequisit=(zsh sed gawk curl ncurses git stow pciutils coreutils dnf-plugins-core binutils policycoreutils-python-utils)
     _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
 }
 
@@ -1123,7 +1123,7 @@ END() {
     local list="/root/list-of-system-files-created-or-modified-by-${SCRIPTNAME}.log"
     if sudo test -f "${list}" && [[ ${nofile,,} = "yes" ]]; then
         _INFO "Historique des fichiers modifiés par ${SCRIPTNAME} :"
-        sudo cat "${list}"
+        sudo sed 's/^/        /' "${list}"
     fi
     echo ""
 }
