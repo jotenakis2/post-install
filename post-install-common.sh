@@ -1123,7 +1123,7 @@ END() {
     local list="/root/list-of-system-files-created-or-modified-by-${SCRIPTNAME}.log"
     if sudo test -f "${list}" && [[ ${nofile,,} = "yes" ]]; then
         _INFO "Historique des fichiers modifiés par ${SCRIPTNAME} :"
-        sudo cat ${file}
+        sudo cat "${list}"
     fi
     echo ""
 }
@@ -1743,7 +1743,7 @@ _SSHFAIL2BAN(){
     if ! _IS_PKG_INSTALLED fail2ban; then
         _RUN "Installation de fail2ban" _PKG_INSTALL fail2ban
     else
-        _INFO "Déjà OK: fail2ban installé"
+        _INFO "Déjà OK : fail2ban installé"
     fi
     local jailfile jaildir jailcontent jailservice new
     jailservice="fail2ban.service"
