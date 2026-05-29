@@ -350,7 +350,7 @@ _SETUP_FIREWALL() {
     if ! _IS_ACTIVE firewalld.service; then
         _RUN "Démarrage du firewall" sudo systemctl enable --now firewalld.service
     else
-        _INFO "Firewall déjà actif"
+        _INFO "Déjà OK : firewall en service"
         if ! _IS_ENABLED firewalld.service; then
             _RUNSILENT "" sudo systemctl enable firewalld.service
         fi

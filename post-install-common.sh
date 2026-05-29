@@ -296,15 +296,15 @@ INSTALL_GO_PACKAGES() {
             if [[ -z "${missing[*]}" ]]; then
                 local present_fmt
                 present_fmt=$(_FORMAT_LIST "${present[@]}")
-                present_fmt=${present_fmt%@*}
-                present_fmt=${present_fmt##*/}
+                #present_fmt=${present_fmt%@*}
+                #present_fmt=${present_fmt##*/}
                 _INFO "Déjà OK (installation) : "
                 _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
             else
                 if [[ -n "${present[*]}" ]]; then
                     local present_fmt
                     present_fmt=$(_FORMAT_LIST "${present[@]}")
-                    _INFO "Déjà installé : "
+                    _INFO "Déjà OK : "
                     _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
                 fi
             fi
@@ -695,6 +695,8 @@ SETUP_KDE_PLASMA() {
                     if [[ "${tokyoexist}" != "${currentscheme}" ]]; then
                         _RUN "Application de la palette de couleurs ${tokyoexist}" plasma-apply-colorscheme "${tokyoexist}"
                         change=1
+                    else
+                        _INFO "Déjà OK : palette de couleurs tokyonight"
                     fi
                 fi
 
@@ -730,6 +732,8 @@ SETUP_KDE_PLASMA() {
             _RUN "Installation des icônes Tela ${VARIANT_COLOR_TELA_ICONS} (dans ${HOME}/.local/share/icons/)" bash -c "\"${temp_tela}\"/tela/install.sh -c \"${VARIANT_COLOR_TELA_ICONS}\" -d \"${HOME}\"/.local/share/icons"
             _RUNSILENT "" rm -rfv -- "${temp_tela}"
             change=1
+        else
+            _INFO "Déjà OK : icônes tela-${VARIANT_COLOR_TELA_ICONS}"
         fi
 
         # 4. Curseur : Bibata Lavender (via Catppuccin Mocha)
@@ -739,6 +743,8 @@ SETUP_KDE_PLASMA() {
             _RUN "Installation du curseur catppuccin-mocha-lavender (dans ${HOME}/.local/share/icons/)" curl -fsL "https://github.com/catppuccin/cursors/releases/latest/download/catppuccin-mocha-lavender-cursors.zip" -o "${temp_cursor}/cursor.zip"
             _RUNSILENT "" unzip -q -o "${temp_cursor}/cursor.zip" -d "${HOME}/.local/share/icons/"
             change=1
+        else
+            _INFO "Déjà OK : curseur catppuccin-mocha-lavender"
         fi
 
         # Pointeur par défaut pour compatibilité GTK
@@ -778,7 +784,7 @@ SETUP_KDE_PLASMA() {
             if [[ -z "${current_positions}" ]]; then
                 _INFO "Aucun panneau détecté"
             elif [[ "${current_positions}" == "${target_pos}" ]]; then
-                _INFO "Déjà OK : panneau ${display_pos}"
+                _INFO "Déjà OK : panneau en position ${display_pos}"
             else
                 _RUN "Déplacement du panneau en position ${display_pos}" _PLASMA_EVAL "
                     var allPanels = panels();
@@ -794,6 +800,8 @@ SETUP_KDE_PLASMA() {
         avatar="/usr/share/plasma/avatars/photos/Cocktail.png"
         if [[ ! -f /var/lib/AccountsService/icons/"${USER}" ]] && [[ -f "${avatar}" ]]; then
             _RUN "Avatar pour ${USER} (${avatar##*/})" sudo cp -v "${avatar}" /var/lib/AccountsService/icons/"${USER}"
+        else
+            _INFO "Déjà OK : avatar ${avatar##*/} pour ${USER}"
         fi
         # on redémarre l'interface pour appliquer de suite.
         if pgrep plasmashell >/dev/null 2>&1; then
@@ -807,7 +815,7 @@ SETUP_KDE_PLASMA() {
                 sleep 1 ;\
                 systemctl --user restart plasma-plasmashell.service"
             else
-                _INFO "Aucune modification de configuration effectuée, pas de redémarrage de KDE Plasma"
+                _LOG "Aucune modification de configuration effectuée, pas de redémarrage de KDE Plasma"
             fi
         fi
 
@@ -1004,9 +1012,9 @@ SET_PLM_WALLPAPER() {
         _RUNSILENT "" sudo install -d -m 0755 "${dest_dir}"
         #_RUNSILENT "" sudo install -d -m 0755 "${confdirPLM}"
         _RUNSILENT "" sudo install -m 0644 "${src}" "${dest_file}"
-        _OK "Installation du fond d'écran PLM"
+        _LOG "Installation du fond d'écran PLM"
         if ! sudo grep -Fqx "Image=file://${dest_file}" "${configPLM}" 2>/dev/null; then
-            _LOG "Ajout de la configuration wallpaper PLM"
+            _OK "Configuration du fond d'écran PLM"
             sudo tee -a "${configPLM}" >/dev/null <<EOF
 #
 # added by post-install-script jotenakis -------------------------
@@ -1553,7 +1561,7 @@ _DISABLE_COREDUMP(){
             _OK "Configuration coredump (${limits_file})"
             _ETC_FILES_ADD "${limits_file}"
         else
-            _INFO "Coredump déja OK (${limits_file})"
+            _INFO "Déjà OK : coredump désactivé"
         fi
         { ls -l "${limits_file}" ; cat "${limits_file}" ; echo "" ; } >> "${LOG_FILE}"
 
@@ -1728,7 +1736,7 @@ _SSHFAIL2BAN(){
     if ! _IS_PKG_INSTALLED fail2ban; then
         _RUN "Installation de fail2ban" _PKG_INSTALL fail2ban
     else
-        _INFO "Fail2ban déjà installé"
+        _INFO "Déjà OK: fail2ban installé"
     fi
     local jailfile jaildir jailcontent jailservice new
     jailservice="fail2ban.service"
