@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=40.0
+readonly VERSION=40.1
 
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
@@ -848,7 +848,7 @@ SETUP_PLM() {
         fi
 
         if [[ "${change}" = 0 ]]; then
-            _INFO "Plasma Login Manager déjà OK"
+            _INFO "Déjà OK : Plasma Login Manager"
         fi
         SET_PLM_WALLPAPER
     else
@@ -1028,7 +1028,7 @@ EOF
 ########################################################################################################################
 
 INSTALL_DEPS() {
-    local -a prerequisit=(zsh gawk curl ncurses git stow pciutils dnf-plugins-core binutils policycoreutils-python-utils)
+    local -a prerequisit=(zsh gawk curl ncurses git stow pciutils coreutils dnf-plugins-core binutils policycoreutils-python-utils)
     _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
 }
 
@@ -1140,19 +1140,20 @@ _HOSTNAME() {
         _LOG "nouveau hostname : ${newhost}"
         _ETC_FILES_ADD "/etc/hostname"
     else
-        _LOG "hostname déjà correctement défini"
+        _INFO "Déjà OK : nom d'hôte"
     fi
     # on ajoute à /etc/hosts
     hosts=/etc/hosts
     if [[ ! -f "${hosts}" ]]; then
         sudo touch "${hosts}"
     fi
+    _BACKUP_FILE "${hosts}"
     if ! grep -Eq "[[:space:]]${MYHOSTNAME}([[:space:]]|\$)" "${hosts}"; then
         printf '127.0.1.1\t%s\n' "${MYHOSTNAME}" | sudo tee -a "${hosts}" >/dev/null
         _OK "Configuration de la résolution locale (${hosts})"
         _ETC_FILES_ADD "${hosts}"
     else
-        _INFO "Résolution locale déjà OK (${hosts})"
+        _INFO "Déjà OK : résolution locale"
     fi
 }
 
@@ -1233,7 +1234,7 @@ _SYSTEMD_RESOLVED() {
         _ETC_FILES_ADD "${dnsfile}"
         _ETC_FILES_ADD "${llmnrfile}"
     else
-        _INFO "Configuration DNS déjà OK (dans ${dir})"
+        _INFO "Déjà OK : configuration DNS"
     fi
 
     {
@@ -1467,7 +1468,7 @@ _DISABLE_IPV6_IN_SERVICES() {
         local avahi_conf
         avahi_conf="/etc/avahi/avahi-daemon.conf"
         if grep -qE '^\s*use-ipv6\s*=\s*no' "${avahi_conf}"; then
-            _INFO "IPv6 avahi-daemon déjà OK (${avahi_conf})"
+            _INFO "Déjà OK : IPv6 avahi-daemon"
         else
             _BACKUP_FILE "${avahi_conf}"
             if grep -qE '^\s*use-ipv6\s*=' "${avahi_conf}"; then
@@ -1494,7 +1495,7 @@ _DISABLE_IPV6_IN_SERVICES() {
                         continue
                     fi
                     sudo nmcli connection modify "${uuid}" ipv6.method disabled &>/dev/null
-                    _OK "Désactivation IPv6 pour la connection NetworkManager ${uuid}:${type}"
+                    _OK "Configuration IPv6 pour la connection NetworkManager ${uuid}:${type}"
                 done
             else
                 _LOG "nmcli non détecté"
@@ -1521,7 +1522,7 @@ _DISABLE_IPV6_NETCONFIG() {
         if ! sudo grep -q "^udp6\\|^tcp6" "${file}"; then
             _LOG "aucune entrée IPv6 détectée dans ${file}"
             cat "${file}" >> "${LOG_FILE}"
-            _INFO "Configuration IPv6 netconfig déjà OK (${file})"
+            _INFO "Déjà OK : configuration IPv6 netconfig(${file})"
         else
             sudo sed -i -E 's/^(udp6|tcp6)/#\1/' "${file}"
             _OK "Configuration IPv6 netconfig (${file})"
@@ -2091,7 +2092,7 @@ SETUP_GRUB() {
         _ETC_FILES_ADD "${grub_file}"
         changed="yes"
     else
-        _INFO "GRUB déjà OK (${grub_file})"
+        _INFO "Déjà OK : configuration GRUB"
     fi
 
     {

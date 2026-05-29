@@ -302,12 +302,17 @@ _BAKSUFFIX(){
 _BACKUP_FILE(){
     local file=${1:-}
     local origin="${file}.origin"
-    local bak copied
+    local bak copied owner group perm
 
     # si oubli de spécifier le fichier à sauvegarder, on quitte avec message explicite.
     if [[ -z "${file}" ]]; then
         _DIE "Aucun fichier spécifié pour la sauvegarde avec _BACKUP_FILE"
     fi
+
+    # droits initiaux
+    owner=$(stat -c '%U' -- "${file}")
+    group=$(stat -c '%G' -- "${file}")
+    perm=$(stat -c '%a' -- "${file}")
 
     # copie originale
     if ! sudo test -f "${origin}"; then
@@ -324,8 +329,8 @@ _BACKUP_FILE(){
     fi
     _RUNSILENT "" sudo cp -pfv "${file}" "${copied}"
 
-    # droits
-    #_RUNSILENT "" sudo chown -v root:root "${copied}" "${origin}"
-    #_RUNSILENT "" sudo chmod -v 644 "${copied}" "${origin}"
+    # droits recopiés
+    _RUNSILENT "" sudo chown -v "${owner}:${group}" "${copied}" "${origin}"
+    _RUNSILENT "" sudo chmod -v "${perm}" "${copied}" "${origin}"
 }
 

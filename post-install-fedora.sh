@@ -133,7 +133,7 @@ INSTALL_REPOS() {
     for rpmf in ${rpmfusion_list}; do
         type="rpmfusion-${rpmf}-release"
         if _IS_PKG_INSTALLED "${type}"; then
-            _INFO "Dépôt ${type} déjà OK"
+            _INFO "Déjà OK : dépôt ${type}"
         else
             _RUN "Ajout du dépôt ${type}" _PKG_INSTALL https://mirrors.rpmfusion.org/"${rpmf}"/fedora/"${type}"-"${fedora_ver}".noarch.rpm
             _RUN "Ajout du dépôt ${type}-tainted" _PKG_INSTALL "${type}"-tainted
@@ -143,7 +143,7 @@ INSTALL_REPOS() {
 
     if [[ "${TERRA,,}" = "yes" ]]; then
         if _IS_PKG_INSTALLED terra-release; then
-            _INFO "Dépôt Terra déjà OK"
+            _INFO "Déjà OK : dépôt Terra"
         else
             # shellcheck disable=SC2016
             _RUN "Ajout du dépôt Terra" sudo dnf install -y --nogpgcheck --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' terra-release
@@ -154,7 +154,7 @@ INSTALL_REPOS() {
     # repo brave si besoin
     if _IN_ARRAY brave-browser "${SYSTEM_PACKAGES[@]}"; then
         if dnf repolist 2>/dev/null | grep -q "brave-browser"; then
-            _INFO "Dépôt Brave déjà OK"
+            _INFO "Déjà OK : dépôt Brave"
         else
             _RUN "Ajout du dépôt Brave" sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
             cache=1
@@ -188,7 +188,7 @@ _ADD_COPR(){
     repo="$1"
     : "${localcache}" # juste pour shellcheck
     if dnf repolist 2>/dev/null | grep -q "${repo//\//:}"; then
-        _INFO "Dépôt COPR ${repo} déjà OK"
+        _INFO "Déjà OK : dépôt COPR ${repo}"
     else
         _RUN "Ajout du dépôt COPR ${repo}" sudo dnf copr enable -y "${repo}"
         localcache=1
@@ -260,13 +260,13 @@ INSTALL_CODECS() {
         _RUN "Échange ffmpeg-free <=> ffmpeg (rpmfusion)" sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
         _RUN "Mise à jour groupe multimedia" sudo dnf group upgrade multimedia --exclude=PackageKit-gstreamer-plugin -y
     else
-        _INFO "ffmpeg (rpmfusion) déjà OK"
-        _LOG "Groupe multimedia déjà à jour"
+        _INFO "Déjà OK : ffmpeg (rpmfusion)"
+        _INFO "Déjà OK : groupe multimedia"
     fi
     if ! dnf repolist --enabled | grep -q '^fedora-cisco-openh264'; then
         _RUNSILENT "Activation Cisco h264." sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1 -y
     else
-        _LOG "Cisco h264 déjà OK"
+        _LOG "Déjà OK : cisco h264"
     fi
 
     # mesa swap
@@ -278,13 +278,13 @@ INSTALL_CODECS() {
         if ! _IS_PKG_INSTALLED mesa-va-drivers-freeworld; then
             _RUN "Installation mesa-va-drivers (rpmfusion)" _PKG_INSTALL_SKIP mesa-va-drivers-freeworld
         else
-            _INFO "mesa-va-drivers (rpmfusion) déjà OK"
+            _INFO "Déjà OK : mesa-va-drivers (rpmfusion)"
         fi
     elif echo "${gpu_vendor}" | grep -q "intel"; then
         if ! _IS_PKG_INSTALLED intel-media-driver; then
             _RUN "Installation intel-media-driver (rpmfusion)" _PKG_INSTALL_SKIP intel-media-driver
         else
-            _INFO "intel-media-driver (rpmfusion) déjà OK"
+            _INFO "Déjà OK : intel-media-driver (rpmfusion)"
         fi
     else
         _INFO "GPU : ni AMD ni Intel, pas de d'échange mesa <=> mesa (rpmfusion) à faire"
@@ -375,7 +375,7 @@ _SETUP_FIREWALL() {
     if [[ "${firewall_changed}" == true ]]; then
         _RUN "Rechargement des règles de firewalld (${FIREWALL_SERVICES[*]})" sudo firewall-cmd --reload
     else
-        _INFO "Règles firewall déjà OK"
+        _INFO "Déjà OK : règles firewall"
     fi
 }
 
@@ -619,7 +619,7 @@ SETUP_SUDO_RS() {
         if [[ "${change}" -eq 1 ]]; then
             _OK "sudo-rs OK (remplace sudo)"
         else
-            _INFO "sudo-rs déjà OK"
+            _INFO "Déjà OK : sudo-rs"
         fi
     else
         _LOG "sudo-rs n'est pas demandé (variable SUDORS = ${SUDORS}) => on laisse sudo tel quel."
