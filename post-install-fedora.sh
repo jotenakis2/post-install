@@ -229,13 +229,14 @@ _SETUP_VCONSOLE_FONT() {
     done
 
     if ((found == 0)); then
-        _LOG "Police console '${font}' introuvable — vérifier le paquet terminus-fonts"
+        _LOG "Police console '${font}' introuvable"
     else
         if grep -q "^FONT=" "${vconsole}" 2>/dev/null; then
             if grep -q "^FONT=${font}" "${vconsole}" 2>/dev/null; then
                 _INFO "Déjà OK : police console TTY"
                 grep FONT "${vconsole}" >>"${LOG_FILE}"
             else
+                _BACKUP_FILE "${vconsole}"
                 _RUNSILENT "" sudo sed -i "s/^FONT=.*/FONT=${font}/" "${vconsole}"
                 _OK "Modification de la police console TTY (${vconsole})"
                 _ETC_FILES_ADD "${vconsole}"
@@ -243,6 +244,7 @@ _SETUP_VCONSOLE_FONT() {
                 cat "${vconsole}" 2>/dev/null >>"${LOG_FILE}"
             fi
         else
+            _BACKUP_FILE "${vconsole}"
             printf '%s' "FONT=${font}" | sudo tee -a "${vconsole}" >/dev/null
             _OK "Ajout de la police console TTY (${vconsole})"
             _ETC_FILES_ADD "${vconsole}"

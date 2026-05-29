@@ -182,10 +182,11 @@ _FS_OPTIMIZE(){ # ajout noatime,lazytime,commit=120,,,si besoin
         echo "${line}" >>"${tmp_dir}/fstab.new"
 
     done <"${fstab}"
-
-    if [[ "${fstab_changed}" == "true" ]]; then
+    _RUNSILENT "" sudo chmod -v root:root "${tmp_dir}/fstab.new"
+    _RUNSILENT "" sudo chmod -v 644 "${tmp_dir}/fstab.new"
+    if [[ "${fstab_changed}" = "true" ]]; then
         _BACKUP_FSTAB
-        _RUN "Optimisations FS (${fstab})" sudo cp -pv "${tmp_dir}/fstab.new" "${fstab}"
+        _RUN "Optimisations FS" sudo cp -pv "${tmp_dir}/fstab.new" "${fstab}"
         dr="yes"
         _ETC_FILES_ADD "${fstab}"
     else
@@ -229,7 +230,7 @@ _ADD_SWAPFILE(){
     if [[ -f "${swapfile}" ]]; then
         if ! grep -q "${swapfile}" "${fstab}"; then
             _BACKUP_FSTAB
-            _RUN "Ajout du swap" bash -c "echo ${swapdir}/swapfile none swap sw,nofail 0 0 | sudo tee -a ${fstab}"
+            _RUN "Ajout du SWAP" bash -c "echo ${swapdir}/swapfile none swap sw,nofail 0 0 | sudo tee -a ${fstab}"
             _ETC_FILES_ADD "${fstab}"
             dr="yes"
         else

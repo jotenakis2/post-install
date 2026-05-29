@@ -582,6 +582,7 @@ SETUP_FSTAB() {
     local fstab="/etc/fstab"
     declare -g dr
     dr="no"
+    export dr
 
     # SWAP
     if [[ "${ZSWAP,,}" = "yes" ]]; then
