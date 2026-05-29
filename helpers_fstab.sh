@@ -182,7 +182,7 @@ _FS_OPTIMIZE(){ # ajout noatime,lazytime,commit=120,,,si besoin
         echo "${line}" >>"${tmp_dir}/fstab.new"
 
     done <"${fstab}"
-    _RUNSILENT "" sudo chmod -v root:root "${tmp_dir}/fstab.new"
+    _RUNSILENT "" sudo chown -v root:root "${tmp_dir}/fstab.new"
     _RUNSILENT "" sudo chmod -v 644 "${tmp_dir}/fstab.new"
     if [[ "${fstab_changed}" = "true" ]]; then
         _BACKUP_FSTAB
