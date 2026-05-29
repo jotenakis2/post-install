@@ -1109,6 +1109,16 @@ END() {
 
     # LOG
     _INFO "Fichier log de la post-installation : ${LOG_FILE}"
+
+    # history
+    local list="/root/list-of-system-files-created-or-modified-by-${SCRIPTNAME}.log"
+    if sudo test -f "${list}" && [[ ${nofile,,} = "yes" ]]; then
+        _INFO "Historique des fichiers modifiés par ${SCRIPTNAME} :"
+        # sudo sed 's/^/        /' "${list}"
+        sudo sed 's/^/        /' "${list}" | sudo tee -a "${LOG_FILE:-/dev/null}"
+    fi
+
+    # upload LOG
     if ! _EXIST curl; then
         _RUNSILENT "" _PKG_INSTALL curl
     fi
@@ -1118,14 +1128,6 @@ END() {
     if [[ -n "${file}" ]]; then
         _OK "Log téléversé : ${file}"
     fi
-    #
-    echo ""
-    local list="/root/list-of-system-files-created-or-modified-by-${SCRIPTNAME}.log"
-    if sudo test -f "${list}" && [[ ${nofile,,} = "yes" ]]; then
-        _INFO "Historique des fichiers modifiés par ${SCRIPTNAME} :"
-        sudo sed 's/^/        /' "${list}"
-    fi
-    echo ""
 }
 
 ########################################################################################################################
