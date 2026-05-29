@@ -1837,7 +1837,7 @@ AllowUsers ${USER}
 # ===========================================================================================================
 "
     if sudo test -f "${config_ssh_allow}"; then
-        _INFO "Fichier ${config_ssh_allow} déjà présent"
+        _INFO "Déjà OK : fichier ${config_ssh_allow} présent"
     else
         _OK "Configuration ${config_ssh_allow} créée"
         printf '%s' "${content_ssh_allow}" | sudo tee "${config_ssh_allow}" >/dev/null
@@ -1881,7 +1881,7 @@ _DISABLE_FPRINTD(){
         if [[ "${change}" = "1" ]]; then
             _OK "Fonction du capteur d'empreintes désactivée"
         else
-            _INFO "Fonction du capteur d'empreintes déjà désactivée"
+            _INFO "Déjà OK : fonction du capteur d'empreintes désactivée"
         fi
     else
         _LOG "On ne touche pas au service de capteur d'empreintes"

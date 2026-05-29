@@ -189,7 +189,7 @@ _FS_OPTIMIZE(){ # ajout noatime,lazytime,commit=120,,,si besoin
         dr="yes"
         _ETC_FILES_ADD "${fstab}"
     else
-        _INFO "Optimisations FS déjà OK (${fstab})"
+        _INFO "Déjà OK : optimisations FS"
     fi
     _RUNSILENT "" sudo rm -rvf -- "${tmp_dir}"
 }
@@ -216,7 +216,7 @@ _ADD_NFS(){
             _RUN "Montage du partage réseau NFS" bash -c "sudo mount -v \"${NFS_MP}\" && sudo ls -l \"${NFS_MP}\""
         fi
     else
-        _INFO "Montage NFS déjà OK"
+        _INFO "Déjà OK : montage NFS"
     fi
 }
 
@@ -233,7 +233,7 @@ _ADD_SWAPFILE(){
             _ETC_FILES_ADD "${fstab}"
             dr="yes"
         else
-            _INFO "Swap déjà présent dans ${fstab}"
+            _INFO "Déjà OK : SWAP"
         fi
     fi
 }
