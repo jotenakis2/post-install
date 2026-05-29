@@ -352,7 +352,7 @@ INSTALL_GIT_REPOS() {
                         fi
                     fi
                 else
-                    _INFO "${name} déjà présent et pas de mise à jour demandée"
+                    _INFO "Déjà OK : ${name} présent et pas de mise à jour demandée"
                 fi
             else
                 _ERR "${target} existe mais n'est pas un dépôt git, ignoré"
@@ -558,7 +558,7 @@ _SETUP_SYSTEMD() {
         _PRINT_LIST "${missing_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
         _RUN "Désactivation des services" sudo systemctl disable --now "${missing[@]}"
     else
-        _INFO "Services déjà désactivés : "
+        _INFO "Déjà OK : services désactivés"
         _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
     fi
 
@@ -568,7 +568,7 @@ _SETUP_SYSTEMD() {
             if ! _IS_ENABLED_USER "${service}"; then
                 _RUN "Activation du ${description}" systemctl --user enable --now "${service}"
             else
-                _INFO "${description^} déjà activé"
+                _INFO "Déjà OK : ${description^}"
             fi
         else
             _LOG "Service ${service} introuvable"
@@ -751,7 +751,7 @@ SETUP_KDE_PLASMA() {
             if balooctl6 status >/dev/null 2>&1; then
                 _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
             else
-                _INFO "Service d'indexation déjà désactivé"
+                _INFO "Déjà OK : service d'indexation désactivé"
             fi
         else
             _INFO "L'outil balooctl n'est pas installé. Aucune action requise"
@@ -778,7 +778,7 @@ SETUP_KDE_PLASMA() {
             if [[ -z "${current_positions}" ]]; then
                 _INFO "Aucun panneau détecté"
             elif [[ "${current_positions}" == "${target_pos}" ]]; then
-                _INFO "Panneau déjà à la position voulue (${display_pos})"
+                _INFO "Déjà OK : panneau ${display_pos}"
             else
                 _RUN "Déplacement du panneau en position ${display_pos}" _PLASMA_EVAL "
                     var allPanels = panels();
@@ -1004,7 +1004,7 @@ SET_PLM_WALLPAPER() {
         _RUNSILENT "" sudo install -d -m 0755 "${dest_dir}"
         #_RUNSILENT "" sudo install -d -m 0755 "${confdirPLM}"
         _RUNSILENT "" sudo install -m 0644 "${src}" "${dest_file}"
-        _LOG "Installation du wallpaper PLM"
+        _OK "Installation du fond d'écran PLM"
         if ! sudo grep -Fqx "Image=file://${dest_file}" "${configPLM}" 2>/dev/null; then
             _LOG "Ajout de la configuration wallpaper PLM"
             sudo tee -a "${configPLM}" >/dev/null <<EOF
@@ -1016,7 +1016,7 @@ Image=file://${dest_file}
 EOF
             _ETC_FILES_ADD "${configPLM}"
         else
-            _LOG "Wallpaper PLM déjà configuré"
+            _INFO "Déjà OK : fond d'écran PLM"
         fi
         {
             sudo ls -l "${configPLM}"
@@ -1050,7 +1050,7 @@ INSTALL_FLATPAK_PACKAGES() {
         if ! flatpak --columns=name remotes | grep -q "^flathub$"; then
             _RUN "Ajout du dépôt Flathub" sudo flatpak --verbose remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
         else
-            _INFO "Dépot flathub déjà présent"
+            _INFO "Déjà OK : dépot flathub présent"
         fi
 
         # 3. Activation de Flathub sans filtre
@@ -1415,7 +1415,7 @@ _LIBVIRT() {
 
     if getent group libvirt >/dev/null 2>&1; then # libvirt existe
         if id -nG "${USER}" | grep -qw "libvirt"; then
-            _INFO "Utilisateur ${USER} déjà dans libvirt"
+            _INFO "Déjà OK : ${USER} dans libvirt"
         else
             _RUN "Ajout de l'utilisateur ${USER} au groupe libvirt" sudo usermod -aG libvirt "${USER}"
             _ETC_FILES_ADD "/etc/group"
@@ -1463,7 +1463,7 @@ _DISABLE_IPV6_IN_SERVICES() {
             cat "${hostsfile}" >> "${LOG_FILE}"
             _ETC_FILES_ADD "${hostsfile}"
         else
-            _INFO "Entrée IPv6 dans ${hostsfile} déjà supprimée"
+            _INFO "Déjà OK : entrée IPv6 dans ${hostsfile} supprimée"
         fi
 
         # avahi
@@ -1493,7 +1493,7 @@ _DISABLE_IPV6_IN_SERVICES() {
                     if [[ "${type}" = loopback ]]; then continue; fi
                     current=$(sudo nmcli -g ipv6.method connection show "${uuid}" 2>/dev/null || true)
                     if [[ "${current}" = disabled ]]; then
-                        _LOG "IPv6 pour la connection NetworkManager ${uuid}:${type} déjà désactivée"
+                        _INFO "Déjà OK : IPv6 pour la connection NetworkManager ${uuid}:${type} désactivée"
                         continue
                     fi
                     sudo nmcli connection modify "${uuid}" ipv6.method disabled &>/dev/null
@@ -1581,27 +1581,36 @@ _DISABLE_COREDUMP(){
 ########################################################################################################################
 
 _INSTALL_USER_CRONTAB(){ # sheldon update/ tldr update
-    local cron_job1 cron_job2
+    local cron_job1 cron_job2 cron_job3
     _LOG "* crontab ${USER} *"
     if ! _EXIST crontab; then
-        _RUNSILENT "" _PKG_INSTALL cronie
+        _RUN "Installation cronie (crontab)" _PKG_INSTALL cronie
     fi
     if _EXIST sheldon; then
-        cron_job1='0 21 * * * sheldon lock --update >/tmp/sheldon_update.log 2>&1'
-        if ! crontab -l 2>/dev/null | grep -qF "sheldon lock --update"; then
-            _RUN "Tâche cron \"sheldon update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job1}\" ) | crontab -"
+        cron_job1='0 21 * * * /opt/cargo/bin/sheldon lock --update >~/.local/log/sheldon_update.log 2>&1'
+        if ! crontab -l 2>/dev/null | grep -qF "/opt/cargo/bin/sheldon lock --update"; then
+            _RUN "Ajout tâche cron \"sheldon update\" pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job1}\" ) | crontab -"
         else
-            _INFO "Tâche cron \"sheldon update\" déjà là pour ${USER}"
+            _INFO "Déjà OK : tâche cron \"sheldon update\" pour ${USER}"
         fi
     fi
     if _EXIST tldr; then
-        cron_job2='5 */4 * * * tldr -u >/tmp/tldr_update.log 2>&1'
-        if ! crontab -l 2>/dev/null | grep -qF "tldr -u"; then
-            _RUN "Tâche cron \"tldr update\" ajoutée pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job2}\" ) | crontab -"
+        cron_job2='5 */4 * * * /opt/cargo/bin/tldr -u >~/.local/log/tldr_update.log 2>&1'
+        if ! crontab -l 2>/dev/null | grep -qF "/opt/cargo/bin/tldr -u"; then
+            _RUN "Ajout tâche cron \"tldr update\" pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job2}\" ) | crontab -"
         else
-            _INFO "Tâche cron \"tldr update\" déjà là pour ${USER}"
+            _INFO "Déjà OK : tâche cron \"tldr update\" pour ${USER}"
         fi
     fi
+    if [[ -x ${HOME}/Projects/scripts/update-bpc.sh ]]; then
+        cron_job3='15 */4 * * * ~/Projects/scripts/update-bpc.sh > ~/.local/log/bpc_update.log 2>&1'
+        if ! crontab -l 2>/dev/null | grep -qF "Projects/scripts/update-bpc.sh"; then
+            _RUN "Ajout tâche cron \"bypass paywall update (Helium)\" pour ${USER}" bash -c "( crontab -l 2>/dev/null; echo \"${cron_job3}\" ) | crontab -"
+        else
+            _INFO "Déjà OK : tâche cron \"bypass paywall update (Helium)\" pour ${USER}"
+        fi
+    fi
+
     _RUNSILENT "" crontab -l
 }
 
