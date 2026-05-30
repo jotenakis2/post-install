@@ -29,6 +29,7 @@ _INSTALL_ETC_FILES() {
         echo 1 >"${STATUSFILE}"
     else
         _OK "Configuration ${msg} (${file})"
+        _BACKUP_FILE "${file}"
         printf '%s' "${content}" | sudo tee "${file}" >/dev/null
         _RUNSILENT "" sudo chmod -v "${rights}" "${file}"
         _ETC_FILES_ADD "${file}"

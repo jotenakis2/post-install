@@ -131,9 +131,9 @@ INSTALL_CODECS() {
 
     if echo "${gpu_vendor}" | grep -q "amd\|radeon\|advanced micro"; then
         if ! _IS_PKG_INSTALLED mesa-va-drivers-freeworld; then
-            _RUN "Installation mesa-va-drivers (rpmfusion)" _PKG_INSTALL_SKIP mesa-va-drivers-freeworld
+            _RUN "Installation mesa-va-drivers-freeworld" _PKG_INSTALL_SKIP mesa-va-drivers-freeworld
         else
-            _INFO "Déjà OK : mesa-va-drivers (rpmfusion)"
+            _INFO "Déjà OK : mesa-va-drivers-freeworld"
         fi
     elif echo "${gpu_vendor}" | grep -q "intel"; then
         if ! _IS_PKG_INSTALLED intel-media-driver; then
@@ -142,7 +142,7 @@ INSTALL_CODECS() {
             _INFO "Déjà OK : intel-media-driver (rpmfusion)"
         fi
     else
-        _INFO "GPU : ni AMD ni Intel, pas de d'échange mesa <=> mesa (rpmfusion) à faire"
+        _LOG "GPU : ni AMD ni Intel, pas de d'échange mesa <=> mesa (rpmfusion) à faire"
     fi
 }
 

@@ -67,6 +67,9 @@ VARIANT_COLOR_TELA_ICONS="purple"
 # WIFI économie d'énergie OFF (parfois utile si déco/reco fréquente)
 WIFI_POWERSAVE="yes"
 
+# ZSH par défaut , si yes install zsh, oh-my-posh configuré via mes dotfiles.
+ZSH="yes"
+
 ################################################################
 # Configurations diverses                                      #
 ################################################################
@@ -380,4 +383,5 @@ export TERRA
 export VARIANT_COLOR_TELA_ICONS
 export WIFI_POWERSAVE
 export NOSWAP
+export ZSH
 ###############################################################################################################################

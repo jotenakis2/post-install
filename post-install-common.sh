@@ -381,80 +381,83 @@ INSTALL_GIT_REPOS() {
 
 ########################################################################################################################
 SETUP_SHELL() {
-    local color
-    if [[ "${ROOT,,}" = "yes" ]]; then
-        color=${C_RED}
-    else
-        color=${C_GREEN}
-    fi
-    _SECTION " Configuration du shell zsh par défaut 🐚 " "━" "${color}"
-    # 1- zsh
-    local zsh_bin
-    if ! _EXIST zsh; then
-        _RUNSILENT "" _PKG_INSTALL zsh
-    fi
-    zsh_bin=$(command -v zsh)
-
-    if ! grep -qxF "${zsh_bin}" /etc/shells; then
-        echo "${zsh_bin}" | sudo tee -a /etc/shells >/dev/null
-    fi
-
-    local user uid current_shell
-    while IFS=: read -r user _ uid _ _ _ _; do                                    # on parcourt le fichier /etc/passwd pour récupérer user et uid.
-        if [[ ("${uid}" -ge 1000 && "${uid}" -lt 5000) || "${uid}" -eq 0 ]]; then # root et users normaux
-            current_shell=$(getent passwd "${user}" | cut -d: -f7)
-            if [[ "${current_shell}" != "${zsh_bin}" ]]; then
-                _RUN "Shell zsh pour ${user}" sudo chsh -s "${zsh_bin}" "${user}"
-                _ETC_FILES_ADD "/etc/passwd"
-            else
-                _INFO "Déjà OK : zsh ${user}"
-            fi
+    if [[ "${ZSH,,}" = "yes" ]]; then
+        local color
+        if [[ "${ROOT,,}" = "yes" ]]; then
+            color=${C_RED}
+        else
+            color=${C_GREEN}
         fi
-    done </etc/passwd
+        _SECTION " Configuration du shell zsh par défaut 🐚 " "━" "${color}"
+        # 1- zsh
+        local zsh_bin
+        if ! _EXIST zsh; then
+            _RUNSILENT "" _PKG_INSTALL zsh
+        fi
+        zsh_bin=$(command -v zsh)
 
-    # 2- Oh-my-posh prompt
-    if [[ ${USE_OH_MY_POSH_PROMPT,,} = "yes" ]]; then
-        local arch omp_target="" no_ohmyposh=0
-        arch=$(uname -m)
+        if ! grep -qxF "${zsh_bin}" /etc/shells; then
+            echo "${zsh_bin}" | sudo tee -a /etc/shells >/dev/null
+        fi
 
-        case "${arch}" in
-        x86_64 | amd64)
-            omp_target="posh-linux-amd64"
-            ;;
-        aarch64 | arm64)
-            omp_target="posh-linux-arm64"
-            ;;
-        armv7l)
-            omp_target="posh-linux-arm"
-            ;;
-        *)
-            _ERR "Architecture non supportée pour Oh My Posh : ${arch}"
-            no_ohmyposh=1
-            ;;
-        esac
-
-        if [[ "${no_ohmyposh}" = 0 ]]; then
-            local omp_url="https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/${omp_target}"
-            local install_dir="${HOME}/.local/bin"
-            local omp_bin="${install_dir}/oh-my-posh"
-            mkdir -p "${install_dir}"
-            if _EXIST oh-my-posh; then
-                local check
-                check=$(oh-my-posh notice)
-                if [[ -z "${check}" ]]; then
-                    _LOG "aucune mise à jour de oh-my-posh dispo"
+        local user uid current_shell
+        while IFS=: read -r user _ uid _ _ _ _; do                                    # on parcourt le fichier /etc/passwd pour récupérer user et uid.
+            if [[ ("${uid}" -ge 1000 && "${uid}" -lt 5000) || "${uid}" -eq 0 ]]; then # root et users normaux
+                current_shell=$(getent passwd "${user}" | cut -d: -f7)
+                if [[ "${current_shell}" != "${zsh_bin}" ]]; then
+                    _RUN "Shell zsh pour ${user}" sudo chsh -s "${zsh_bin}" "${user}"
+                    _ETC_FILES_ADD "/etc/passwd"
                 else
-                    _RUN "Mise à jour de Oh-My-Posh" oh-my-posh upgrade
+                    _INFO "Déjà OK : zsh ${user}"
                 fi
-            else
-                _RUN "Installation du gestionnaire de prompt Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
-                _RUNSILENT "" chmod 777 -v "${omp_bin}"
-                _RUNSILENT "" _SYMLINK "${omp_bin}" "/usr/local/bin/oh-my-posh"
+            fi
+        done </etc/passwd
+
+        # 2- Oh-my-posh prompt
+        if [[ ${USE_OH_MY_POSH_PROMPT,,} = "yes" ]]; then
+            local arch omp_target="" no_ohmyposh=0
+            arch=$(uname -m)
+
+            case "${arch}" in
+            x86_64 | amd64)
+                omp_target="posh-linux-amd64"
+                ;;
+            aarch64 | arm64)
+                omp_target="posh-linux-arm64"
+                ;;
+            armv7l)
+                omp_target="posh-linux-arm"
+                ;;
+            *)
+                _ERR "Architecture non supportée pour Oh My Posh : ${arch}"
+                no_ohmyposh=1
+                ;;
+            esac
+
+            if [[ "${no_ohmyposh}" = 0 ]]; then
+                local omp_url="https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/${omp_target}"
+                local install_dir="${HOME}/.local/bin"
+                local omp_bin="${install_dir}/oh-my-posh"
+                mkdir -p "${install_dir}"
+                if _EXIST oh-my-posh; then
+                    local check
+                    check=$(oh-my-posh notice)
+                    if [[ -z "${check}" ]]; then
+                        _LOG "aucune mise à jour de oh-my-posh dispo"
+                    else
+                        _RUN "Mise à jour de Oh-My-Posh" oh-my-posh upgrade
+                    fi
+                else
+                    _RUN "Installation du gestionnaire de prompt Oh-My-Posh (${omp_target})" curl -fsSL "${omp_url}" -o "${omp_bin}"
+                    _RUNSILENT "" chmod 777 -v "${omp_bin}"
+                    _RUNSILENT "" _SYMLINK "${omp_bin}" "/usr/local/bin/oh-my-posh"
+                fi
             fi
         fi
+        _INSTALL_USER_CRONTAB
+    else
+        _LOG "Pas de zsh demandé"
     fi
-    _INSTALL_USER_CRONTAB
-
    }
 
 ########################################################################################################################
@@ -1547,9 +1550,10 @@ _DISABLE_IPV6_NETCONFIG() {
     else
         if ! sudo grep -q "^udp6\\|^tcp6" "${file}"; then
             _LOG "aucune entrée IPv6 détectée dans ${file}"
-            cat "${file}" >> "${LOG_FILE}"
+            cat "${file}" >> "${LOG_FILE:-/dev/null}"
             _INFO "Déjà OK : configuration IPv6 netconfig"
         else
+            _BACKUP_FILE "${file}"
             sudo sed -i -E 's/^(udp6|tcp6)/#\1/' "${file}"
             _OK "Configuration IPv6 netconfig (${file})"
             _ETC_FILES_ADD "${file}"
@@ -1845,6 +1849,9 @@ _SSHBANNER(){
         # hardening je kill les /etc/issue* et remplace par symlink
         local f status
         for f in /etc/issue /etc/issue.net; do
+            if [[ ! -L "${f}" ]]; then
+                _BACKUP_FILE "${f}"
+            fi
             _RUNSILENT "" _SYMLINK "${banner_file}" "${f}"
             status=$(head -1 "${LINKFILE}")
             if [[ "${status}" = "1" ]]; then
