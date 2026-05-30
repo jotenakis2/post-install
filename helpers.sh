@@ -199,6 +199,15 @@ _MANAGE_TABLE() {
             all_fmt=$(_FORMAT_LIST "$@")
             local c
             c=$(_PRINT_LIST "${all_fmt}")
+            if [[ "${install_cmd}" = "_FPPKG_INSTALL" ]]; then
+                local readable=()
+                local fmt_readable
+                for pkg in "$@"; do
+                    readable+=("${pkg##*.}") # pour rendre plus propre la nom des paquets flatpak
+                done
+                fmt_readable=$(_FORMAT_LIST "${readable[@]}")
+                c=$(_PRINT_LIST "${fmt_readable}")
+            fi
             _INFO "Déjà OK (${treat}) : "
             echo "${c}" | tee -a "${LOG_FILE:-/dev/null}"
         fi
