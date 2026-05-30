@@ -121,13 +121,13 @@ INITIALIZE() {
 EOF
 
         read -r -p "On continue ? [o/N] " reponse
+        if _EXIST tput; then
+            tput sgr0
+        fi
         case "${reponse,,}" in
             o|oui|y|yes) ;;
             *) exit 127 ;;
         esac
-        if _EXIST tput; then
-            tput sgr0
-        fi
     fi
 
     local heure logsuffix
