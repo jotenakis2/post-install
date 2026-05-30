@@ -1019,6 +1019,7 @@ SET_PLM_WALLPAPER() {
         _LOG "Installation du fond d'écran PLM"
         if ! sudo grep -Fqx "Image=file://${dest_file}" "${configPLM}" 2>/dev/null; then
             _OK "Configuration du fond d'écran PLM"
+            _BACKUP_FILE "${configPLM}"
             sudo tee -a "${configPLM}" >/dev/null <<EOF
 #
 # added by post-install-script jotenakis -------------------------
