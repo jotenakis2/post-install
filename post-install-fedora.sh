@@ -185,10 +185,11 @@ SETUP_SUDO_RS() {
                 fi
 
                 if ! grep -qE '^(@|#)includedir[[:space:]]+/etc/sudoers\.d' '${f_sudoers_rs}'; then
-                    echo -e '# Fallback pour les paquets Fedora\n@includedir /etc/sudoers.d' >> '${f_sudoers_rs}'
+                    echo -e '## Fallback pour les paquets Fedora\n@includedir /etc/sudoers.d' >> '${f_sudoers_rs}'
                 fi
             "
             change=1
+            _RUNSILENT "" sudo sed -i 's/(the # here does not mean a comment)$//' "${f_sudoers_rs}"
         fi
 
         # 4. Remplacement du binaire sudo (La BASCULE CRITIQUE)
@@ -238,7 +239,7 @@ SETUP_SUDO_RS() {
             fi
         fi
         local pattern="Defaults pwfeedback,timestamp_timeout=60"
-        local file2="${d_sudoers_rs_d}/99-timeout"
+        local file2="${d_sudoers_rs_d}/95-timeout"
         if sudo test -f "${file2}"; then
             if ! sudo grep -q "${pattern}" "${file2}" >/dev/null; then
                 _RUN "Mise à jour de la règle \"timeout 60 minutes\"" sudo bash -c "echo \"${pattern}\" > \"${file2}\""
@@ -258,6 +259,7 @@ SETUP_SUDO_RS() {
         # 6. Nettoyage des anciens fichiers
         if [[ -f "/etc/sudoers" && ! -L "/etc/sudoers" ]]; then
             _BACKUP_FILE "/etc/sudoers"
+            _RUNSILENT "" rm -vf -- "/etc/sudoers"
             change=1
         fi
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=40.5
+readonly VERSION=40.6
 declare -A SWAPS=()
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
@@ -183,8 +183,8 @@ EOF
     # Préparation d'une session sudo confortable et longue (5h max) pour l'installation
     local sudotmp
     declare -ga SUDOTMP=()
-    sudotmp="/etc/sudoers.d/99_POST-INSTALL"
-    SUDOTMP=(/etc/sudoers-rs.d/99_POST-INSTALL /etc/sudoers.d/99_POST-INSTALL) # pour delete à la fin et en cas de plantage
+    sudotmp="/etc/sudoers.d/999_POST-INSTALL"
+    SUDOTMP=(/etc/sudoers-rs.d/999_POST-INSTALL /etc/sudoers.d/999_POST-INSTALL) # pour delete à la fin et en cas de plantage
     _RUNSILENT "" bash -c "echo 'Defaults pwfeedback,timestamp_timeout=300' | sudo tee '${sudotmp}'"
     _RUNSILENT "" sudo chmod -v 0440 "${sudotmp}"
 
@@ -2113,9 +2113,15 @@ SETUP_GRUB() {
     if [[ "${current_cmdline}" != "${full_cmdline}" ]] || [[ "${current_default}" != "saved" ]] || [[ "${current_timeout}" != "2" ]]; then
         _BACKUP_FILE "${grub_file}"
 
-        _RUN "Mise à jour de GRUB_DEFAULT" _GRUB_SET_KV "${grub_file}" "GRUB_DEFAULT" "saved"
-        _RUN "Mise à jour de GRUB_TIMEOUT" _GRUB_SET_KV "${grub_file}" "GRUB_TIMEOUT" "2"
-        _RUN "Mise à jour de GRUB_CMDLINE_LINUX" _GRUB_SET_CMDLINE "${grub_file}" "${full_cmdline}"
+        if [[ "${current_default}" != "saved" ]]; then
+            _RUN "Mise à jour de GRUB_DEFAULT" _GRUB_SET_KV "${grub_file}" "GRUB_DEFAULT" "saved"
+        fi
+        if [[ "${current_timeout}" != "2" ]]; then
+            _RUN "Mise à jour de GRUB_TIMEOUT" _GRUB_SET_KV "${grub_file}" "GRUB_TIMEOUT" "2"
+        fi
+        if [[ "${current_cmdline}" != "${full_cmdline}" ]]; then
+            _RUN "Mise à jour de GRUB_CMDLINE_LINUX" _GRUB_SET_CMDLINE "${grub_file}" "${full_cmdline}"
+        fi
 
         _LOG "Options de démarrage du noyau dans GRUB :"
         _PRINT_LIST "${full_cmdline}" | tee -a "${LOG_FILE:-/dev/null}" >/dev/null
@@ -2187,7 +2193,7 @@ REMOVE_SYSTEM_PACKAGES() {
     if ((wants_systemd_networkd_removal)); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
         if _IS_ACTIVE NetworkManager; then
             if _IS_PKG_INSTALLED systemd-networkd; then
-                _RUN "Suppression systemd-networkd après vérification que NetworkManager est actif" _PKG_REMOVE systemd-networkd
+                _RUN "Suppression systemd-networkd (NetworkManager OK)" _PKG_REMOVE systemd-networkd
             else
                 _LOG "systemd-networkd déjà supprimé"
             fi

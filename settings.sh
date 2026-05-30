@@ -274,10 +274,10 @@ CMDLINE="" #skew_tick=1
 KDEPANEL="top"
 
 # Partage NFS
-NFS_SHARE="192.168.50.51:/mnt/usbdrive/data"
+#NFS_SHARE="192.168.50.51:/mnt/usbdrive/data"
 
 # Point de montage NFS
-NFS_MP="/media/NAS"
+#NFS_MP="/media/NAS"
 
 # règle udev persistante (par ex : clé usb) personnalisé
 # shellcheck disable=SC2089,SC2016

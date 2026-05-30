@@ -147,7 +147,7 @@ _MANAGE_TABLE() {
         esac
 
         local all_fmt
-        local missing_fmt
+        local missing_fmt missing_fmt_readable
         local present_fmt
         if ((${#missing[@]})); then
             missing_fmt=$(_FORMAT_LIST "${missing[@]}")
@@ -161,8 +161,20 @@ _MANAGE_TABLE() {
             _LOG "Paquets à TRAITER car échouant au test \"${test}\" : "
             _INFO "Paquets à traiter"
             local a b
-            a=$(_PRINT_LIST "${missing_fmt}")
-            echo "${a}" | tee -a "${LOG_FILE:-/dev/null}"
+            if [[ "${install_cmd}" = "_FPPKG_INSTALL" ]]; then
+                local missing_readable=()
+                local missing_fmt_readable
+                for pkg in "${missing[@]}"; do
+                    missing_readable+=("${pkg##*.}") # pour rendre plus propre la nom des paquets flatpak
+                done
+                missing_fmt_readable=$(_FORMAT_LIST "${missing_readable[@]}")
+                a=$(_PRINT_LIST "${missing_fmt_readable}")
+                echo "${a}" | tee -a "${LOG_FILE:-/dev/null}"
+            else
+                a=$(_PRINT_LIST "${missing_fmt}")
+                echo "${a}" | tee -a "${LOG_FILE:-/dev/null}"
+            fi
+
             _RUN "${treat^} en cours..." "${install_cmd}" "${missing[@]}"
             printf '\e[1A\e[2K' # je remonte d'une ligne et je la vide, pour écraser le "en cours..."
 
