@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=40.4
-
+readonly VERSION=40.5
+declare -A SWAPS=()
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
 # gestion des interruptions
@@ -124,9 +124,8 @@ EOF
         esac
     fi
 
-    local heure
+    local heure logsuffix
     heure=$(date '+%T')
-    local logsuffix
     START=${SECONDS}
     _PASS
     # LOG
@@ -164,7 +163,7 @@ EOF
     _OK "Fichier log de la post-installation : ${LOG_FILE}"
     printf '%s\n' "Paramètres utilisateur retenus : " >>"${LOG_FILE}"
     tail -n +14 ./settings.sh | grep -E -v '^(#.*shellcheck|export[[:space:]]*|[[:space:]]*#.*shellcheck|[[:space:]]*$)' >> "${LOG_FILE}"
-    INSTALL_DEPS
+    INSTALL_PREREQUISITE
 
     # RUST
     export RUSTUP_HOME=/opt/rustup
@@ -176,15 +175,17 @@ EOF
 
     # Dossiers utilisateur requis
     _RUNSILENT "" mkdir -pv "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
+
     # Dossiers système requis
     _RUNSILENT "" sudo mkdir -pv /var/tmp/cargo-target "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
     _RUNSILENT "" sudo chmod -v 777 "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${GOROOT}" /var/tmp/cargo-target
-    # Préparation d'une session sudo confortable et longue pour l'installation
+
+    # Préparation d'une session sudo confortable et longue (5h max) pour l'installation
     local sudotmp
     declare -ga SUDOTMP=()
     sudotmp="/etc/sudoers.d/99_POST-INSTALL"
     SUDOTMP=(/etc/sudoers-rs.d/99_POST-INSTALL /etc/sudoers.d/99_POST-INSTALL) # pour delete à la fin et en cas de plantage
-    _RUNSILENT "" bash -c "echo 'Defaults pwfeedback,timestamp_timeout=180' | sudo tee '${sudotmp}'"
+    _RUNSILENT "" bash -c "echo 'Defaults pwfeedback,timestamp_timeout=300' | sudo tee '${sudotmp}'"
     _RUNSILENT "" sudo chmod -v 0440 "${sudotmp}"
 
     # aussitôt je conf le package manager si besoin pour accélérer les download de paquets
@@ -1040,7 +1041,7 @@ EOF
 
 ########################################################################################################################
 
-INSTALL_DEPS() {
+INSTALL_PREREQUISITE() {
     local -a prerequisit=(zsh sed gawk curl ncurses git stow pciutils coreutils dnf-plugins-core binutils policycoreutils-python-utils)
     _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL "${prerequisit[@]}"
 }
@@ -2135,3 +2136,309 @@ SETUP_GRUB() {
         _LOG "Configuration GRUB mise à jour avec succès"
     fi
 }
+
+########################################################################################################################
+REMOVE_SYSTEM_PACKAGES() {
+    _SECTION " Suppression des paquets systèmes indésirables 📤 " "━" "${C_GREEN}"
+    local pkg wants_systemd_networkd_removal wants_akonadi_removal
+    wants_systemd_networkd_removal=0
+    wants_akonadi_removal=0
+    #
+    if [[ "${DISABLE_PLYMOUTH,,}" = "yes" ]]; then
+        if _IS_PKG_INSTALLED plymouth-core-libs; then
+            _INFO "Suppression boot graphique demandée"
+        else
+            _LOG "Boot graphique déjà supprimée"
+        fi
+        SYSTEM_REMOVE+=("plymouth-core-libs")
+    fi
+
+    if [[ "${DISABLE_DNF_GUI,,}" = "yes" ]]; then
+        if _IS_PKG_INSTALLED PackageKit-glib; then
+            _INFO "Suppression GUIs dnf demandée"
+        else
+            _LOG "GUIs dnf déjà supprimée"
+        fi
+        if ! _IN_ARRAY gnome-software "${SYSTEM_REMOVE[@]}" ; then SYSTEM_REMOVE+=("gnome-software"); fi
+        if ! _IN_ARRAY plasma-discover "${SYSTEM_REMOVE[@]}" ; then SYSTEM_REMOVE+=("plasma-discover"); fi
+        if ! _IN_ARRAY PackageKit-glib "${SYSTEM_REMOVE[@]}" ; then SYSTEM_REMOVE+=("PackageKit-glib"); fi
+    fi
+
+    for pkg in "${SYSTEM_REMOVE[@]}"; do
+        if [[ "${pkg}" == "systemd-networkd" ]]; then
+            wants_systemd_networkd_removal=1
+            continue
+        fi
+        if [[ "${pkg}" == "akonadi-server" ]]; then
+            wants_akonadi_removal=1
+            continue
+        fi
+    done
+    if ((wants_systemd_networkd_removal)); then # on retire systemd-networkd des paquets à retirer car il sera retiré après avec des précautions
+        local tmp=()
+        for pkg in "${SYSTEM_REMOVE[@]}"; do
+            if [[ "${pkg}" != "systemd-networkd" ]]; then tmp+=("${pkg}"); fi
+        done
+        SYSTEM_REMOVE=("${tmp[@]}")
+    fi
+
+    _MANAGE_TABLE _IS_PKG_REMOVED _PKG_REMOVE "${SYSTEM_REMOVE[@]}"
+
+    if ((wants_systemd_networkd_removal)); then # par sécurité (si demandé) on ne dégage systemd-networkd qu'après assurance que NM est présent et actif
+        if _IS_ACTIVE NetworkManager; then
+            if _IS_PKG_INSTALLED systemd-networkd; then
+                _RUN "Suppression systemd-networkd après vérification que NetworkManager est actif" _PKG_REMOVE systemd-networkd
+            else
+                _LOG "systemd-networkd déjà supprimé"
+            fi
+        else
+            _INFO "NetworkManager inactif, systemd-networkd conservé par sécurité"
+        fi
+    fi
+    if ((wants_akonadi_removal)); then
+        _RUNSILENT "" rm -rf -- "${HOME}/.local/share/akonadi"*
+        _RUNSILENT "" rm -rf -- "${HOME}/.config/akonadi"*
+        _RUNSILENT "" rm -rf -- "${HOME}/.cache/akonadi"*
+    fi
+
+}
+
+########################################################################################################################
+
+INSTALL_FONTS() {
+    local header=""
+    if [[ "${FONTS[*]}" != "" ]]; then
+        _SECTION " Installation de polices d'affichage personnelles 🔤 " "━" "${C_GREEN}"
+        header="yes"
+        _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_INSTALL_SKIP "${FONTS[@]}"
+    else
+        _LOG "Aucune police additionnelles demandées"
+    fi
+
+    if [[ -n "${VCONSOLE_FONT}" ]]; then
+        if [[ ${header} = "" ]]; then
+            _SECTION " Installation de polices d'affichage personnelles 🔤 " "━" "${C_GREEN}"
+        fi
+        _SETUP_VCONSOLE_FONT
+    fi
+}
+
+########################################################################################################################
+
+INSTALL_SYSTEM_PACKAGES() {
+    if [[ "${SYSTEM_PACKAGES[*]}" != "" ]]; then
+        _SECTION " Installation des paquets systèmes personnalisés 📥 " "━" "${C_GREEN}"
+        # shellcheck disable=SC2154
+        if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]] && [[ "${DISTRO,,}" = "fedora" ]]; then
+            _LOG " ajout du noyau Linux de cachyOS dans les paquets à installer "
+
+            if ! _IN_ARRAY kernel-cachyos "${SYSTEM_PACKAGES[@]}"; then
+                if ! _IS_PKG_INSTALLED kernel-cachyos; then
+                    _INFO "Noyau linux cachyOS demandé"
+                fi
+                SYSTEM_PACKAGES+=("kernel-cachyos")
+            fi
+
+            if ! _IN_ARRAY kernel-cachyos-core "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("kernel-cachyos-core")
+            fi
+
+            if ! _IN_ARRAY kernel-cachyos-devel "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("kernel-cachyos-devel")
+            fi
+
+            if ! _IN_ARRAY kernel-cachyos-devel-matched "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("kernel-cachyos-devel-matched")
+            fi
+
+            if ! _IN_ARRAY kernel-cachyos-modules "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("kernel-cachyos-modules")
+            fi
+
+            if ! _IN_ARRAY ananicy-cpp "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("ananicy-cpp")
+            fi
+
+            if ! _IN_ARRAY cachyos-ananicy-rules "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("cachyos-ananicy-rules")
+            fi
+
+        fi
+
+        _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${SYSTEM_PACKAGES[@]}"
+    else
+        _LOG "Aucun paquets systèmes additionnels demandés"
+    fi
+}
+
+########################################################################################################################
+_SETUP_FIREWALL() {
+    _LOG "* configuration firewall *"
+    # 1. Vérification de l'installation du paquet
+    if ! _EXIST firewalld; then
+        _RUN "Installation de firewalld" _PKG_INSTALL firewalld
+    fi
+
+    # 2. Vérification et activation du service
+    if ! _IS_ACTIVE firewalld.service; then
+        _RUN "Démarrage du firewall" sudo systemctl enable --now firewalld.service
+    else
+        _INFO "Déjà OK : firewall en service"
+        if ! _IS_ENABLED firewalld.service; then
+            _RUNSILENT "" sudo systemctl enable firewalld.service
+        fi
+    fi
+
+    # 3. Configuration des services essentiels
+    local firewall_changed=false
+    local service
+    if [[ "${ACTIVATE_SSHD}" = "yes" ]]; then
+        FIREWALL_SERVICES+=("ssh")
+    fi
+    for service in "${FIREWALL_SERVICES[@]}"; do
+        if sudo firewall-cmd --permanent --query-service="${service}" >/dev/null 2>&1; then
+            _LOG "Service ${service} déjà autorisé"
+        else
+            _RUN "Autorisation du service ${service}" sudo firewall-cmd --permanent --add-service="${service}"
+            firewall_changed=true
+        fi
+    done
+
+    # 4. Si on a fait au moins une modification, on recharge le pare-feu
+    if [[ "${firewall_changed}" == true ]]; then
+        _RUN "Rechargement des règles de firewalld (${FIREWALL_SERVICES[*]})" sudo firewall-cmd --reload
+    else
+        _INFO "Déjà OK : règles firewall"
+    fi
+}
+
+########################################################################################################################
+
+SETUP_SWAP_BACKEND_FOR_ZSWAP() {
+    if [[ "${ZSWAP,,}" = "yes" ]]; then
+        _LOG "* swap *"
+        _ENSURE_LVM_SWAP
+        _GET_SWAP SWAPS
+        if [[ "${#SWAPS[@]}" -gt 0 ]]; then
+            local swappath allswap=""
+            for swappath in "${!SWAPS[@]}"; do
+                allswap="${allswap:+${allswap} }${swappath}"
+            done
+            _LOG "Au moins un swap sur disque a été détecté (${allswap}), pas nécessaire d'en construire un autre"
+            return 0
+        fi
+
+        local target_size ram_total_kib SWAP_SIZE SWAP_MAX
+        local recreate_swap=false
+        local swapdir="/var/swap"
+
+        ram_total_kib=$(awk '/^MemTotal:/ { print $2; exit }' /proc/meminfo)
+        # SWAP = "2 x RAMtotal + 1Go" avec MAX 16Go
+        SWAP_SIZE=$((1 + ram_total_kib * 2 / 1024 / 1024))
+        SWAP_MAX=16
+        if [[ "${SWAP_SIZE}" -gt "${SWAP_MAX}" ]]; then
+            SWAP_SIZE=${SWAP_MAX}
+        fi
+        target_size=$((SWAP_SIZE * 1024 * 1024 * 1024))
+
+        if [[ -f "${swapdir}/swapfile" ]]; then
+            local current_size
+            current_size=$(sudo stat -c %s "${swapdir}/swapfile" 2>/dev/null || echo 0)
+
+            if [[ "${current_size}" -ne "${target_size}" ]]; then
+                _INFO "${swapdir}/swapfile existant mais taille différente de celle demandée (${current_size} octets). Recréation..."
+                _RUNSILENT "" sudo swapoff "${swapdir}/swapfile"
+                _RUNSILENT "" sudo rm -fv -- "${swapdir}/swapfile"
+                recreate_swap=true
+            else
+                _LOG "${swapdir}/swapfile est déjà correctement installé"
+            fi
+        else
+            recreate_swap=true
+        fi
+
+        if [[ "${recreate_swap}" == "true" ]]; then
+            local fs_type
+            fs_type=$(stat -f -c %T /var)
+
+            if [[ "${fs_type}" == "btrfs" ]]; then
+                if [[ -e "${swapdir}" ]]; then
+                    if btrfs subvolume show "${swapdir}" >/dev/null 2>&1; then
+                        _INFO "Sous-volume BTRFS ${swapdir} existe déjà"
+                    else
+                        _RUNSILENT "" sudo rm -rvf -- "${swapdir}"
+                        _RUN "Création du sous-volume BTRFS ${swapdir}" sudo btrfs subvolume create "${swapdir}"
+                    fi
+                else
+                    _RUN "Création du sous-volume BTRFS ${swapdir}" sudo btrfs subvolume create "${swapdir}"
+                fi
+                _RUN "Création du swapfile BTRFS (${SWAP_SIZE}GiB)" sudo btrfs filesystem mkswapfile --size "${SWAP_SIZE}g" "${swapdir}/swapfile"
+            else # ext4, ...
+                _RUNSILENT "" sudo mkdir -vp "${swapdir}"
+                _RUN "Création du swapfile (${SWAP_SIZE}GiB)" sudo fallocate -l "${SWAP_SIZE}G" "${swapdir}/swapfile"
+                _RUNSILENT "" sudo chmod 0600 -v "${swapdir}/swapfile"
+                _RUNSILENT "" sudo mkswap "${swapdir}/swapfile"
+            fi
+            _ETC_FILES_ADD "${swapdir}/swapfile"
+            find "${swapdir}" -ls | sudo tee -a "${LOG_FILE}" >/dev/null
+        fi
+
+        if ! swapon --show | grep -q "${swapdir}/swapfile"; then
+            _RUN "Activation du swap" sudo swapon "${swapdir}/swapfile"
+        else
+            _INFO "Swap déjà actif"
+        fi
+
+        # --- 2.5 SELinux : Autorisation pour systemd-logind ---
+        local SElinux
+        SElinux=$(_SELINUX_CHECK)
+        if [[ "${SElinux}" != "absent" ]]; then
+            _LOG "* SELINUX SWAP *"
+            # 1. On s'assure que le label est déclaré et appliqué (rapide et idempotent)
+            if _EXIST semanage; then
+                if ! sudo semanage fcontext -l | grep -q "^${swapdir}(/.*)?"; then
+                    _RUN "Définition du contexte SELinux pour ${swapdir}" sudo semanage fcontext -a -t swapfile_t "${swapdir}(/.*)?"
+                fi
+            else
+                _DIE "commande semanage (SElinux) non trouvée"
+            fi
+            if _EXIST restorecon; then
+                _RUNSILENT "" sudo restorecon -RF "${swapdir}"
+            else
+                _DIE "commande restorecon (SElinux) non trouvée"
+            fi
+            # 2. On vérifie si notre module SELinux local est déjà installé
+            if _EXIST semodule; then
+                if ! sudo semodule -l | grep -q "^systemd_swap_search$"; then
+                    local selinux_tmp="/tmp/systemd_swap_search"
+
+                    # module SElinux pour gérer le swap
+                    local selinux_content
+                    selinux_content=$'module systemd_swap_search 1.0;\nrequire {\ntype swapfile_t;\ntype systemd_logind_t;\nclass dir search;\n}\n#============= systemd_logind_t ==============\nallow systemd_logind_t swapfile_t:dir search;\n'
+
+                    cat <<<"${selinux_content}" >"${selinux_tmp}.te"
+                    if _EXIST checkmodule; then
+                        _RUNSILENT "" sudo checkmodule -M -m -o "${selinux_tmp}.mod" "${selinux_tmp}.te"
+                    else
+                        _DIE "commande checkmodule (SElinux) non trouvée"
+                    fi
+                    if _EXIST semodule_package; then
+                        _RUNSILENT "" sudo semodule_package -o "${selinux_tmp}.pp" -m "${selinux_tmp}.mod"
+                    else
+                        _DIE "commande semodule_package (SElinux) non trouvée"
+                    fi
+
+                    _RUN "Installation du module SELinux systemd_swap_search" sudo semodule -i "${selinux_tmp}.pp"
+                    _RUNSILENT "" sudo rm -vf -- "${selinux_tmp}.te" "${selinux_tmp}.mod" "${selinux_tmp}.pp"
+                else
+                    _LOG "Le module SELinux systemd_swap_search est déjà actif"
+                fi
+            else
+                _DIE "commande semodule (SElinux) non trouvée"
+            fi
+        fi
+    else
+        _LOG "zswap n'est pas demandé (variable ZSWAP = ${ZSWAP,,}) => on ne crée pas de swap physique"
+    fi
+}
+

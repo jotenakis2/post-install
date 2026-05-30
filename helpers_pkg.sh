@@ -117,15 +117,17 @@ _IS_ACTIVE_USER() {
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _PKG_CONFIG() {
-    if [[ ! -f /etc/fedora-release ]]; then
-        echo "Fedora uniquement."
-        exit 1
+    # shellcheck disable=SC2154
+    if [[ "${DISTRO,,}" = "fedora" ]]; then
+        local dnf="/etc/dnf/dnf.conf"
+        if ! sudo grep -q "defaultyes=True" "${dnf}" 2>/dev/null || ! sudo grep -q "fastestmirror=True" "${dnf}" 2>/dev/null || ! sudo grep -q "max_parallel_downloads=10" "${dnf}" 2>/dev/null || ! sudo grep -q "countme=False" "${dnf}" 2>/dev/null; then
+            _BACKUP_FILE "${dnf}"
+            _ETC_FILES_ADD "${dnf}"
+            _RUNSILENT "" sudo dnf config-manager setopt max_parallel_downloads=15 fastestmirror=True countme=False defaultyes=True
+        fi
+    else
+        _LOG "pas Fedora => je ne fait rien au gestionnaire de paquets pour le moment"
     fi
-    local dnf="/etc/dnf/dnf.conf"
-    if ! sudo grep -q "defaultyes=True" "${dnf}" 2>/dev/null || ! sudo grep -q "fastestmirror=True" "${dnf}" 2>/dev/null || ! sudo grep -q "max_parallel_downloads=10" "${dnf}" 2>/dev/null || ! sudo grep -q "countme=False" "${dnf}" 2>/dev/null; then
-        _ETC_FILES_ADD "${dnf}"
-    fi
-    _RUNSILENT "" sudo dnf config-manager setopt max_parallel_downloads=15 fastestmirror=True countme=False defaultyes=True
 }
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

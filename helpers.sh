@@ -115,8 +115,8 @@ _MANAGE_TABLE() {
     local install_cmd="$2"
     shift 2
     local list
-    list="$*"
-    if [[ "${list}" != "" ]]; then
+    list="${*:-}"
+    if [[ -n "${list}" ]]; then
         local -a missing=()
         local -a present=()
         local pkg
@@ -334,3 +334,94 @@ _BACKUP_FILE(){
     _RUNSILENT "" sudo chmod -v "${perm}" "${copied}" "${origin}"
 }
 
+########################################################################################################################
+
+_ROOT_CHECK(){ # Vérification explicite des droits root
+    if [[ "${EUID}" -eq 0 ]]; then
+        local reponse
+        echo "${SCRIPTNAME} lancé en tant que root, le mode \"SHELL ONLY\" est imposé :"
+        echo " - Les dépots GIT seront clonés (programmes non installés)."
+        echo " - Le SHELL zsh sera configuré."
+        echo " - Les dotfiles clonés seront déployés pour l'utilisateur root."
+        echo " - Pour que tout le script soit exécuté il doit être lancé en utilisateur avec droits sudo."
+        echo ""
+        read -r -p "On continue en mode \"SHELL ONLY\" ? [o/N] " reponse
+        # shellcheck disable=SC2034
+        case "${reponse,,}" in
+            o|oui|y|yes) ROOT="yes" ;;
+            *) exit 127 ;;
+        esac
+    else
+        if ! id -nG "${USER}" | grep -qwE 'wheel|sudo'; then
+            echo "L'utilisateur ${USER} n'appartient pas au groupe 'wheel' (sudo). Abandon."
+            exit 1
+        fi
+    fi
+}
+
+########################################################################################################################
+
+_BASH_CHECK(){
+    if [[ -z "${BASH_VERSION:-}" ]]; then
+        echo "Ce script requiert bash."
+        exit 1
+    fi
+    if [[ "${BASH_VERSINFO[0]}" -lt 5 ]]; then
+        echo "Bash >= 5 requis (actuel : ${BASH_VERSION})."
+        exit 1
+    fi
+}
+
+########################################################################################################################
+
+_SETUP_VCONSOLE_FONT() {
+    local font="${VCONSOLE_FONT:-eurlatgr}"
+    local vconsole="/etc/vconsole.conf"
+    local font_dirs=("/usr/lib/kbd/consolefonts" "/usr/share/kbd/consolefonts")
+    local found=0
+
+    for dir in "${font_dirs[@]}"; do
+        if ls "${dir}/${font}".* &>/dev/null; then
+            found=1
+            break
+        fi
+    done
+
+    if ((found == 0)); then
+        _LOG "Police console '${font}' introuvable"
+    else
+        if grep -q "^FONT=" "${vconsole}" 2>/dev/null; then
+            if grep -q "^FONT=${font}" "${vconsole}" 2>/dev/null; then
+                _INFO "Déjà OK : police console TTY"
+                grep FONT "${vconsole}" >>"${LOG_FILE}"
+            else
+                _BACKUP_FILE "${vconsole}"
+                _RUNSILENT "" sudo sed -i "s/^FONT=.*/FONT=${font}/" "${vconsole}"
+                _OK "Modification de la police console TTY (${vconsole})"
+                _ETC_FILES_ADD "${vconsole}"
+                _LOG "Police console définie :"
+                cat "${vconsole}" 2>/dev/null >>"${LOG_FILE}"
+            fi
+        else
+            _BACKUP_FILE "${vconsole}"
+            printf '%s' "FONT=${font}" | sudo tee -a "${vconsole}" >/dev/null
+            _OK "Ajout de la police console TTY (${vconsole})"
+            _ETC_FILES_ADD "${vconsole}"
+            _LOG "Police console définie :"
+            cat "${vconsole}" 2>/dev/null >>"${LOG_FILE}"
+        fi
+    fi
+}
+
+########################################################################################################################
+
+_SELINUX_CHECK(){
+    local sestatus
+    sestatus=$(cat /sys/fs/selinux/enforce 2>/dev/null) || true
+
+    case "${sestatus}" in
+        1) echo "enforcing" ;;
+        0) echo "permissive" ;;
+        *) echo "absent" ;;
+    esac
+}
