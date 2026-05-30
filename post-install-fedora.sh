@@ -24,6 +24,7 @@ CHECK() {
     local fedora_rel
     fedora_rel=$(cat /etc/fedora-release)
     DISTRO="Fedora"
+    echo ""
     if [[ "${ROOT,,}" = "yes" ]]; then
         echo -e "${C_GREEN}Environnement valide : ${fedora_rel}, utilisateur root, mode shellonly${C_RESET}"
     else
