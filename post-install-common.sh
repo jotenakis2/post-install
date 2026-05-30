@@ -105,9 +105,7 @@ HELPMODE() {
 ########################################################################################################################
 INITIALIZE() {
     if [[ "${ROOT,,}" = "no" ]]; then
-        if _EXIST tput; then
-            tput setaf 1
-        fi
+        echo -ne "${C_RED}"
         cat <<'EOF'
 
     /!\ Précautions d'usage importantes /!\
@@ -121,9 +119,7 @@ INITIALIZE() {
 EOF
 
         read -r -p "On continue ? [o/N] " reponse
-        if _EXIST tput; then
-            tput sgr0
-        fi
+        echo -ne "${C_RESET}"
         case "${reponse,,}" in
             o|oui|y|yes) ;;
             *) exit 127 ;;

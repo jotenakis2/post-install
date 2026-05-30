@@ -16,7 +16,7 @@ export ROOT DISTRO
 CHECK() {
     _BASH_CHECK
     if [[ ! -f /etc/fedora-release ]]; then
-        echo "Fedora uniquement."
+        echo -e "${C_RED}Fedora uniquement, abandon.${C_RESET}"
         exit 1
     fi
     _ROOT_CHECK
@@ -25,9 +25,9 @@ CHECK() {
     fedora_rel=$(cat /etc/fedora-release)
     DISTRO="Fedora"
     if [[ "${ROOT,,}" = "yes" ]]; then
-        echo "Environnement valide : ${fedora_rel}, utilisateur root, mode shellonly."
+        echo -e "${C_GREEN}Environnement valide : ${fedora_rel}, utilisateur root, mode shellonly${C_RESET}"
     else
-        echo "Environnement valide : ${fedora_rel}, utilisateur ${USER} avec droits sudo OK"
+        echo -e "${C_GREEN}Environnement valide : ${fedora_rel}, utilisateur ${USER} avec droits sudo OK${C_RESET}"
     fi
 }
 
