@@ -260,7 +260,7 @@ SETUP_SUDO_RS() {
         # 6. Nettoyage des anciens fichiers
         if [[ -f "/etc/sudoers" && ! -L "/etc/sudoers" ]]; then
             _BACKUP_FILE "/etc/sudoers"
-            _RUNSILENT "" rm -vf -- "/etc/sudoers"
+            _RUNSILENT "" sudo rm -vf -- "/etc/sudoers"
             change=1
         fi
 
