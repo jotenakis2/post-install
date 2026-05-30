@@ -105,6 +105,9 @@ HELPMODE() {
 ########################################################################################################################
 INITIALIZE() {
     if [[ "${ROOT,,}" = "no" ]]; then
+        if _EXIST tput; then
+            tput setaf 1
+        fi
         cat <<'EOF'
 
     /!\ Précautions d'usage importantes /!\
@@ -122,6 +125,9 @@ EOF
             o|oui|y|yes) ;;
             *) exit 127 ;;
         esac
+        if _EXIST tput; then
+            tput sgr0
+        fi
     fi
 
     local heure logsuffix
