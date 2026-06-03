@@ -2,8 +2,13 @@
 # shellcheck disable=SC2310
 # TODO sshd : email quand conn.
 set -euo pipefail
-# shellcheck source=./post-install-common.sh
-source ./post-install-common.sh
+if [[ -f ./post-install-common.sh ]]; then
+    # shellcheck source=./post-install-common.sh
+    source ./post-install-common.sh
+else
+    echo "post-install-common.sh manquant !"
+    exit 1
+fi
 ROOT="no" # variable si script lancé en mode ROOT => shell only mode
 DISTRO="unknown"
 export ROOT DISTRO
@@ -425,9 +430,9 @@ EOF
     else
         _LOG "Pas de configuration du kernel cachyos, soit parce que non explicitement demandé soit parce qu'il n'a pas pu être installé !"
         {   echo "--- paquets cachyos :"
-            rpm -qa | grep -i cachyos
+            rpm -qa | grep -i cachyos || true
             echo "---------------------"
-        } >> "${LOG_FILE}"
+        } >> "${LOG_FILE:-/dev/null}"
     fi
 }
 

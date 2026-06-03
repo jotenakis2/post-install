@@ -193,22 +193,24 @@ _PASS() {
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _RUNSILENT() {
-    local msg="$1"
+    local msg="${1:?message manquant}"
     shift
+    local log
+    log=${LOG_FILE:-/dev/null}
+
     [[ -n "${msg}" ]] && _OK "${msg}"
 
     # Log tout,mais affiche juste les premières lignes si erreur
     local tmperr
     tmperr=$(mktemp)
     # shellcheck disable=SC2312
-    "$@" 2>&1 | tee -a "${LOG_FILE:-/dev/null}" >"${tmperr}"
-    local rc
-    rc="${PIPESTATUS[0]}"
+    "$@" 2>&1 | tee -a "${log}" >"${tmperr}"
+    local rc="${PIPESTATUS[0]}"
 
     if ((rc != 0)); then
         head -5 "${tmperr}" >&2
         echo "Échec de la commande : '$*'" >&2
-        echo "(voir ${LOG_FILE})" >&2
+        echo "(voir ${log})" >&2
     fi
 
     rm -f -- "${tmperr}"
@@ -231,20 +233,22 @@ _SPIN() {
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _RUN() {
-    local msg="$1"
+    local msg="${1:?message manquant}"
     shift
-    tput civis || true # Hide cursor, ignore errors if unsupported
-    "$@" >>"${LOG_FILE:-/dev/null}" 2>&1 &
+    local log
+    log=${LOG_FILE:-/dev/null}
+    tput civis 2>/dev/null || true # Hide cursor, ignore errors if unsupported
+    "$@" >>"${log}" 2>&1 &
     local pid=$!
     _SPIN "${pid}" "${msg}"
     if wait "${pid}"; then
-        tput cvvis || true # Show cursor, ignore errors if unsupported
+        tput cnorm 2>/dev/null || true # Show cursor, ignore errors if unsupported
         _OK "${msg}"
     else
-        tput cvvis || true # Show cursor, ignore errors if unsupported
+        tput cnorm 2>/dev/null || true # Show cursor, ignore errors if unsupported
         _ERR "${msg}"
-        tail -n5 "${LOG_FILE:-/dev/null}"
-        _DIE "Échec — détails : ${LOG_FILE:-/dev/null}"
+        tail -n5 "${log}"
+        _DIE "Échec — détails : ${log}"
     fi
 }
 
@@ -274,60 +278,87 @@ _CONVERT_SECONDS() {
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+# _PRINT_LIST() {
+#     local list="${1:-}"
+#     local width
+#     width=$(tput cols 2>/dev/null) || width=80
+#     local indent="         "
+#     local line="${indent}"
+#     local chunk=""
+#     local char
+#     local i
+#     local in_space=0
+#
+#     if [[ -n "${list}" ]]; then
+#         for ((i = 0; i < ${#list}; i++)); do
+#             char="${list:i:1}"
+#             if [[ "${char}" == ' ' ]]; then
+#                 if ((!in_space)); then
+#                     if [[ "${line}" == "${indent}" ]]; then
+#                         line="${indent}${chunk}"
+#                     elif ((${#line} + ${#chunk} <= width)); then
+#                         line="${line}${chunk}"
+#                     else
+#                         printf '%s\n' "${line}"
+#                         line="${indent}"
+#                         chunk=""
+#                         in_space=1
+#                     fi
+#                     chunk=""
+#                     in_space=1
+#                 fi
+#                 if [[ "${line}" != "${indent}" ]]; then
+#                     chunk="${chunk}${char}"
+#                 fi
+#             else
+#                 in_space=0
+#                 chunk="${chunk}${char}"
+#             fi
+#         done
+#
+#         # Dernier token
+#         if [[ -n "${chunk}" ]]; then
+#             if [[ "${line}" == "${indent}" ]]; then
+#                 line="${indent}${chunk}"
+#             elif ((${#line} + ${#chunk} <= width)); then
+#                 line="${line}${chunk}"
+#             else
+#                 printf '%s\n' "${line}"
+#                 line="${indent}${chunk}"
+#             fi
+#         fi
+#
+#         if [[ "${line}" != "${indent}" ]]; then
+#             printf '%s\n' "${line}"
+#         fi
+#         return 0
+#     fi
+# }
+
 _PRINT_LIST() {
-    local list="${1:?print_list: argument manquant}"
+    local list="${1:-}"
     local width
     width=$(tput cols 2>/dev/null) || width=80
-    local indent="         "
+    local indent="     "
     local line="${indent}"
-    local chunk=""
-    local char
-    local i
-    local in_space=0
+    local word
 
-    for ((i = 0; i < ${#list}; i++)); do
-        char="${list:i:1}"
-        if [[ "${char}" == ' ' ]]; then
-            if ((!in_space)); then
-                if [[ "${line}" == "${indent}" ]]; then
-                    line="${indent}${chunk}"
-                elif ((${#line} + ${#chunk} <= width)); then
-                    line="${line}${chunk}"
-                else
-                    printf '%s\n' "${line}"
-                    line="${indent}"
-                    chunk=""
-                    in_space=1
-                fi
-                chunk=""
-                in_space=1
-            fi
-            if [[ "${line}" != "${indent}" ]]; then
-                chunk="${chunk}${char}"
-            fi
+    [[ -z "${list}" ]] && return 0
+
+    for word in ${list}; do
+        if [[ "${line}" = "${indent}" ]]; then
+            line="${indent}${word}"
+        elif ((${#line} + 1 + ${#word} <= width)); then
+            line="${line} ${word}"
         else
-            in_space=0
-            chunk="${chunk}${char}"
+            printf '%s\n' "${line}"
+            line="${indent}${word}"
         fi
     done
 
-    # Dernier token
-    if [[ -n "${chunk}" ]]; then
-        if [[ "${line}" == "${indent}" ]]; then
-            line="${indent}${chunk}"
-        elif ((${#line} + ${#chunk} <= width)); then
-            line="${line}${chunk}"
-        else
-            printf '%s\n' "${line}"
-            line="${indent}${chunk}"
-        fi
-    fi
-
-    if [[ "${line}" != "${indent}" ]]; then
-        printf '%s\n' "${line}"
-    fi
-    return 0
+    [[ "${line}" != "${indent}" ]] && printf '%s\n' "${line}"
 }
+
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 

@@ -1,18 +1,32 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=40.6
+readonly VERSION=41.0
 declare -A SWAPS=()
+
 # basename sans l'extension .sh
 SCRIPTNAME="${0##*/}" ; SCRIPTNAME="${SCRIPTNAME%.sh}" ; readonly SCRIPTNAME
+
 # gestion des interruptions
-trap '_CLEANUP' ERR
+trap '_CLEANUP'   ERR
 trap '_INTERRUPT' INT
-trap '_DO_CLEAN' EXIT
-# shellcheck source=./helpers.sh
-source ./helpers.sh
-# shellcheck source=./settings.sh
-source ./settings.sh
+trap '_DO_CLEAN'  EXIT
+
+# sourcing
+if [[ -f ./helpers.sh ]]; then
+    # shellcheck source=./helpers.sh
+    source ./helpers.sh
+else
+    echo "helpers.sh manquant !"
+    exit 1
+fi
+if [[ -f ./settings.sh ]]; then
+    # shellcheck source=./settings.sh
+    source ./settings.sh
+else
+    echo "settings.sh manquant !"
+    exit 1
+fi
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 MAIN() {
@@ -78,18 +92,24 @@ SHELLONLYMODE() {
 ########################################################################################################################
 CHECKMODE() {
     _SECTION " Mode contrôle - paramètres personnalisables de ${SCRIPTNAME} ✅ " "━" "${C_GREEN}"
-    echo "Fichier : "
-    ls -l ./settings.sh 2>/dev/null
-    echo ""
-    echo "Contenu : "
-    if _EXIST bat; then
-        grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh | bat -pP
+    if [[ -f ./settings.sh ]]; then
+        echo "Fichier : "
+        ls -l ./settings.sh
+        echo ""
+        echo "Contenu : "
+        if _EXIST bat; then
+            grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh | bat -pP
+        else
+            grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh
+        fi
+        echo ""
+        _DO_CLEAN
+        exit 0
     else
-        grep -E -v '^(#.*shellcheck disable|\s*#.*shellcheck disable|\s*$)' ./settings.sh
+        echo "fichier settings.sh manquant !"
+        exit 1
     fi
-    echo ""
-    _DO_CLEAN
-    exit 0
+
 }
 
 ########################################################################################################################
@@ -118,8 +138,8 @@ INITIALIZE() {
 
 EOF
 
-        read -r -p "On continue ? [o/N] " reponse
         echo -ne "${C_RESET}"
+        read -r -p "On continue ? [o/N] " reponse
         case "${reponse,,}" in
             o|oui|y|yes) ;;
             *) exit 127 ;;
@@ -162,9 +182,12 @@ EOF
     _SECTION " Préparation de la post-installation 🚀 " "━" "${color}"
     _INFO "Distribution : ${pretty_name}"
     _INFO "Heure de démarrage du script : ${heure}"
-    _OK "Fichier log de la post-installation : ${LOG_FILE}"
-    printf '%s\n' "Paramètres utilisateur retenus : " >>"${LOG_FILE}"
-    tail -n +14 ./settings.sh | grep -E -v '^(#.*shellcheck|export[[:space:]]*|[[:space:]]*#.*shellcheck|[[:space:]]*$)' >> "${LOG_FILE}"
+    _OK "Fichier log de la post-installation : ${LOG_FILE:-/dev/null}"
+    {
+    printf '%s\n' "Paramètres utilisateur retenus : "
+    tail -n +16 ./settings.sh | grep -E -v '^(#.*shellcheck|export[[:space:]]*|[[:space:]]*#.*shellcheck|[[:space:]]*$|#)'
+    echo ""
+    } >>"${LOG_FILE:-/dev/null}"
     INSTALL_PREREQUISITE
 
     # RUST
@@ -213,7 +236,7 @@ INSTALL_CARGO_PACKAGES() {
         # 0. toolchain rust
         local check
         if _EXIST rustup; then
-            check=$(rustup check 2>/dev/null)
+            check=$(rustup check 2>/dev/null) || true
             if echo "${check}" | grep -q "update available"; then
                 version=$(echo "${check}" | awk -F ":" '{print $2}' | xargs)
                 _RUN "Mise à jour de la toolchain RUST (${version})" rustup update stable
@@ -221,14 +244,28 @@ INSTALL_CARGO_PACKAGES() {
                 _LOG "la toolchain rust est à jour"
             fi
         else
-            _RUN "Installation de la toolchain RUST" bash -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
+            #_RUN "Installation de la toolchain RUST" bash -c 'set -o pipefail ; curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
+            _RUN "Installation de la toolchain RUST" bash -c '
+                    set -euo pipefail
+                    curl -L --proto "=https" --tlsv1.2 -sSf \
+                        --connect-timeout 15 \
+                        --max-time 90 \
+                        https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable
+'
         fi
         _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/cargo" "/usr/local/bin/cargo"
         _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/rustup" "/usr/local/bin/rustup"
 
         # 1. Installation de cargo-binstall sans compilation
         if ! _EXIST cargo-binstall; then
-            _RUN "Installation de cargo-binstall" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
+            #_RUN "Installation de cargo-binstall" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
+            _RUN "Installation de cargo-binstall" bash -c '
+                    set -euo pipefail
+                    curl -L --proto "=https" --tlsv1.2 -sSf \
+                        --connect-timeout 15 \
+                        --max-time 90 \
+                        https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+'
         else
             _LOG "cargo-binstall (installation de paquets binaires) est déjà installé"
         fi
@@ -503,9 +540,9 @@ SETUP_DOTFILES() {
     for pkg in "${DOTFILES_DIR}"/*/; do
         name=$(basename "${pkg}")
         if [[ "${RESTOW,,}" = "yes" ]]; then
-            stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE}"
+            stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "${name}" &>>"${LOG_FILE:-/dev/null}"
         else
-            stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" "${name}" &>>"${LOG_FILE}"
+            stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" "${name}" &>>"${LOG_FILE:-/dev/null}"
         fi
     done
 
@@ -648,9 +685,9 @@ SETUP_DATA() {
                             if [[ "${profil,,}" = "discord" ]]; then
                                 rm -rf -- "${HOME}/.config/vesktop/themes"
                                 if [[ "${RESTOW,,}" = "yes" ]]; then
-                                    stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "vesktop" &>>"${LOG_FILE}"
+                                    stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" --restow "vesktop" &>>"${LOG_FILE:-/dev/null}"
                                 else
-                                    stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" "vesktop" &>>"${LOG_FILE}"
+                                    stow -v1 --dir="${DOTFILES_DIR}" --target="${HOME}" "vesktop" &>>"${LOG_FILE:-/dev/null}"
                                 fi
                             fi
                         else
@@ -1037,9 +1074,9 @@ EOF
             _INFO "Déjà OK : fond d'écran PLM"
         fi
         {
-            sudo ls -l "${configPLM}"
-            sudo cat "${configPLM}"
-        } >>"${LOG_FILE}"
+            sudo ls -l "${configPLM:-/dev/null}"
+            sudo cat "${configPLM:-/dev/null}"
+        } >>"${LOG_FILE:-/dev/null}"
     else
         _LOG "Fond d'écran custo pour PLM introuvable : ${src}"
     fi
@@ -1118,14 +1155,14 @@ END() {
     fi
 
     # LOG
-    _INFO "Fichier log de la post-installation : ${LOG_FILE}"
+    _INFO "Fichier log de la post-installation : ${LOG_FILE:-/dev/null}"
 
     # history
     local list="/root/list-of-system-files-created-or-modified-by-${SCRIPTNAME}.log"
     if sudo test -f "${list}" && [[ ${nofile,,} = "yes" ]]; then
         _INFO "Historique des fichiers modifiés par ${SCRIPTNAME} :"
         # sudo sed 's/^/        /' "${list}"
-        sudo sed 's/^/        /' "${list}" | sudo tee -a "${LOG_FILE:-/dev/null}"
+        sudo sed 's/^/        /' "${list:-/dev/null}" | sudo tee -a "${LOG_FILE:-/dev/null}"
     fi
 
     # upload LOG
@@ -1134,7 +1171,7 @@ END() {
     fi
     local url
     url="https://temp.sh/upload"
-    file=$(curl -F file=@"${LOG_FILE}" "${url}" 2>/dev/null)
+    file=$(curl -F file=@"${LOG_FILE:-/dev/null}" "${url}" 2>/dev/null)
     if [[ -n "${file}" ]]; then
         _OK "Log téléversé : ${file}"
     fi
@@ -1194,7 +1231,7 @@ _MSMTP() {
         if [[ ! -f /var/log/msmtp.log ]]; then
             _LOG "config log msmtp car paquet présent"
             sudo touch /var/log/msmtp.log
-            _RUNSILENT "" bash -c "sudo chmod -v 600 /var/log/msmtp.log >>${LOG_FILE}"
+            _RUNSILENT "" bash -c "sudo chmod -v 600 /var/log/msmtp.log >>${LOG_FILE:-/dev/null}"
             _ETC_FILES_ADD "/var/log/msmtp.log"
         fi
     fi
@@ -1216,10 +1253,10 @@ _NETWORKMANAGER() {
         RESTARTNM="yes"
     fi
     {
-        ls -l "${file}"
-        cat "${file}"
+        ls -l "${file:-/dev/null}"
+        cat "${file:-/dev/null}"
         echo ""
-    } >>"${LOG_FILE}"
+    } >>"${LOG_FILE:-/dev/null}"
 
     if [[ "${WIFI_POWERSAVE,,}" = "yes" ]]; then
         local nm_wifipowersave file2
@@ -1232,10 +1269,10 @@ _NETWORKMANAGER() {
             RESTARTNM="yes"
         fi
         {
-        ls -l "${file2}"
-        cat "${file2}"
+        ls -l "${file2:-/dev/null}"
+        cat "${file2:-/dev/null}"
         echo ""
-        } >>"${LOG_FILE}"
+        } >>"${LOG_FILE:-/dev/null}"
     fi
 
 }
@@ -1257,9 +1294,8 @@ _SYSTEMD_RESOLVED() {
         _OK "Configuration serveurs DNS (dans ${dir})"
         printf '%s' "${RESOLVED_DNS_SERVERS}" | sudo tee "${dnsfile}" >/dev/null
         printf '%s' "${resolved_10_conf}" | sudo tee "${llmnrfile}" >/dev/null
-        _RUNSILENT "" bash -c "sudo chmod -v 644 ${dnsfile} ${llmnrfile} >>${LOG_FILE}"
+        _RUNSILENT "" bash -c "sudo chmod -v 644 ${dnsfile} ${llmnrfile} >>${LOG_FILE:-/dev/null}"
         RESTARTSYSTEMDRESOLVED="yes"
-        #_RUNSILENT "Redémarrage du service systemd-resolved" sudo systemctl restart systemd-resolved.service
         _ETC_FILES_ADD "${dnsfile}"
         _ETC_FILES_ADD "${llmnrfile}"
     else
@@ -1267,13 +1303,13 @@ _SYSTEMD_RESOLVED() {
     fi
 
     {
-        ls -l "${dnsfile}"
-        cat "${dnsfile}"
+        ls -l "${dnsfile:-/dev/null}"
+        cat "${dnsfile:-/dev/null}"
         echo ""
-        ls -l "${llmnrfile}"
-        cat "${llmnrfile}"
+        ls -l "${llmnrfile:-/dev/null}"
+        cat "${llmnrfile:-/dev/null}"
         echo ""
-    } >>"${LOG_FILE}"
+    } >>"${LOG_FILE:-/dev/null}"
 }
 
 ########################################################################################################################
@@ -1447,13 +1483,12 @@ _LIBVIRT() {
             _RUN "Ajout de l'utilisateur ${USER} au groupe libvirt" sudo usermod -aG libvirt "${USER}"
             _ETC_FILES_ADD "/etc/group"
         fi
-    fi
-    {
-        ls -l /etc/group
-        grep libvirt /etc/group
+        {
+        ls -l /etc/group || true
+        grep libvirt /etc/group || true
         echo ""
-    } >>"${LOG_FILE}"
-
+        } >>"${LOG_FILE:-/dev/null}"
+    fi
 }
 
 ########################################################################################################################
@@ -1475,7 +1510,7 @@ _DISABLE_IPV6_IN_SERVICES() {
             if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
                 _RUNSILENT "" sudo systemctl try-restart chronyd
                 _LOG "IPv6 désactivé pour chrony"
-                cat "${chrony_file}" >> "${LOG_FILE}"
+                cat "${chrony_file:-/dev/null}" >> "${LOG_FILE:-/dev/null}"
             fi
         else
             _LOG "Chrony n'est pas installé"
@@ -1487,7 +1522,7 @@ _DISABLE_IPV6_IN_SERVICES() {
             _BACKUP_FILE "${hostsfile}"
             _RUN "Configuration IPv6 de l'hôte (${hostsfile})" sudo sed -i -E '/^\s*(::1|fe80::[^[:space:]]*)/d' "${hostsfile}"
             _LOG "Entrées IPv6 supprimées de ${hostsfile} (backup: ${hostsfile}.bak et ${hostsfile}.origin)"
-            cat "${hostsfile}" >> "${LOG_FILE}"
+            cat "${hostsfile}" >> "${LOG_FILE:-/dev/null}"
             _ETC_FILES_ADD "${hostsfile}"
         else
             _INFO "Déjà OK : entrée IPv6 dans ${hostsfile} supprimée"
@@ -1508,7 +1543,7 @@ _DISABLE_IPV6_IN_SERVICES() {
                 _RUN "Configuration IPv6 avahi-daemon (${avahi_conf})" sudo sed -i -E '/^\[server\]/a use-ipv6=no' "${avahi_conf}"
             fi
             _LOG "IPv6 désactivé pour ${avahi_conf} (backup: ${avahi_conf}.bak et ${avahi_conf}.origin)"
-            grep use-ipv6 "${avahi_conf}" >> "${LOG_FILE}"
+            grep use-ipv6 "${avahi_conf:-/dev/null}" 2>/dev/null >> "${LOG_FILE:-/dev/null}" || true
             _ETC_FILES_ADD "${avahi_conf}"
         fi
 
@@ -1550,7 +1585,7 @@ _DISABLE_IPV6_NETCONFIG() {
     else
         if ! sudo grep -q "^udp6\\|^tcp6" "${file}"; then
             _LOG "aucune entrée IPv6 détectée dans ${file}"
-            cat "${file}" >> "${LOG_FILE:-/dev/null}"
+            cat "${file:-/dev/null}" >> "${LOG_FILE:-/dev/null}"
             _INFO "Déjà OK : configuration IPv6 netconfig"
         else
             _BACKUP_FILE "${file}"
@@ -1583,7 +1618,7 @@ _DISABLE_COREDUMP(){
         else
             _INFO "Déjà OK : coredump désactivé"
         fi
-        { ls -l "${limits_file}" ; cat "${limits_file}" ; echo "" ; } >> "${LOG_FILE}"
+        { ls -l "${limits_file:-/dev/null}" ; cat "${limits_file:-/dev/null}" ; echo "" ; } >> "${LOG_FILE:-/dev/null}"
 
         # systemd
         file="${dir}/disable.conf"
@@ -1592,14 +1627,14 @@ _DISABLE_COREDUMP(){
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
             _RUNSILENT "" sudo systemctl daemon-reload
         fi
-        { ls -l "${file}" ; cat "${file}" ; echo "" ; } >> "${LOG_FILE}"
+        { ls -l "${file:-/dev/null}" ; cat "${file:-/dev/null}" ; echo "" ; } >> "${LOG_FILE:-/dev/null}"
 
 
         # shell
         profile="${dirprofile}/coredump.sh"
         content=$'ulimit -c 0\n'
         _INSTALL_ETC_FILES "coredump shell" "${content}" "${profile}" "644"
-        { ls -l "${profile}" ; cat "${profile}" ; echo "" ; } >> "${LOG_FILE}"
+        { ls -l "${profile:-/dev/null}" ; cat "${profile:-/dev/null}" ; echo "" ; } >> "${LOG_FILE:-/dev/null}"
     else
         _LOG "Les coredumps ne sont pas désactivés, à la demande de l'utilisateur."
     fi
@@ -1659,8 +1694,8 @@ _DO_CLEAN(){
 _DO_LOG(){
     if [[ -s "${LOG_FILE:-}" ]]; then
         _OK "Extrait du Log :"
-        tail -5 "${LOG_FILE:-}" 2>/dev/null
-        _DIE "Log complet : ${LOG_FILE:-}"
+        tail -5 "${LOG_FILE:-/dev/null}" 2>/dev/null
+        _DIE "Log complet : ${LOG_FILE:-/dev/null}"
     fi
     echo -e "${C_RESET}"
 }
@@ -1740,7 +1775,7 @@ _HARDENING(){
         #     _RUNSILENT "" sudo firewall-cmd --reload
         # fi
         # _LOG "Zones firewalld"
-        # sudo firewall-cmd --get-active-zones | sudo tee -a "${LOG_FILE}" >/dev/null
+        # sudo firewall-cmd --get-active-zones | sudo tee -a "${LOG_FILE:-/dev/null}" >/dev/null
 
 
 
@@ -1793,7 +1828,7 @@ banaction = firewallcmd-rich-rules
         _RUN "Activation/lancement de ${jailservice}" sudo systemctl enable --now "${jailservice}"
     fi
     if sudo test -f /var/log/fail2ban.log; then
-        sudo cat /var/log/fail2ban.log | sudo tee -a "${LOG_FILE}" >/dev/null
+        sudo cat /var/log/fail2ban.log | sudo tee -a "${LOG_FILE:-/dev/null}" >/dev/null
     fi
 }
 
@@ -1885,10 +1920,10 @@ AllowUsers ${USER}
         _ETC_FILES_ADD "${config_ssh_allow}"
     fi
     {
-        sudo ls -l "${config_ssh_allow}"
-        sudo cat "${config_ssh_allow}"
+        sudo ls -l "${config_ssh_allow:-/dev/null}"
+        sudo cat "${config_ssh_allow:-/dev/null}"
         echo ""
-    } >>"${LOG_FILE}"
+    } >>"${LOG_FILE:-/dev/null}"
 }
 
 ########################################################################################################################
@@ -2144,9 +2179,9 @@ SETUP_GRUB() {
     fi
 
     {
-        sudo ls -l "${grub_file}"
-        sudo cat "${grub_file}"
-    } >> "${LOG_FILE}"
+        sudo ls -l "${grub_file:-/dev/null}"
+        sudo cat "${grub_file:-/dev/null}"
+    } >> "${LOG_FILE:-/dev/null}"
 
     if [[ "${changed}" == "yes" ]]; then
         _LOG "Configuration GRUB mise à jour avec succès"
@@ -2396,7 +2431,7 @@ SETUP_SWAP_BACKEND_FOR_ZSWAP() {
                 _RUNSILENT "" sudo mkswap "${swapdir}/swapfile"
             fi
             _ETC_FILES_ADD "${swapdir}/swapfile"
-            find "${swapdir}" -ls | sudo tee -a "${LOG_FILE}" >/dev/null
+            find "${swapdir:-/dev/null}" -ls | sudo tee -a "${LOG_FILE:-/dev/null}" >/dev/null
         fi
 
         if ! swapon --show | grep -q "${swapdir}/swapfile"; then

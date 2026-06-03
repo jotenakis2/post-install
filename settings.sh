@@ -67,7 +67,7 @@ VARIANT_COLOR_TELA_ICONS="purple"
 # WIFI économie d'énergie OFF (parfois utile si déco/reco fréquente)
 WIFI_POWERSAVE="yes"
 
-# ZSH par défaut , si yes install zsh, oh-my-posh configuré via mes dotfiles.
+# ZSH par défaut , si yes : install zsh et oh-my-posh configurés via mes dotfiles + tâches cron user.
 ZSH="yes"
 
 ################################################################
@@ -82,7 +82,7 @@ SYSTEM_PACKAGES=(
     fastfetch alacritty fzf bat-extras grc axel rclone procs msmtp s-nail chkrootkit rkhunter
     wl-clipboard glow expect sqlite btop atop glances nvtop iftop gdu duf kate shfmt ShellCheck inxi
     nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
-    vesktop qbittorrent qemu virt-manager virt-viewer gum stress-ng lynis
+    vesktop qbittorrent qemu virt-manager virt-viewer gum stress-ng lynis gcc glibc-devel
     libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro konversation libpcap-devel
     # Ajoute tes autres paquets ici
 )
@@ -133,7 +133,6 @@ VCONSOLE_FONT="ter-v18b"
 
 # paquets flatpak à installer
 FLATPAK_PKGS=(
-    "com.ktechpit.whatsie"
     "io.github.giantpinkrobots.flatsweep"
     "com.github.tchx84.Flatseal"
     "io.github.forkgram.tdesktop"

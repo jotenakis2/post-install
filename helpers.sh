@@ -4,15 +4,34 @@ set -euo pipefail
 ########################################################################################################################
 # FONCTIONS HELPERS                                                                                                    #
 ########################################################################################################################
-# shellcheck source=./helpers_ui.sh
-source ./helpers_ui.sh
-# shellcheck source=./helpers_grub.sh
-source ./helpers_grub.sh
-# shellcheck source=./helpers_pkg.sh
-source ./helpers_pkg.sh
-# shellcheck source=./helpers_fstab.sh
-source ./helpers_fstab.sh
-
+if [[ -f ./helpers_ui.sh ]]; then
+    # shellcheck source=./helpers_ui.sh
+    source ./helpers_ui.sh
+else
+    echo "helpers_ui.sh manquant !"
+    exit 1
+fi
+if [[ -f ./helpers_grub.sh ]]; then
+    # shellcheck source=./helpers_grub.sh
+    source ./helpers_grub.sh
+else
+    echo "helpers_grub.sh manquant !"
+    exit 1
+fi
+if [[ -f ./helpers_pkg.sh ]]; then
+    # shellcheck source=./helpers_pkg.sh
+    source ./helpers_pkg.sh
+else
+    echo "helpers_pkg.sh manquant !"
+    exit 1
+fi
+if [[ -f ./helpers_fstab.sh ]]; then
+    # shellcheck source=./helpers_fstab.sh
+    source ./helpers_fstab.sh
+else
+    echo "helpers_fstab.sh manquant !"
+    exit 1
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -323,37 +342,42 @@ _BAKSUFFIX(){
 
 _BACKUP_FILE(){
     local file=${1:-}
-    local origin="${file}.origin"
-    local bak copied owner group perm
 
     # si oubli de spécifier le fichier à sauvegarder, on quitte avec message explicite.
     if [[ -z "${file}" ]]; then
-        _DIE "Aucun fichier spécifié pour la sauvegarde avec _BACKUP_FILE"
+        _ERR "Aucun fichier spécifié pour la sauvegarde avec _BACKUP_FILE"
     fi
 
-    # droits initiaux
-    owner=$(stat -c '%U' -- "${file}")
-    group=$(stat -c '%G' -- "${file}")
-    perm=$(stat -c '%a' -- "${file}")
+    if sudo test -f "${file}"; then
+        local origin="${file}.origin"
+        local bak copied owner group perm
 
-    # copie originale
-    if ! sudo test -f "${origin}"; then
-        _RUNSILENT "" sudo cp -pfv "${file}" "${origin}"
-    fi
+        # droits initiaux
+        owner=$(stat -c '%U' -- "${file}")
+        group=$(stat -c '%G' -- "${file}")
+        perm=$(stat -c '%a' -- "${file}")
 
-    # copie timestampée
-    bak=$(_BAKSUFFIX)
-    copied="${file}.bak.${bak}"
-    if sudo test -f "${copied}"; then
-        sleep 2
+        # copie originale
+        if ! sudo test -f "${origin}"; then
+            _RUNSILENT "" sudo cp -pfv "${file}" "${origin}"
+        fi
+
+        # copie timestampée
         bak=$(_BAKSUFFIX)
         copied="${file}.bak.${bak}"
-    fi
-    _RUNSILENT "" sudo cp -pfv "${file}" "${copied}"
+        if sudo test -f "${copied}"; then
+            sleep 2
+            bak=$(_BAKSUFFIX)
+            copied="${file}.bak.${bak}"
+        fi
+        _RUNSILENT "" sudo cp -pfv "${file}" "${copied}"
 
-    # droits recopiés
-    _RUNSILENT "" sudo chown -v "${owner}:${group}" "${copied}" "${origin}"
-    _RUNSILENT "" sudo chmod -v "${perm}" "${copied}" "${origin}"
+        # droits recopiés
+        _RUNSILENT "" sudo chown -v "${owner}:${group}" "${copied}" "${origin}"
+        _RUNSILENT "" sudo chmod -v "${perm}" "${copied}" "${origin}"
+    else
+        _LOG "${file} n'existe pas (encore ?), pas de sauvegarde possible."
+    fi
 }
 
 ########################################################################################################################
@@ -415,14 +439,14 @@ _SETUP_VCONSOLE_FONT() {
         if grep -q "^FONT=" "${vconsole}" 2>/dev/null; then
             if grep -q "^FONT=${font}" "${vconsole}" 2>/dev/null; then
                 _INFO "Déjà OK : police console TTY"
-                grep FONT "${vconsole}" >>"${LOG_FILE}"
+                grep FONT "${vconsole}" >>"${LOG_FILE:-/dev/null}"
             else
                 _BACKUP_FILE "${vconsole}"
                 _RUNSILENT "" sudo sed -i "s/^FONT=.*/FONT=${font}/" "${vconsole}"
                 _OK "Modification de la police console TTY (${vconsole})"
                 _ETC_FILES_ADD "${vconsole}"
                 _LOG "Police console définie :"
-                cat "${vconsole}" 2>/dev/null >>"${LOG_FILE}"
+                cat "${vconsole}" 2>/dev/null >>"${LOG_FILE:-/dev/null}"
             fi
         else
             _BACKUP_FILE "${vconsole}"
@@ -430,7 +454,7 @@ _SETUP_VCONSOLE_FONT() {
             _OK "Ajout de la police console TTY (${vconsole})"
             _ETC_FILES_ADD "${vconsole}"
             _LOG "Police console définie :"
-            cat "${vconsole}" 2>/dev/null >>"${LOG_FILE}"
+            cat "${vconsole}" 2>/dev/null >>"${LOG_FILE:-/dev/null}"
         fi
     fi
 }
