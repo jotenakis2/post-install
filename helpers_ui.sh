@@ -193,7 +193,8 @@ _PASS() {
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 _RUNSILENT() {
-    local msg="${1:?message manquant}"
+    local msg=$1
+    #"${1:?message manquant}"
     shift
     local log
     log=${LOG_FILE:-/dev/null}
