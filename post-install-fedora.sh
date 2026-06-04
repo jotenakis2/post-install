@@ -281,6 +281,7 @@ SETUP_SUDO_RS() {
             change=1
         fi
         if ! sudo grep -q "excludepkgs=sudo" /etc/dnf/dnf.conf 2>/dev/null; then
+            _BACKUP_FILE "/etc/dnf/dnf.conf"
             _RUNSILENT "" sudo dnf config-manager setopt excludepkgs=sudo
             change=1
             _ETC_FILES_ADD "/etc/dnf/dnf.conf"
@@ -321,14 +322,40 @@ SETUP_CACHYOS_KERNEL() {
         # Noyau CachyOS par défaut dans grub
         _LOG "* cachysOS GRUB *"
         local linux is_grub
-        linux=$(printf '%s\n' /boot/vmlinuz*cachy* | sort -V | tail -1)
         is_grub=$(_DETECT_GRUB)
-        if [[ "${is_grub}" == "true" ]]; then
+        if [[ "${is_grub}" = "true" ]]; then
+            linux=$(printf '%s\n' /boot/vmlinuz*cachy* | sort -V | tail -1)
             _RUN "Noyau ${linux} configuré par défaut dans GRUB" sudo grubby --set-default="${linux}"
+
+            # script pour forcer le dernier kernel cachyos dans GRUB
+            local contentscript scriptfile dirscript
+            contentscript=$(cat <<'EOF'
+#!/usr/bin/env bash
+linux=$(find /boot/vmlinuz*cachy* 2>/dev/null | sort -V | tail -1) || true
+if [[ -n "${linux}" ]]; then
+        echo "Noyau cachyos : ${linux}"
+        if command -v grubby &>/dev/null; then
+                sudo grubby --set-default="${linux}"
+        else
+                echo "grubby non trouvé"
+                exit 1
+        fi
+else
+        echo "Aucun noyau cachyos détecté"
+fi
+
+
+EOF
+)
+            dirscript="/usr/local/bin"
+            scriptfile="${dirscript}/set-cachyos_kernel-default-in-GRUB.sh"
+            _RUNSILENT "" sudo mkdir -pv "${dirscript}"
+            _INSTALL_ETC_FILES "Script set-cachyos_kernel-default-in-GRUB.sh" "${contentscript}" "${scriptfile}" "755"
         else
             _OK "GRUB non détecté, pas de changement dans l'ordre de priorité des noyaux installés"
             _LOG "Noyau cachyOS : ${linux}"
         fi
+
 
         # Secure Boot
         if ! _IS_PKG_INSTALLED mokutil ; then

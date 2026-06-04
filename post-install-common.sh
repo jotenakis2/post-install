@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=41.0
+readonly VERSION=41.1
 declare -A SWAPS=()
 
 # basename sans l'extension .sh
@@ -185,7 +185,7 @@ EOF
     _OK "Fichier log de la post-installation : ${LOG_FILE:-/dev/null}"
     {
     printf '%s\n' "Paramètres utilisateur retenus : "
-    tail -n +16 ./settings.sh | grep -E -v '^(#.*shellcheck|export[[:space:]]*|[[:space:]]*#.*shellcheck|[[:space:]]*$|#)'
+    grep -E -v '^(#.*shellcheck|export[[:space:]]*|[[:space:]]*#.*shellcheck|[[:space:]]*$|#)' ./settings.sh
     echo ""
     } >>"${LOG_FILE:-/dev/null}"
     INSTALL_PREREQUISITE
@@ -202,7 +202,7 @@ EOF
     _RUNSILENT "" mkdir -pv "${HOME}/.local/share/zsh" "${HOME}/.local/share/icons/default" "${HOME}/.local/share/color-schemes" "${HOME}/.local/share/themes"
 
     # Dossiers système requis
-    _RUNSILENT "" sudo mkdir -pv /var/tmp/cargo-target "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" /usr/local/bin /etc/sudoers.d /etc/udev/rules.d /etc/NetworkManager/conf.d /etc/systemd/resolved.conf.d /etc/sysctl.d/ /etc/brave/policies/managed/
+    _RUNSILENT "" sudo mkdir -pv /var/tmp/cargo-target "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" /usr/local/bin /etc/sudoers.d
     _RUNSILENT "" sudo chmod -v 777 "${RUSTUP_HOME}" "${CARGO_HOME}" "${GOPATH}" "${GOBIN}" "${GOROOT}" /var/tmp/cargo-target
 
     # Préparation d'une session sudo confortable et longue (5h max) pour l'installation
@@ -244,7 +244,6 @@ INSTALL_CARGO_PACKAGES() {
                 _LOG "la toolchain rust est à jour"
             fi
         else
-            #_RUN "Installation de la toolchain RUST" bash -c 'set -o pipefail ; curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain stable'
             _RUN "Installation de la toolchain RUST" bash -c '
                     set -euo pipefail
                     curl -L --proto "=https" --tlsv1.2 -sSf \
@@ -258,7 +257,6 @@ INSTALL_CARGO_PACKAGES() {
 
         # 1. Installation de cargo-binstall sans compilation
         if ! _EXIST cargo-binstall; then
-            #_RUN "Installation de cargo-binstall" bash -c "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
             _RUN "Installation de cargo-binstall" bash -c '
                     set -euo pipefail
                     curl -L --proto "=https" --tlsv1.2 -sSf \
@@ -283,9 +281,6 @@ INSTALL_CARGO_PACKAGES() {
                 _RUNSILENT "" _SYMLINK "${CARGO_HOME}/bin/${bin_name}" "/usr/local/bin/${bin_name}"
             done
         done
-
-        # 4. Ajustement des permissions pour l'accès global
-        #_RUNSILENT "" chmod a+x -v "${HOME}" "${HOME}/.local" "${HOME}/.local/share" "${CARGO_HOME}" "${CARGO_HOME}/bin"
     else
         _LOG "Aucun paquets cargo demandés"
     fi
@@ -300,26 +295,32 @@ INSTALL_GO_PACKAGES() {
         urlGO="https://go.dev/dl/?mode=json"
 
         if _EXIST go; then
-            current="$(go version | awk '{print $3}' || true)"
+            current=$(go version | awk '{print $3}') || true
         fi
-        latest="$(curl -fsSL "${urlGO}" | jq -r '.[0].version' || true)"
-        arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/' || true)
-        os=$(uname | tr '[:upper:]' '[:lower:]' || true)
+        latest=$(curl -fsSL "${urlGO}" | jq -r '.[0].version') || true
+        arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') || true
+        os=$(uname | tr '[:upper:]' '[:lower:]') || true
         gofile="${latest}.${os}-${arch}.tar.gz"
 
-        if [[ "${current}" == "${latest}" ]] && _EXIST go; then
+        if [[ "${current}" = "${latest}" ]] && _EXIST go; then
             _LOG "la toolchain GO est à jour (${latest})"
         else
             _RUNSILENT "" curl -LO "https://go.dev/dl/${gofile}"
-            _RUN "Installation de la toolchain GO" sudo tar -C /opt -xzf "${gofile}"
-            _RUNSILENT "" rm -vf -- "${gofile}"
+            local dest
+            dest=$(dirname "${GOROOT}")
+            if [[ -f "${gofile}" ]]; then
+                _RUN "Installation de la toolchain GO" sudo tar -C "${dest}" -xzf "${gofile}"
+                _RUNSILENT "" rm -vf -- "${gofile}"
+            else
+                _ERR "Échec du Téléchargement de la toolchain GO"
+            fi
         fi
-        _RUNSILENT "" _SYMLINK "${GOROOT}/bin/go" "/usr/local/bin/go"
-        _RUNSILENT "" _SYMLINK "${GOROOT}/bin/gofmt" "/usr/local/bin/gofmt"
-        _RUNSILENT "" go telemetry off
-        _RUNSILENT "" sudo go telemetry off
 
         if _EXIST go; then
+            _RUNSILENT "" _SYMLINK "${GOROOT}/bin/go" "/usr/local/bin/go"
+            _RUNSILENT "" _SYMLINK "${GOROOT}/bin/gofmt" "/usr/local/bin/gofmt"
+            _RUNSILENT "" go telemetry off
+            _RUNSILENT "" sudo go telemetry off
             local -a missing=()
             local -a missingbin=()
             local -a present=()
@@ -365,6 +366,20 @@ INSTALL_GO_PACKAGES() {
 
 ########################################################################################################################
 INSTALL_GIT_REPOS() {
+
+    _INSTALL(){
+        local target=${1:-}
+        local name=${2:-}
+        if [[ "${ROOT,,}" = "no" ]]; then # en mode ROOT, les dépots sont seulements clonés
+            if [[ "${name}" = "fedupdate" ]]; then
+                _RUN "  Installation de ${name}" bash -c "cd ${target}; make install"
+            fi
+            if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
+                _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo ln -sf ${target}/${name} /usr/local/bin/${name}"
+            fi
+        fi
+    }
+
     local repo name target color
     _RUNSILENT "" mkdir -pv "${HOME}/Projects"
     if [[ "${ROOT,,}" = "yes" ]]; then
@@ -380,17 +395,9 @@ INSTALL_GIT_REPOS() {
 
         if [[ -d "${target}" ]]; then
             if git -C "${target}" rev-parse --git-dir &>/dev/null; then
-                if [[ "${UPDATE_GIT_REPOS}" = "yes" ]]; then
+                if [[ "${UPDATE_GIT_REPOS,,}" = "yes" ]]; then
                     _RUN "Mise à jour de ${name}" git -C "${target}" pull --ff-only
-                    # installation
-                    if [[ "${ROOT,,}" = "no" ]]; then # en mode ROOT, les dépots sont seulements clonés
-                        if [[ "${name}" = "fedupdate" ]]; then
-                            _RUN "  Installation de ${name}" bash -c "cd ${target}; make install"
-                        fi
-                        if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
-                            _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo ln -sf ${target}/${name} /usr/local/bin/${name}"
-                        fi
-                    fi
+                    _INSTALL "${target}" "${name}"
                 else
                     _INFO "Déjà OK : ${name} présent et pas de mise à jour demandée"
                 fi
@@ -399,15 +406,7 @@ INSTALL_GIT_REPOS() {
             fi
         else
             _RUN "Téléchargement de ${name}" git clone "${repo}" "${target}"
-            # installation
-            if [[ "${ROOT,,}" = "no" ]]; then # en mode ROOT, les dépots sont seulements clonés
-                if [[ "${name}" = "fedupdate" ]]; then
-                    _RUN "  Installation de ${name}" bash -c "cd ${target}; make install"
-                fi
-                if [[ "${name}" = "backupsystem" ]] || [[ "${name}" = "radiosh" ]]; then
-                    _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo ln -sf ${target}/${name} /usr/local/bin/${name}"
-                fi
-            fi
+            _INSTALL "${target}" "${name}"
         fi
 
         if [[ "${repo}" == "${DOTFILES_REPO}" && "${target}" != "${DOTFILES_DIR}" ]]; then
@@ -557,11 +556,13 @@ SETUP_DOTFILES() {
 ########################################################################################################################
 _SETUP_SYSTEMD() {
     _LOG "* systemd *"
+    local log=${LOG_FILE:-/dev/null}
 
     # Config
     _JOURNALD
     local content file dir
     dir='/etc/systemd'
+    _RUNSILENT "" sudo mkdir -pv "${dir}"
     file="${dir}/system.conf"
     content=$'[Manager]\nDefaultTimeoutStopSec=30s\n'
     _INSTALL_ETC_FILES "systemd" "${content}" "${file}" "644"
@@ -595,14 +596,14 @@ _SETUP_SYSTEMD() {
         missing_fmt=$(_FORMAT_LIST "${missing[@]}")
         if ((${#present[@]})); then
             _LOG "Déjà désactivés : "
-            _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}" >/dev/null
+            _PRINT_LIST "${present_fmt}" | tee -a "${log}" >/dev/null
         fi
         _INFO "À désactiver : "
-        _PRINT_LIST "${missing_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
+        _PRINT_LIST "${missing_fmt}" | tee -a "${log}"
         _RUN "Désactivation des services" sudo systemctl disable --now "${missing[@]}"
     else
         _INFO "Déjà OK : services désactivés"
-        _PRINT_LIST "${present_fmt}" | tee -a "${LOG_FILE:-/dev/null}"
+        _PRINT_LIST "${present_fmt}" | tee -a "${log}"
     fi
 
     for service in "${!USER_SERVICES_TO_ENABLE[@]}"; do
@@ -623,9 +624,14 @@ _SETUP_SYSTEMD() {
 SETUP_FSTAB() {
     _SECTION " Configuration du fichier FSTAB ⚙️ " "━" "${C_GREEN}"
     local fstab="/etc/fstab"
+    local log="${LOG_FILE:-/dev/null}"
     declare -g dr
     dr="no"
     export dr
+
+    if ! sudo test -f "${fstab}"; then
+        _DIE "${fstab} n'existe pas sur ce système!"
+    fi
 
     # SWAP
     if [[ "${ZSWAP,,}" = "yes" ]]; then
@@ -655,6 +661,7 @@ SETUP_FSTAB() {
         _NORMALIZE_FSTAB | sudo tee "${fstab}" >/dev/null
         _RUNSILENT "" sudo chown -v root:root "${fstab}"
         _RUNSILENT "" sudo chmod -v 644 "${fstab}"
+        cat "${fstab}" 2>/dev/null >> "${log}"
     fi
 
 
@@ -776,7 +783,7 @@ SETUP_KDE_PLASMA() {
             temp_tela=$(mktemp -d)
             _RUN "Téléchargement des icônes Tela" git clone --depth=1 https://github.com/vinceliuice/Tela-icon-theme.git "${temp_tela}/tela"
             _RUN "Installation des icônes Tela ${VARIANT_COLOR_TELA_ICONS} (dans ${HOME}/.local/share/icons/)" bash -c "\"${temp_tela}\"/tela/install.sh -c \"${VARIANT_COLOR_TELA_ICONS}\" -d \"${HOME}\"/.local/share/icons"
-            _RUNSILENT "" rm -rfv -- "${temp_tela}"
+            _RUNSILENT "" rm -rf -- "${temp_tela}"
             change=1
         else
             _INFO "Déjà OK : icônes tela-${VARIANT_COLOR_TELA_ICONS}"
@@ -800,6 +807,7 @@ SETUP_KDE_PLASMA() {
 
         # Baloo
         if _EXIST balooctl6; then
+            _LOG "* baloo indexer de fichiers *"
             if balooctl6 status >/dev/null 2>&1; then
                 _RUN "Désactivation du service d'indexation de KDE Plasma (baloo)" bash -c "balooctl6 suspend ; balooctl6 disable ; balooctl6 purge"
             else
@@ -1199,6 +1207,7 @@ _JOURNALD() {
 _HOSTNAME() {
     local currenthost newhost
     currenthost=$(hostnamectl --static)
+    local log=${LOG_FILE:-/dev/null}
     _LOG "* nom d'hôte *"
     if [[ -n "${MYHOSTNAME}" ]] && [[ "${currenthost}" != "${MYHOSTNAME}" ]]; then
         _RUN "Configuration nom de la machine (${MYHOSTNAME})" sudo hostnamectl set-hostname "${MYHOSTNAME}"
@@ -1217,6 +1226,7 @@ _HOSTNAME() {
         _BACKUP_FILE "${hosts}"
         printf '127.0.1.1\t%s\n' "${MYHOSTNAME}" | sudo tee -a "${hosts}" >/dev/null
         _OK "Configuration de la résolution locale (${hosts})"
+        cat "${hosts}" >> "${log}"
         _ETC_FILES_ADD "${hosts}"
     else
         _INFO "Déjà OK : résolution locale"
@@ -1227,12 +1237,14 @@ _HOSTNAME() {
 
 _MSMTP() {
     # par défaut msmtp ne crée pas le log system !
+    local log=${LOG_FILE:-/dev/null}
+    local file="/var/log/msmtp.log"
     if _IN_ARRAY "msmtp" "${SYSTEM_PACKAGES[@]}"; then
-        if [[ ! -f /var/log/msmtp.log ]]; then
+        if [[ ! -f "${file}" ]]; then
             _LOG "config log msmtp car paquet présent"
-            sudo touch /var/log/msmtp.log
-            _RUNSILENT "" bash -c "sudo chmod -v 600 /var/log/msmtp.log >>${LOG_FILE:-/dev/null}"
-            _ETC_FILES_ADD "/var/log/msmtp.log"
+            sudo touch "${file}"
+            _RUNSILENT "" bash -c "sudo chmod -v 600 ${file} >>${log}"
+            _ETC_FILES_ADD "${file}"
         fi
     fi
 }
@@ -1241,8 +1253,10 @@ _MSMTP() {
 
 _NETWORKMANAGER() {
     local nm_dns_conf file dir
+    local log=${LOG_FILE:-/dev/null}
     nm_dns_conf=$'[main]\ndns=systemd-resolved\n'
     dir="/etc/NetworkManager/conf.d"
+    _RUNSILENT "" sudo mkdir -pv "{dir}"
     file="${dir}/90-global-dns.conf"
     readonly nm_dns_conf file dir
     declare -g RESTARTNM="no"
@@ -1256,7 +1270,7 @@ _NETWORKMANAGER() {
         ls -l "${file:-/dev/null}"
         cat "${file:-/dev/null}"
         echo ""
-    } >>"${LOG_FILE:-/dev/null}"
+    } >>"${log}"
 
     if [[ "${WIFI_POWERSAVE,,}" = "yes" ]]; then
         local nm_wifipowersave file2
@@ -1272,7 +1286,7 @@ _NETWORKMANAGER() {
         ls -l "${file2:-/dev/null}"
         cat "${file2:-/dev/null}"
         echo ""
-        } >>"${LOG_FILE:-/dev/null}"
+        } >>"${log}"
     fi
 
 }
@@ -1281,7 +1295,9 @@ _NETWORKMANAGER() {
 
 _SYSTEMD_RESOLVED() {
     local resolved_10_conf dnsfile llmnrfile dir
+    local log=${LOG_FILE:-/dev/null}
     dir="/etc/systemd/resolved.conf.d"
+    _RUNSILENT "" sudo mkdir -pv "${dir}"
     dnsfile="${dir}/90-dns_servers.conf"
     llmnrfile="${dir}/10-disable-llmnr.conf"
     resolved_10_conf=$'[Resolve]\nLLMNR=no\n'
@@ -1294,7 +1310,7 @@ _SYSTEMD_RESOLVED() {
         _OK "Configuration serveurs DNS (dans ${dir})"
         printf '%s' "${RESOLVED_DNS_SERVERS}" | sudo tee "${dnsfile}" >/dev/null
         printf '%s' "${resolved_10_conf}" | sudo tee "${llmnrfile}" >/dev/null
-        _RUNSILENT "" bash -c "sudo chmod -v 644 ${dnsfile} ${llmnrfile} >>${LOG_FILE:-/dev/null}"
+        _RUNSILENT "" bash -c "sudo chmod -v 644 ${dnsfile} ${llmnrfile} >>${log}"
         RESTARTSYSTEMDRESOLVED="yes"
         _ETC_FILES_ADD "${dnsfile}"
         _ETC_FILES_ADD "${llmnrfile}"
@@ -1309,15 +1325,17 @@ _SYSTEMD_RESOLVED() {
         ls -l "${llmnrfile:-/dev/null}"
         cat "${llmnrfile:-/dev/null}"
         echo ""
-    } >>"${LOG_FILE:-/dev/null}"
+    } >>"${log}"
 }
 
 ########################################################################################################################
 
 _KERNEL() {
     # --- Optimisations Kernel (Sysctl) ---
-    local sysctlfile sysctl_header full_sysctl_content nodump="" harden="" swappiness=""
-    sysctlfile="/etc/sysctl.d/90-jotenakis.conf"
+    local sysctlfile sysctl_header full_sysctl_content nodump="" harden="" swappiness="" dirsys
+    dirsys="/etc/sysctl.d"
+    _RUNSILENT "" sudo mkdir -pv "${dirsys}"
+    sysctlfile="${dirsys}/90-jotenakis.conf"
     if [[ "${DISABLE_COREDUMP,,}" = "yes" ]]; then
         nodump=$'# no dump\nfs.suid_dumpable=0\nkernel.core_pattern=|/bin/false\n'
     fi
@@ -1408,8 +1426,12 @@ ${forward}
         content=$'tcp_bbr\nsch_fq\n'
         _INSTALL_ETC_FILES "modules tcp_bbr et sch_fq" "${content}" "${file}" "644"
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
-            # shellcheck disable=SC2248
-            _RUN "Configuration initramfs" sudo ${initramfsrebuild} -fv --regenerate-all
+            if _EXIST "${initramfsrebuild}"; then
+                # shellcheck disable=SC2248
+                _RUN "Configuration initramfs" sudo ${initramfsrebuild} -fv --regenerate-all
+            else
+                _LOG "commande ${initramfsrebuild} absente"
+            fi
         fi
 
     fi
@@ -1422,10 +1444,12 @@ _BRAVEPOLICIES() {
     # --- Configuration Brave Browser (Policies debloat) ---
     _LOG "* Brave debloat *"
     if [[ -n "${BRAVE_POLICIES}" ]]; then
-        local brave_policy_file full_brave_policies
-        brave_policy_file="/etc/brave/policies/managed/brave_debullshitinator-policies.json"
+        local brave_policy_file full_brave_policies bravedir
+        bravedir="/etc/brave/policies/managed"
+        brave_policy_file="${bravedir}/brave_debullshitinator-policies.json"
         full_brave_policies=$(echo "${BRAVE_POLICIES}" | sed "1s/{/{\n    \"_warning\": \"Do not modify this file! It is managed by ${SCRIPTNAME}.\",/")
-        readonly brave_policy_file full_brave_policies
+        readonly brave_policy_file full_brave_policies bravedir
+        _RUNSILENT "" sudo mkdir -pv "${bravedir}"
         _INSTALL_ETC_FILES "politiques de Brave" "${full_brave_policies}" "${brave_policy_file}" "644"
     else
         _LOG "Aucune politique de Brave demandée"
@@ -1458,6 +1482,7 @@ _UDEVPERSIST() {
     if [[ -n "${UDEVRULE}" ]]; then
         local udevfilename rules_file
         udevfilename="99-persist-key.rules"
+        _RUNSILENT "" sudo mkdir -pv "/etc/udev/rules.d"
         rules_file="/etc/udev/rules.d/${udevfilename}"
 
         _INSTALL_ETC_FILES "règle udev persistante (${UDEVDESCR})" "${UDEVRULE}" "${rules_file}" "644"
@@ -1473,6 +1498,7 @@ _UDEVPERSIST() {
 ########################################################################################################################
 
 _LIBVIRT() {
+    local log=${LOG_FILE:-/dev/null}
     # --- Groupe libvirt ---
     _LOG "* groupe libvirt *"
 
@@ -1484,33 +1510,34 @@ _LIBVIRT() {
             _ETC_FILES_ADD "/etc/group"
         fi
         {
-        ls -l /etc/group || true
-        grep libvirt /etc/group || true
+        ls -l /etc/group 2>/dev/null || true
+        grep libvirt /etc/group 2>/dev/null || true
         echo ""
-        } >>"${LOG_FILE:-/dev/null}"
+        } >>"${log}"
     fi
 }
 
 ########################################################################################################################
 
 _DISABLE_IPV6_IN_SERVICES() {
+    local log=${LOG_FILE:-/dev/null}
     if [[ "${DISABLE_IPV6,,}" = "yes" ]]; then
         _LOG "désactivation IPV6 dans les services"
 
         # Chrony
         local chrony_file chrony_content dir
         dir="/etc/sysconfig"
-        _RUNSILENT "" sudo mkdir -pv "${dir}"
         chrony_file="${dir}/chronyd"
         chrony_content=$'# Command-line options for chronyd\nOPTIONS="-F 2 -4"\n'
         readonly chrony_file chrony_content
 
         if _IS_PKG_INSTALLED chrony; then
+            _RUNSILENT "" sudo mkdir -pv "${dir}"
             _INSTALL_ETC_FILES "IPv6 chronyd" "${chrony_content}" "${chrony_file}" "644"
             if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
                 _RUNSILENT "" sudo systemctl try-restart chronyd
                 _LOG "IPv6 désactivé pour chrony"
-                cat "${chrony_file:-/dev/null}" >> "${LOG_FILE:-/dev/null}"
+                cat "${chrony_file:-/dev/null}" >> "${log}"
             fi
         else
             _LOG "Chrony n'est pas installé"
@@ -1521,8 +1548,8 @@ _DISABLE_IPV6_IN_SERVICES() {
         if grep -qE '^\s*(::1|fe80::[^[:space:]]*)' "${hostsfile}"; then
             _BACKUP_FILE "${hostsfile}"
             _RUN "Configuration IPv6 de l'hôte (${hostsfile})" sudo sed -i -E '/^\s*(::1|fe80::[^[:space:]]*)/d' "${hostsfile}"
-            _LOG "Entrées IPv6 supprimées de ${hostsfile} (backup: ${hostsfile}.bak et ${hostsfile}.origin)"
-            cat "${hostsfile}" >> "${LOG_FILE:-/dev/null}"
+            _LOG "Entrées IPv6 supprimées de ${hostsfile}"
+            cat "${hostsfile}" >> "${log}"
             _ETC_FILES_ADD "${hostsfile}"
         else
             _INFO "Déjà OK : entrée IPv6 dans ${hostsfile} supprimée"
@@ -1543,7 +1570,7 @@ _DISABLE_IPV6_IN_SERVICES() {
                 _RUN "Configuration IPv6 avahi-daemon (${avahi_conf})" sudo sed -i -E '/^\[server\]/a use-ipv6=no' "${avahi_conf}"
             fi
             _LOG "IPv6 désactivé pour ${avahi_conf} (backup: ${avahi_conf}.bak et ${avahi_conf}.origin)"
-            grep use-ipv6 "${avahi_conf:-/dev/null}" 2>/dev/null >> "${LOG_FILE:-/dev/null}" || true
+            grep use-ipv6 "${avahi_conf:-/dev/null}" 2>/dev/null >> "${log}" || true
             _ETC_FILES_ADD "${avahi_conf}"
         fi
 
@@ -1579,18 +1606,20 @@ _DISABLE_IPV6_IN_SERVICES() {
 
 _DISABLE_IPV6_NETCONFIG() {
     local file="/etc/netconfig"
+    local log=${LOG_FILE:-/dev/null}
 
     if ! sudo test -f "${file}"; then
         _LOG "${file} n'existe pas"
     else
         if ! sudo grep -q "^udp6\\|^tcp6" "${file}"; then
             _LOG "aucune entrée IPv6 détectée dans ${file}"
-            cat "${file:-/dev/null}" >> "${LOG_FILE:-/dev/null}"
+            cat "${file}" >> "${log}"
             _INFO "Déjà OK : configuration IPv6 netconfig"
         else
             _BACKUP_FILE "${file}"
             sudo sed -i -E 's/^(udp6|tcp6)/#\1/' "${file}"
             _OK "Configuration IPv6 netconfig (${file})"
+            cat "${file}" >> "${log}"
             _ETC_FILES_ADD "${file}"
         fi
     fi
@@ -1601,11 +1630,12 @@ _DISABLE_IPV6_NETCONFIG() {
 
 _DISABLE_COREDUMP(){
     if [[ "${DISABLE_COREDUMP,,}" = "yes" ]]; then
+        local log=${LOG_FILE:-/dev/null}
         local file content dir limits_file dirlimits dirprofile profile
         dir="/etc/systemd/coredump.conf.d"
         dirlimits="/etc/security/limits.d"
         dirprofile="/etc/profile.d"
-        sudo mkdir -p "${dir}" "${dirlimits}" "${dirprofile}"
+        _RUNSILENT "" sudo mkdir -pv "${dir}" "${dirlimits}" "${dirprofile}"
 
         _LOG "* coredump disable *"
 
@@ -1618,7 +1648,7 @@ _DISABLE_COREDUMP(){
         else
             _INFO "Déjà OK : coredump désactivé"
         fi
-        { ls -l "${limits_file:-/dev/null}" ; cat "${limits_file:-/dev/null}" ; echo "" ; } >> "${LOG_FILE:-/dev/null}"
+        { ls -l "${limits_file:-/dev/null}" ; cat "${limits_file:-/dev/null}" ; echo "" ; } >> "${log}"
 
         # systemd
         file="${dir}/disable.conf"
@@ -1627,14 +1657,14 @@ _DISABLE_COREDUMP(){
         if grep -qxF 0 "${STATUSFILE}" 2>/dev/null; then
             _RUNSILENT "" sudo systemctl daemon-reload
         fi
-        { ls -l "${file:-/dev/null}" ; cat "${file:-/dev/null}" ; echo "" ; } >> "${LOG_FILE:-/dev/null}"
+        { ls -l "${file:-/dev/null}" ; cat "${file:-/dev/null}" ; echo "" ; } >> "${log}"
 
 
         # shell
         profile="${dirprofile}/coredump.sh"
         content=$'ulimit -c 0\n'
         _INSTALL_ETC_FILES "coredump shell" "${content}" "${profile}" "644"
-        { ls -l "${profile:-/dev/null}" ; cat "${profile:-/dev/null}" ; echo "" ; } >> "${LOG_FILE:-/dev/null}"
+        { ls -l "${profile:-/dev/null}" ; cat "${profile:-/dev/null}" ; echo "" ; } >> "${log}"
     else
         _LOG "Les coredumps ne sont pas désactivés, à la demande de l'utilisateur."
     fi
@@ -1681,7 +1711,7 @@ _INSTALL_USER_CRONTAB(){ # sheldon update/ tldr update
 
 _DO_CLEAN(){
     local f
-    tput cvvis || true # Show cursor, ignore errors if unsupported
+    tput cnorm || true # Show cursor, ignore errors if unsupported
 
     for f in "${SUDOTMP[@]+"${SUDOTMP[@]}"}"; do
         if [[ -n "${f}" ]]; then sudo rm -f -- "${f}"; fi
@@ -1745,40 +1775,6 @@ _HARDENING(){
         net_content=$'# network special protocols deactivated by post-install script by jotenakis\ninstall dccp /bin/false\ninstall sctp /bin/false\ninstall rds /bin/false\ninstall tipc /bin/false\ninstall n-hdlc /bin/false\ninstall ax25 /bin/false\ninstall netrom /bin/false\ninstall x25 /bin/false\ninstall rose /bin/false\ninstall decnet /bin/false\ninstall econet /bin/false\ninstall af_802154 /bin/false\ninstall ipx /bin/false\ninstall appletalk /bin/false\ninstall psnap /bin/false\ninstall p8023 /bin/false\ninstall p8022 /bin/false\ninstall can /bin/false\ninstall atm /bin/false\n'
 
         _INSTALL_ETC_FILES "suppresion de protocoles réseaux inutilisés" "${net_content}" "${net_file}" "644"
-
-        # nom de machine dans /etc/hosts
-
-
-        # Firewalld zone public par défaut pour toutes les interfaces
-        # local iface current_zone default_zone
-        # local reload_needed=0
-        #
-        # default_zone="$(sudo firewall-cmd --get-default-zone 2>/dev/null)"
-        # if [[ "${default_zone}" != "public" ]]; then
-        #     _RUN "Zone publique par défaut définie dans firewalld" sudo firewall-cmd --set-default-zone=public
-        # else
-        #     _INFO "Publique est déjà la zone firewalld par défaut"
-        # fi
-        #
-        # tmp="$(mktemp)"
-        # _GET_PHYSICAL_IFACE > "${tmp}"
-        #
-        # while IFS= read -r iface; do
-        #     current_zone="$(sudo firewall-cmd --get-zone-of-interface="${iface}" 2>/dev/null)" || true
-        #     [[ "${current_zone}" == "public" ]] && continue
-        #     _RUN "Zone publique pour l'interface ${iface}" sudo firewall-cmd --permanent --zone=public --change-interface="${iface}"
-        #     reload_needed=1
-        # done < "${tmp}"
-        # rm -f "${tmp}"
-        #
-        # if [[ "${reload_needed}" -eq 1 ]]; then
-        #     _RUNSILENT "" sudo firewall-cmd --reload
-        # fi
-        # _LOG "Zones firewalld"
-        # sudo firewall-cmd --get-active-zones | sudo tee -a "${LOG_FILE:-/dev/null}" >/dev/null
-
-
-
     else
         _LOG "hardening non demandé"
     fi
@@ -1788,6 +1784,7 @@ _HARDENING(){
 
 _SSHFAIL2BAN(){
     _LOG "* fail2ban *"
+    local log=${LOG_FILE:-/dev/null}
     if ! _IS_PKG_INSTALLED fail2ban; then
         _RUN "Installation de fail2ban" _PKG_INSTALL fail2ban
     else
@@ -1797,7 +1794,7 @@ _SSHFAIL2BAN(){
     jailservice="fail2ban.service"
     jaildir="/etc/fail2ban/jail.d"
     new=""
-    sudo mkdir -p "${jaildir}"
+    _RUNSILENT "" sudo mkdir -pv "${jaildir}"
     jailfile="${jaildir}/sshd.local"
     jailcontent="# created by ${SCRIPTNAME} by jotenakis
 [sshd]
@@ -1828,7 +1825,7 @@ banaction = firewallcmd-rich-rules
         _RUN "Activation/lancement de ${jailservice}" sudo systemctl enable --now "${jailservice}"
     fi
     if sudo test -f /var/log/fail2ban.log; then
-        sudo cat /var/log/fail2ban.log | sudo tee -a "${LOG_FILE:-/dev/null}" >/dev/null
+        sudo cat /var/log/fail2ban.log | sudo tee -a "${log}" >/dev/null
     fi
 }
 
@@ -1906,7 +1903,9 @@ _SSHBANNER(){
 
 _SSHUSERAUTH(){ # config sshd AllowUsers
     local config_ssh_allow content_ssh_allow
+    local log=${LOG_FILE:-/dev/null}
     config_ssh_allow="/etc/ssh/sshd_config.d/92-AllowUsers.conf"
+    _RUNSILENT "" sudo mkdir -pv "/etc/ssh/sshd_config.d"
     content_ssh_allow="# automatically generated and managed by ${SCRIPTNAME} - can be modified to allow other users ======
 AllowUsers ${USER}
 # ===========================================================================================================
@@ -1923,7 +1922,7 @@ AllowUsers ${USER}
         sudo ls -l "${config_ssh_allow:-/dev/null}"
         sudo cat "${config_ssh_allow:-/dev/null}"
         echo ""
-    } >>"${LOG_FILE:-/dev/null}"
+    } >>"${log}"
 }
 
 ########################################################################################################################
@@ -1946,7 +1945,7 @@ _DISABLE_FPRINTD(){
         # systemd
         status=$(systemctl is-enabled "${service}" 2>/dev/null || true)
         if [[ "${status}" != "masked" ]]; then
-            _RUNSILENT "" sudo systemctl stop fprintd.service
+            _RUNSILENT "" sudo systemctl stop "${service}"
             _RUNSILENT "" sudo systemctl mask "${service}"
             change=1
         else
@@ -1978,7 +1977,7 @@ PATH=${CARGO_HOME}/bin:${GOROOT}/bin:${GOBIN}:\$PATH
 "
     envdir="${HOME}/.config/environment.d"
     envfile="${envdir}/dev-env.conf"
-    mkdir -p "${envdir}"
+    _RUNSILENT "" mkdir -pv "${envdir}"
     _INSTALL_ETC_FILES "Environment GO et RUST pour systemd (${USER})" "${envcontent}" "${envfile}" "644"
     _RUNSILENT "" sudo chown "${USER}":"${USER}" "${envfile}"
 
@@ -1988,7 +1987,7 @@ DefaultEnvironment=RUSTUP_HOME=${RUSTUP_HOME} CARGO_HOME=${CARGO_HOME} GOROOT=${
 "
     envdir="/etc/systemd/system.conf.d"
     envfile="${envdir}/dev-env.conf"
-    sudo mkdir -p "${envdir}"
+    _RUNSILENT "" sudo mkdir -pv "${envdir}"
     _INSTALL_ETC_FILES "Environment GO et RUST pour systemd (système)" "${envcontent}" "${envfile}" "644"
 
 # ENV GO/RUST local pour shells interactifs
@@ -2002,7 +2001,7 @@ export PATH=\"\$PATH:\$CARGO_HOME/bin:\$GOROOT/bin:\$GOBIN\"
 "
     envdir="/etc/profile.d"
     envfile="${envdir}/dev-env.sh"
-    sudo mkdir -p "${envdir}"
+    _RUNSILENT "" sudo mkdir -pv "${envdir}"
     _INSTALL_ETC_FILES "Environment GO et RUST pour les shells interactifs (système)" "${envcontent}" "${envfile}" "644"
 
 }

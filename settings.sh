@@ -79,20 +79,39 @@ MYHOSTNAME="MyFedoraBTW"
 
 # paquets système à installer ----------------------------------------------------------------------------------------------------
 SYSTEM_PACKAGES=(
-    fastfetch alacritty fzf bat-extras grc axel rclone procs msmtp s-nail chkrootkit rkhunter
-    wl-clipboard glow expect sqlite btop atop glances nvtop iftop gdu duf kate shfmt ShellCheck inxi
-    nodejs-bash-language-server make mpv vlc libdvdcss foliate imv plasma-login-manager thunderbird helium-browser-bin
-    vesktop qbittorrent qemu virt-manager virt-viewer gum stress-ng lynis gcc glibc-devel
-    libreoffice-langpack-fr nss-tools ldns-utils profile-sync-daemon htop micro konversation libpcap-devel
+	# apps 
+    mpv vlc foliate vesktop qbittorrent thunderbird helium-browser-bin konversation
+
+	# cli/tui tool
+    fastfetch btop atop glances nvtop iftop gdu duf fzf bat-extras grc axel rclone procs inxi htop micro gum stress-ng nmap imv 
+    ldns-utils glow expect msmtp s-nail
+    
+	# dev
+	kate shfmt ShellCheck nodejs-bash-language-server make gcc glibc-devel sqlite libpcap-devel alacritty
+
+	# sécu
+	chkrootkit rkhunter lynis
+
+    # virtualisation
+    qemu virt-manager virt-viewer 
+
+	# divers
+    plasma-login-manager wl-clipboard libreoffice-langpack-fr profile-sync-daemon
+    
     # Ajoute tes autres paquets ici
 )
 
 # paquets système à désinstaller -------------------------------------------------------------------------------------------------
 SYSTEM_REMOVE=(
-    rsyslog akonadi-server kdeconnectd nano libreswan at systemd-networkd catatonit
-    plasma-drkonqi ibus imsettings maliit-keyboard abrt sudo-python-plugin sssd-common mcelog
+	# divers
+    rsyslog nano nano libreswan at systemd-networkd catatonit ibus imsettings sudo-python-plugin sssd-common mcelog abrt
+
+	# KDE
+    akonadi-server kdeconnectd plasma-drkonqi maliit-keyboard
+
     # cockpit
     cockpit-bridge cockpit-networkmanager cockpit-storaged cockpit-system cockpit-ws cockpit-ws-selinux
+
     # fonts asiatiques
     default-fonts-cjk-mono
     default-fonts-cjk-sans
@@ -100,7 +119,8 @@ SYSTEM_REMOVE=(
     default-fonts-other-mono
     default-fonts-other-sans
     default-fonts-other-serif
-    # firmware inutile sur HP EliteBook 645 14 inch G9 Notebook PC :
+
+    # firmware inutile sur "HP EliteBook 645 14 inch G9 Notebook PC", mais pas forcément ailleurs !
     nxpwireless-firmware
     tiwilink-firmware
     brcmfmac-firmware
@@ -117,7 +137,9 @@ SYSTEM_REMOVE=(
     mt7xxx-firmware
     intel-vsc-firmware
     intel-gpu-firmware
+
     # Ajoute tes autres paquets ici
+    
 )
 
 # polices à installer (les 2 nerd font ici sont dans le dépôt Terra qui est ajouté automatiquement) --------------------------
@@ -133,18 +155,20 @@ VCONSOLE_FONT="ter-v18b"
 
 # paquets flatpak à installer
 FLATPAK_PKGS=(
-    "io.github.giantpinkrobots.flatsweep"
-    "com.github.tchx84.Flatseal"
-    "io.github.forkgram.tdesktop"
+    io.github.giantpinkrobots.flatsweep
+    com.github.tchx84.Flatseal
+    io.github.forkgram.tdesktop
+    org.dupot.easyflatpak
+    
     # Ajoute tes autres paquets ici
 )
 
 # outils cargo (rust) à installer
 CARGO_PACKAGES=(
     cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg 
-    ripgrep sd sheldon tealdeer 
+    ripgrep sd sheldon tealdeer zoxide zsh-patina eza netwatch-tui syswatch shuck-cli sdctl
     yazi-fm yazi-cli
-    zoxide zsh-patina eza netwatch-tui syswatch shuck-cli sdctl
+
     # Ajoute tes autres paquets ici
 )
 
@@ -166,7 +190,6 @@ declare -A BIN_MAPPING=(
 # outils GO
 declare -A GO_PACKAGES=(
     ["stormy"]="github.com/ashish0kumar/stormy@latest"
-    ["golazo"]="github.com/0xjuanma/golazo@latest"
     ["radiogogo"]="github.com/zi0p4tch0/radiogogo@latest"
     ["xytz"]="github.com/xdagiz/xytz@latest"
     ["speedtest-go"]="github.com/showwin/speedtest-go@latest"

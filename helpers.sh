@@ -318,6 +318,7 @@ _GET_SWAP() {
 ########################################################################################################################
 
 _TUNE_EXT4(){
+    local log="${LOG_FILE:-/dev/null}"
     # fast_commit pour ext4
     local mounts
     mounts=$(findmnt -rn -t ext4 -o SOURCE,TARGET,FSTYPE)
@@ -328,6 +329,7 @@ _TUNE_EXT4(){
             _LOG "fast_commit déjà actif sur ${dev} (montée en ${mp})"
         else
             _RUN "Activation flag \"fast_commit\" sur ${dev} (montée en ${mp})" sudo tune2fs -O fast_commit "${dev}"
+            sudo tune2fs -l "${dev}" 2>/dev/null | grep "features" | tee -a "${log}" > /dev/null
         fi
     done <<<"${mounts}"
 }
