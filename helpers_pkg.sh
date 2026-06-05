@@ -53,7 +53,7 @@ _CARGOPKG_INSTALL() {
     CARGO_TARGET_DIR=/var/tmp/cargo-target \
     CARGO_BUILD_JOBS="${jobs}" \
     RUSTFLAGS='-C codegen-units=1' \
-    nice -n 10 cargo binstall --no-confirm "$@"
+    nice -n 10 cargo binstall --locked --no-confirm "$@"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

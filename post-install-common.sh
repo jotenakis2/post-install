@@ -1225,7 +1225,7 @@ _HOSTNAME() {
     if ! grep -Eq "[[:space:]]${MYHOSTNAME}([[:space:]]|\$)" "${hosts}"; then
         _BACKUP_FILE "${hosts}"
         printf '127.0.1.1\t%s\n' "${MYHOSTNAME}" | sudo tee -a "${hosts}" >/dev/null
-        _OK "Configuration de la résolution locale (${hosts})"
+        _OK "Configuration résolution locale (${hosts})"
         cat "${hosts}" >> "${log}"
         _ETC_FILES_ADD "${hosts}"
     else
