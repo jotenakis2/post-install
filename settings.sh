@@ -80,14 +80,14 @@ MYHOSTNAME="MyFedoraBTW"
 # paquets système à installer ----------------------------------------------------------------------------------------------------
 SYSTEM_PACKAGES=(
 	# apps 
-    mpv vlc foliate vesktop qbittorrent thunderbird helium-browser-bin konversation
+    mpv vlc foliate vesktop qbittorrent thunderbird helium-browser-bin konversation alacritty
 
 	# cli/tui tool
     fastfetch btop atop glances nvtop iftop gdu duf fzf bat-extras grc axel rclone procs inxi htop micro gum stress-ng nmap imv 
     ldns-utils glow expect msmtp s-nail
     
 	# dev
-	kate shfmt ShellCheck nodejs-bash-language-server make gcc glibc-devel sqlite libpcap-devel alacritty
+	kate shfmt ShellCheck nodejs-bash-language-server make gcc glibc-devel sqlite libpcap-devel dbus-devel
 
 	# sécu
 	chkrootkit rkhunter lynis
@@ -167,7 +167,7 @@ FLATPAK_PKGS=(
 CARGO_PACKAGES=(
     cargo-update bandwhich bat bottom diskus fd-find hyperfine netscanner parallel-disk-usage resvg 
     ripgrep sd sheldon tealdeer zoxide zsh-patina eza netwatch-tui syswatch shuck-cli sdctl
-    yazi-fm yazi-cli
+    yazi-fm yazi-cli bluetui
 
     # Ajoute tes autres paquets ici
 )
