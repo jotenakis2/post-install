@@ -77,6 +77,21 @@ ZSH="yes"
 # nom de la machine (si vide on ne change pas le nom de l'installer) ---------------------------------------------------------
 MYHOSTNAME="MyFedoraBTW"
 
+# navigateurs internet (commentez ceux que vous ne voulez pas, mais ils ne seront pas supprimé si installé par défaut)
+BROWSERS=(
+ #
+ firefox
+ librewolf
+ floorp
+ zen
+ #
+ chrome
+ chromium
+ brave
+ vivaldi
+ helium
+)
+
 # paquets système à installer ----------------------------------------------------------------------------------------------------
 SYSTEM_PACKAGES=(
 	# apps 
@@ -406,4 +421,5 @@ export VARIANT_COLOR_TELA_ICONS
 export WIFI_POWERSAVE
 export NOSWAP
 export ZSH
+export BROWSERS
 ###############################################################################################################################

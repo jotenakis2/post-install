@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=41.1
+readonly VERSION=42.0
 declare -A SWAPS=()
 
 # basename sans l'extension .sh

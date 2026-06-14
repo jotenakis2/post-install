@@ -68,11 +68,64 @@ INSTALL_REPOS() {
     fi
 
     # repo brave si besoin
-    if _IN_ARRAY brave-browser "${SYSTEM_PACKAGES[@]}"; then
+    if _IN_ARRAY brave-browser "${SYSTEM_PACKAGES[@]}" || _IN_ARRAY brave "${BROWSERS[@]}"; then
         if dnf repolist 2>/dev/null | grep -q "brave-browser"; then
             _INFO "Déjà OK : dépôt Brave"
         else
             _RUN "Ajout du dépôt Brave" sudo dnf config-manager addrepo --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+            cache=1
+        fi
+    fi
+
+    # repo librewolf si besoin
+    if _IN_ARRAY librewolf "${SYSTEM_PACKAGES[@]}" || _IN_ARRAY librewolf "${BROWSERS[@]}"; then
+        if dnf repolist 2>/dev/null | grep -q "librewolf"; then
+            _INFO "Déjà OK : dépôt Librewolf"
+        else
+            _RUN "Ajout du dépôt Librewolf" sudo dnf config-manager addrepo --from-repofile=https://repo.librewolf.net/librewolf.repo
+            cache=1
+        fi
+    fi
+
+    # repo vivaldi si besoin
+    if _IN_ARRAY vivaldi-stable "${SYSTEM_PACKAGES[@]}" || _IN_ARRAY vivaldi-snapshot "${SYSTEM_PACKAGES[@]}" || _IN_ARRAY vivaldi "${BROWSERS[@]}"; then
+        if dnf repolist 2>/dev/null | grep -q "vivaldi"; then
+            _INFO "Déjà OK : dépôt Vivaldi"
+        else
+            _RUN "Ajout du dépôt Vivaldi" sudo dnf config-manager addrepo --from-repofile=https://repo.vivaldi.com/archive/vivaldi-fedora.repo
+            cache=1
+        fi
+    fi
+
+    # repo helium si besoin
+    if _IN_ARRAY helium-browser-bin "${SYSTEM_PACKAGES[@]}" || _IN_ARRAY helium "${BROWSERS[@]}"; then
+        if [[ "${TERRA,,}" != "yes" ]]; then # helium est dans Terra sinon copr.
+            _LOG "* repo copr helium *"
+            _ADD_COPR "imput/helium" cache
+        fi
+    fi
+
+    # repo zen si besoin
+    if _IN_ARRAY zen-browser "${SYSTEM_PACKAGES[@]}" || _IN_ARRAY zen "${BROWSERS[@]}"; then
+        _LOG "* repo copr zen *"
+        _ADD_COPR "sneexy/zen-browser" cache
+    fi
+
+    # repo floorp si besoin
+    if _IN_ARRAY floorp "${SYSTEM_PACKAGES[@]}" || _IN_ARRAY floorp "${BROWSERS[@]}"; then
+        _LOG "* repo copr floorp *"
+        _ADD_COPR "sneexy/floorp" cache
+    fi
+
+    # repo chrome si besoin
+    if _IN_ARRAY google-chrome-stable "${SYSTEM_PACKAGES[@]}" || _IN_ARRAY google-chrome-beta "${SYSTEM_PACKAGES[@]}" || _IN_ARRAY google-chrome-unstable "${SYSTEM_PACKAGES[@]}" || _IN_ARRAY chrome "${BROWSERS[@]}"; then
+        if dnf repolist --enabled | grep -q '^google-chrome[[:space:]]'; then
+            _INFO "Déjà OK : dépôt Chrome"
+        else
+            if ! _IS_PKG_INSTALLED fedora-workstation-repositories; then
+                _RUNSILENT "" _PKG_INSTALL "fedora-workstation-repositories"
+            fi
+            _RUN "Ajout du dépôt Chrome" sudo dnf config-manager setopt google-chrome.enabled=1
             cache=1
         fi
     fi
