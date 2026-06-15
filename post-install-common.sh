@@ -2278,6 +2278,47 @@ INSTALL_FONTS() {
 INSTALL_SYSTEM_PACKAGES() {
     if [[ "${SYSTEM_PACKAGES[*]}" != "" ]]; then
         _SECTION " Installation des paquets systèmes personnalisés 📥 " "━" "${C_GREEN}"
+
+        local browser
+        for browser in "${BROWSERS[@]}"; do
+            if [[ "${browser}" = "firefox"     ]] && ! _IN_ARRAY firefox "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("firefox")
+            fi
+            if [[ "${browser}" = "librewolf"   ]] && ! _IN_ARRAY librewolf "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("librewolf")
+            fi
+            if [[ "${browser}" = "floorp"      ]] && ! _IN_ARRAY floorp "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("floorp")
+            fi
+            if [[ "${browser}" = "zen"         ]] && ! _IN_ARRAY zen-browser "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("zen-browser")
+            fi
+            if [[ "${browser}" = "chrome"      ]] && ! _IN_ARRAY google-chrome-stable "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("google-chrome-stable")
+            fi
+            if [[ "${browser}" = "chromium"    ]] && ! _IN_ARRAY chromium "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("chromium")
+            fi
+            if [[ "${browser}" = "brave"       ]] && ! _IN_ARRAY brave-browser "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("brave-browser")
+            fi
+            if [[ "${browser}" = "vivaldi"     ]] && ! _IN_ARRAY vivaldi-stable "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("vivaldi-stable")
+            fi
+
+            # helium : soit TERRA soit un COPR, nom paquet différent
+            if [[ "${TERRA,,}" = "yes" ]]; then
+                if [[ "${browser}" = "helium" ]] && ! _IN_ARRAY helium-browser-bin "${SYSTEM_PACKAGES[@]}"; then
+                    SYSTEM_PACKAGES+=("helium-browser-bin")
+                fi
+            else
+                if [[ "${browser}" = "helium" ]] && ! _IN_ARRAY helium-bin "${SYSTEM_PACKAGES[@]}"; then
+                    SYSTEM_PACKAGES+=("helium-bin")
+                fi
+            fi
+            #
+        done
+
         # shellcheck disable=SC2154
         if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]] && [[ "${DISTRO,,}" = "fedora" ]]; then
             _LOG " ajout du noyau Linux de cachyOS dans les paquets à installer "
