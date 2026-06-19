@@ -600,7 +600,7 @@ PKGMGR_NO_VRFY="/usr/bin/sudo"
     local cron
     cron='12 22 * * * root /usr/local/bin/rootkit_scan.sh &>/tmp/rootkit_scan.log'
     if ! sudo grep -qxF "${cron}" /etc/crontab 2>/dev/null; then
-        sudo echo "${cron}" | tee -a /etc/crontab >/dev/null
+        sudo echo "${cron}" | sudo tee -a /etc/crontab >/dev/null
     fi
 }
 
