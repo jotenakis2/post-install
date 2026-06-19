@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2310
 set -euo pipefail
-readonly VERSION=42.0
+readonly VERSION=42.2
 declare -A SWAPS=()
 
 # basename sans l'extension .sh
@@ -378,6 +378,11 @@ INSTALL_GIT_REPOS() {
                 _RUN "  Installation de ${name}" bash -c "sudo chmod +x ${target}/${name} ; sudo ln -sf ${target}/${name} /usr/local/bin/${name}"
             fi
         fi
+        if [[ ${ROOTKIT,,} = "yes" ]]; then
+            if [[ "${name}" = "scripts" ]]; then
+                _RUN "  Installation de rootkit_scan.sh" bash -c "sudo cp -fv ${target}/rootkit_scan.sh /usr/local/bin/rootkit_scan.sh"
+            fi
+        fi
     }
 
     local repo name target color
@@ -388,7 +393,9 @@ INSTALL_GIT_REPOS() {
         color=${C_GREEN}
     fi
     _SECTION " Installation des dépôts Git personnalisés 🔗 " "━" "${color}"
-
+    #############################################################################################
+    # A FAIRE : AJOUTER UNE VERIF QUE LE DEPOT GIT "scripts" DOIT ETRE PRESENT SI ROOTKIT=yes
+    #############################################################################################
     for repo in "${GIT_REPOS[@]}" "${DOTFILES_REPO}"; do
         name="${repo##*/}"
         target="${HOME}/Projects/${name}"
@@ -409,7 +416,7 @@ INSTALL_GIT_REPOS() {
             _INSTALL "${target}" "${name}"
         fi
 
-        if [[ "${repo}" == "${DOTFILES_REPO}" && "${target}" != "${DOTFILES_DIR}" ]]; then
+        if [[ "${repo}" = "${DOTFILES_REPO}" && "${target}" != "${DOTFILES_DIR}" ]]; then
             _RUNSILENT "" _SYMLINK "${target}" "${DOTFILES_DIR}"
         fi
     done
@@ -551,6 +558,50 @@ SETUP_DOTFILES() {
     fi
     _INFO "Note : dotfiles déployés uniquement pour ${USER}"
 
+}
+
+########################################################################################################################
+
+_SETUP_ROOTKIT_SCAN(){
+    #_RUNSILENT "" sudo rm -f /etc/cron.daily/rkhunter
+    local content file dir
+    dir="/etc"
+    file="${dir}/rkhunter.conf"
+    content='
+INSTALLDIR="/usr"
+TMPDIR=/var/lib/rkhunter
+DBDIR=/var/lib/rkhunter/db
+SCRIPTDIR=/usr/share/rkhunter/scripts
+LOGFILE=/var/log/rkhunter/rkhunter.log
+APPEND_LOG=1
+AUTO_X_DETECT=1
+ENABLE_TESTS=ALL
+DISABLE_TESTS=suspscan hidden_ports deleted_files packet_cap_apps apps ipc_shared_mem
+
+# Fedora => RPM
+PKGMGR=RPM
+
+# faux positif
+ALLOWHIDDENDIR="/etc/.java"
+ALLOWHIDDENFILE="/usr/share/man/man1/..1.gz"
+ALLOWHIDDENFILE=/usr/share/man/man5/.k5login.5.gz
+ALLOWHIDDENFILE=/usr/share/man/man5/.k5identity.5.gz
+ALLOWHIDDENFILE=/etc/.updated
+ALLOWDEVFILE="/dev/shm/lttng-ust-wait-*"
+
+# je désactive, rkhunter ne sait pas chercher dans /etc/ssh/sshd_config.d/*
+ALLOW_SSH_ROOT_USER="no"
+ALLOW_SSH_PROT_V1="0"
+
+# remplacé par sudo-rs => faux positif donc on ignore
+PKGMGR_NO_VRFY="/usr/bin/sudo"
+'
+    _INSTALL_ETC_FILES "rkhunter" "${content}" "${file}" "640"
+    local cron
+    cron='12 22 * * * root /usr/local/bin/rootkit_scan.sh &>/tmp/rootkit_scan.log'
+    if ! sudo grep -qxF "${cron}" /etc/crontab 2>/dev/null; then
+        echo "${cron}" >> /etc/crontab
+    fi
 }
 
 ########################################################################################################################
@@ -950,6 +1001,7 @@ SETUP_ETC() {
     _DISABLE_IPV6_IN_SERVICES
     _SETUP_ENV_DEV
     _HARDENING
+    [[ "${ROOTKIT,,}" = "yes" ]] && _SETUP_ROOTKIT_SCAN
     _SETUP_SYSTEMD
     _TUNE_EXT4
     _SETUP_FIREWALL
@@ -2276,86 +2328,98 @@ INSTALL_FONTS() {
 ########################################################################################################################
 
 INSTALL_SYSTEM_PACKAGES() {
-    if [[ "${SYSTEM_PACKAGES[*]}" != "" ]]; then
-        _SECTION " Installation des paquets systèmes personnalisés 📥 " "━" "${C_GREEN}"
+    local browser
+    for browser in "${BROWSERS[@]}"; do
+        if [[ "${browser}" = "firefox"     ]] && ! _IN_ARRAY firefox "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("firefox")
+        fi
+        if [[ "${browser}" = "librewolf"   ]] && ! _IN_ARRAY librewolf "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("librewolf")
+        fi
+        if [[ "${browser}" = "floorp"      ]] && ! _IN_ARRAY floorp "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("floorp")
+        fi
+        if [[ "${browser}" = "zen"         ]] && ! _IN_ARRAY zen-browser "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("zen-browser")
+        fi
+        if [[ "${browser}" = "chrome"      ]] && ! _IN_ARRAY google-chrome-stable "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("google-chrome-stable")
+        fi
+        if [[ "${browser}" = "chromium"    ]] && ! _IN_ARRAY chromium "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("chromium")
+        fi
+        if [[ "${browser}" = "brave"       ]] && ! _IN_ARRAY brave-browser "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("brave-browser")
+        fi
+        if [[ "${browser}" = "vivaldi"     ]] && ! _IN_ARRAY vivaldi-stable "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("vivaldi-stable")
+        fi
+        # helium : soit TERRA soit un COPR, nom paquet différent
+        if [[ "${TERRA,,}" = "yes" ]]; then
+            if [[ "${browser}" = "helium" ]] && ! _IN_ARRAY helium-browser-bin "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("helium-browser-bin")
+            fi
+        else
+            if [[ "${browser}" = "helium" ]] && ! _IN_ARRAY helium-bin "${SYSTEM_PACKAGES[@]}"; then
+                SYSTEM_PACKAGES+=("helium-bin")
+            fi
+        fi
+    done
 
-        local browser
-        for browser in "${BROWSERS[@]}"; do
-            if [[ "${browser}" = "firefox"     ]] && ! _IN_ARRAY firefox "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("firefox")
-            fi
-            if [[ "${browser}" = "librewolf"   ]] && ! _IN_ARRAY librewolf "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("librewolf")
-            fi
-            if [[ "${browser}" = "floorp"      ]] && ! _IN_ARRAY floorp "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("floorp")
-            fi
-            if [[ "${browser}" = "zen"         ]] && ! _IN_ARRAY zen-browser "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("zen-browser")
-            fi
-            if [[ "${browser}" = "chrome"      ]] && ! _IN_ARRAY google-chrome-stable "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("google-chrome-stable")
-            fi
-            if [[ "${browser}" = "chromium"    ]] && ! _IN_ARRAY chromium "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("chromium")
-            fi
-            if [[ "${browser}" = "brave"       ]] && ! _IN_ARRAY brave-browser "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("brave-browser")
-            fi
-            if [[ "${browser}" = "vivaldi"     ]] && ! _IN_ARRAY vivaldi-stable "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("vivaldi-stable")
-            fi
+    # shellcheck disable=SC2154
+    if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]] && [[ "${DISTRO,,}" = "fedora" ]]; then
+        _LOG " ajout du noyau Linux de cachyOS dans les paquets à installer "
 
-            # helium : soit TERRA soit un COPR, nom paquet différent
-            if [[ "${TERRA,,}" = "yes" ]]; then
-                if [[ "${browser}" = "helium" ]] && ! _IN_ARRAY helium-browser-bin "${SYSTEM_PACKAGES[@]}"; then
-                    SYSTEM_PACKAGES+=("helium-browser-bin")
-                fi
-            else
-                if [[ "${browser}" = "helium" ]] && ! _IN_ARRAY helium-bin "${SYSTEM_PACKAGES[@]}"; then
-                    SYSTEM_PACKAGES+=("helium-bin")
-                fi
-            fi
-            #
-        done
-
-        # shellcheck disable=SC2154
-        if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]] && [[ "${DISTRO,,}" = "fedora" ]]; then
-            _LOG " ajout du noyau Linux de cachyOS dans les paquets à installer "
-
-            if ! _IN_ARRAY kernel-cachyos "${SYSTEM_PACKAGES[@]}"; then
-                if ! _IS_PKG_INSTALLED kernel-cachyos; then
-                    _INFO "Noyau linux cachyOS demandé"
-                fi
-                SYSTEM_PACKAGES+=("kernel-cachyos")
-            fi
-
-            if ! _IN_ARRAY kernel-cachyos-core "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("kernel-cachyos-core")
-            fi
-
-            if ! _IN_ARRAY kernel-cachyos-devel "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("kernel-cachyos-devel")
-            fi
-
-            if ! _IN_ARRAY kernel-cachyos-devel-matched "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("kernel-cachyos-devel-matched")
-            fi
-
-            if ! _IN_ARRAY kernel-cachyos-modules "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("kernel-cachyos-modules")
-            fi
-
-            if ! _IN_ARRAY ananicy-cpp "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("ananicy-cpp")
-            fi
-
-            if ! _IN_ARRAY cachyos-ananicy-rules "${SYSTEM_PACKAGES[@]}"; then
-                SYSTEM_PACKAGES+=("cachyos-ananicy-rules")
-            fi
-
+        if ! _IN_ARRAY kernel-cachyos "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("kernel-cachyos")
         fi
 
+        if ! _IN_ARRAY kernel-cachyos-core "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("kernel-cachyos-core")
+        fi
+
+        if ! _IN_ARRAY kernel-cachyos-devel "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("kernel-cachyos-devel")
+        fi
+
+        if ! _IN_ARRAY kernel-cachyos-devel-matched "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("kernel-cachyos-devel-matched")
+        fi
+
+        if ! _IN_ARRAY kernel-cachyos-modules "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("kernel-cachyos-modules")
+        fi
+
+        if ! _IN_ARRAY ananicy-cpp "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("ananicy-cpp")
+        fi
+
+        if ! _IN_ARRAY cachyos-ananicy-rules "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("cachyos-ananicy-rules")
+        fi
+    fi
+    if [[ "${ROOTKIT,,}" = "yes" ]]; then
+        if ! _IN_ARRAY rkhunter "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("rkhunter")
+        fi
+        if ! _IN_ARRAY chkrootkit "${SYSTEM_PACKAGES[@]}"; then
+            SYSTEM_PACKAGES+=("chkrootkit")
+        fi
+    fi
+
+    if [[ "${SYSTEM_PACKAGES[*]}" != "" ]]; then
+        _SECTION " Installation des paquets systèmes personnalisés 📥 " "━" "${C_GREEN}"
+        if [[ "${ENABLE_CACHYOS_KERNEL,,}" = "yes" ]] && [[ "${DISTRO,,}" = "fedora" ]] && ! _IS_PKG_INSTALLED kernel-cachyos; then
+            _INFO "Noyau linux cachyOS demandé"
+        fi
+        if [[ "${ROOTKIT,,}" = "yes" ]]; then
+            if ! _IS_PKG_INSTALLED rkhunter; then
+                _INFO "Scan anti-rootkit \"rkhunter\" demandé"
+            fi
+            if ! _IS_PKG_INSTALLED chkrootkit; then
+                _INFO "Scan anti-rootkit \"chkrootkit\" demandé"
+            fi
+        fi
         _MANAGE_TABLE _IS_PKG_INSTALLED _PKG_DOWNLOAD_THEN_INSTALL "${SYSTEM_PACKAGES[@]}"
     else
         _LOG "Aucun paquets systèmes additionnels demandés"

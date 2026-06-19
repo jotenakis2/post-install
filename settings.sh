@@ -14,7 +14,8 @@ XDG_DOCUMENTS_DIR="$(xdg-user-dir DOCUMENTS)"
 # Activation/désactivation de certaines fonctions : yes/no     #
 ################################################################
 
-
+# ROOTKIT scan detection ?
+ROOTKIT="yes"
 
 # remplace sudo par sudo-rs
 SUDORS="yes"
@@ -105,7 +106,8 @@ SYSTEM_PACKAGES=(
 	kate shfmt ShellCheck nodejs-bash-language-server make gcc glibc-devel sqlite libpcap-devel dbus-devel
 
 	# sécu
-	chkrootkit rkhunter lynis
+	# chkrootkit rkhunter
+	lynis
 
     # virtualisation
     qemu virt-manager virt-viewer 
@@ -120,9 +122,13 @@ SYSTEM_PACKAGES=(
 SYSTEM_REMOVE=(
 	# divers
     rsyslog nano nano libreswan at systemd-networkd catatonit ibus imsettings sudo-python-plugin sssd-common mcelog abrt
+    ppp qrca fedora-bookmarks
+
+    # jeux
+    kmahjongg kmines kpat
 
 	# KDE
-    akonadi-server kdeconnectd plasma-drkonqi maliit-keyboard
+    akonadi-server kdeconnectd plasma-drkonqi maliit-keyboard plasma-milou kmouth plasma-welcome
 
     # cockpit
     cockpit-bridge cockpit-networkmanager cockpit-storaged cockpit-system cockpit-ws cockpit-ws-selinux
@@ -159,8 +165,8 @@ SYSTEM_REMOVE=(
 
 # polices à installer (les 2 nerd font ici sont dans le dépôt Terra qui est ajouté automatiquement) --------------------------
 FONTS=(
-    jetbrainsmono-nerd-fonts
     iosevka-nerd-fonts
+    maple-fonts
     terminus-fonts-console
     # Ajoute tes autres paquets ici
 )
@@ -422,4 +428,5 @@ export WIFI_POWERSAVE
 export NOSWAP
 export ZSH
 export BROWSERS
+export ROOTKIT
 ###############################################################################################################################
